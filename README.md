@@ -5,7 +5,7 @@
 <div align="center">
 
 
-<a href="" target="_blank" width="1000">
+<a href="https://agzes.netlify.app/fluautoclicker/" target="_blank" width="1000">
    <img src="ReadMe/ShowCase.png" width="1000" alt="👁️ Showcase"/>
 </a>
 <a href="Wiki/README.md" target="_blank" width="1000">
