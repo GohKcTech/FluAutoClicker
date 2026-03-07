@@ -1,3 +1,5 @@
+<h5 align="center">🪧 ᴄᴜʀʀᴇɴᴛʟʏ ᴡᴏʀᴋɪɴɢ ᴏɴ ᴠ2 </h5><br>
+
 
 <div align="center"><kbd></kbd> <kbd>🚀 𝗣𝗼𝘄𝗲𝗿𝗳𝘂𝗹</kbd> <kbd>🪶 𝗘𝗮𝘀𝘆 𝗧𝗼 𝗨𝘀𝗲</kbd> <kbd>🟣 𝗖# / 𝗪𝗶𝗻𝗨𝗜 𝟯 🔵</kbd> <kbd>📂 𝗢𝗽𝗲𝗻-𝗦𝗼𝘂𝗿𝗰𝗲</kbd> <kbd></kbd> </div>
 <h1 align="center">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $\Huge{\textsf{𝗙𝗹𝘂𝗔𝘂𝘁𝗼𝗖𝗹𝗶𝗰𝗸𝗲𝗿}}$ <sup><sup><kbd>v.1.0</kbd></sup></sup> 
