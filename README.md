@@ -1,4 +1,4 @@
-<h5 align="center">🪧 currently working on something new... </h5><br>
+<h5 align="center">🪧 currently working on something new... (<a href="https://github.com/Agzes/FluAutoClicker/tree/next">next</a>) </h5><br>
 
 
 <div align="center"><kbd></kbd> <kbd>🚀 𝗣𝗼𝘄𝗲𝗿𝗳𝘂𝗹</kbd> <kbd>🪶 𝗘𝗮𝘀𝘆 𝗧𝗼 𝗨𝘀𝗲</kbd> <kbd>🟣 𝗖# / 𝗪𝗶𝗻𝗨𝗜 𝟯 🔵</kbd> <kbd>📂 𝗢𝗽𝗲𝗻-𝗦𝗼𝘂𝗿𝗰𝗲</kbd> <kbd></kbd> </div>
