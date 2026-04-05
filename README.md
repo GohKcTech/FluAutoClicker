@@ -1,5 +1,10 @@
+<img width="3004" height="1200" alt="image" src="https://github.com/user-attachments/assets/e3d4240f-ada0-4458-9a2e-b2c458eebe76" />
 <h5 align="center">🪧 currently working on something new... (<a href="https://github.com/Agzes/FluAutoClicker/tree/next">next</a>) </h5><br>
 
+<div align="center"><br><br><br><br><br><br>
+   
+**scroll to see legacy version**
+</div><br><br><br><br><br><br><br>
 
 <div align="center"><kbd></kbd> <kbd>🚀 𝗣𝗼𝘄𝗲𝗿𝗳𝘂𝗹</kbd> <kbd>🪶 𝗘𝗮𝘀𝘆 𝗧𝗼 𝗨𝘀𝗲</kbd> <kbd>🟣 𝗖# / 𝗪𝗶𝗻𝗨𝗜 𝟯 🔵</kbd> <kbd>📂 𝗢𝗽𝗲𝗻-𝗦𝗼𝘂𝗿𝗰𝗲</kbd> <kbd></kbd> </div>
 <h1 align="center">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $\Huge{\textsf{𝗙𝗹𝘂𝗔𝘂𝘁𝗼𝗖𝗹𝗶𝗰𝗸𝗲𝗿}}$ <sup><sup><kbd>v.1.0</kbd></sup></sup> 
