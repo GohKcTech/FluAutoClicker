@@ -1,4 +1,4 @@
-<img width="3004" height="1200" alt="image" src="https://github.com/user-attachments/assets/e3d4240f-ada0-4458-9a2e-b2c458eebe76" />
+<img alt="image" src="https://github.com/user-attachments/assets/e3d4240f-ada0-4458-9a2e-b2c458eebe76" />
 <h5 align="center">🪧 currently working on something new... (<a href="https://github.com/Agzes/FluAutoClicker/tree/next">next</a>) </h5><br>
 
 <div align="center"><br><br><br><br><br><br>
