@@ -3,7 +3,8 @@ import { listen } from "@tauri-apps/api/event";
 import { syncAllKeyboardSettings } from "../keyboard";
 import { syncAllMouseSettings } from "../mouse";
 import { notify } from "../notifications";
-import { updateTabStates } from "../ui";
+import { getSelectedMode, updateTabStates } from "../ui";
+import type { AppMode } from "../ui";
 
 type RunningPayload = {
     running?: boolean;
@@ -15,6 +16,9 @@ type MacroStatusPayload = {
 };
 
 type SupportedTab = "mouse" | "keyboard" | "macro";
+
+let runningMode: SupportedTab | null = null;
+let isToggling = false;
 
 function getStartButton() {
     return document.getElementById("start-btn");
@@ -42,14 +46,7 @@ function setStartButtonState(isRunning: boolean) {
 }
 
 function getActiveTab(): SupportedTab {
-    const activeTab = document.querySelector<HTMLElement>(".mode-tabs .tab.active");
-    const tab = activeTab?.dataset.tab;
-
-    if (tab === "keyboard" || tab === "macro") {
-        return tab;
-    }
-
-    return "mouse";
+    return getSelectedMode();
 }
 
 function getMouseIntervalMs(): number {
@@ -77,50 +74,69 @@ function showTimingWarningModal() {
 }
 
 async function toggleMouseClicker() {
-    await invoke("toggle_clicker");
+    return invoke<boolean>("toggle_clicker");
+}
+
+function rememberRunningMode(mode: AppMode, isRunning: boolean) {
+    if (isRunning) {
+        runningMode = mode;
+        return;
+    }
+
+    if (runningMode === mode) {
+        runningMode = null;
+    }
 }
 
 async function handleStartButtonClick() {
     const startButton = getStartButton();
-    if (!startButton) {
+    if (!startButton || isToggling) {
         return;
     }
 
-    const activeTab = getActiveTab();
-    const isAlreadyRunning = startButton.classList.contains("running");
+    isToggling = true;
+    try {
+        const isAlreadyRunning = startButton.classList.contains("running");
+        const activeTab = isAlreadyRunning && runningMode ? runningMode : getActiveTab();
 
-    if (activeTab === "keyboard") {
-        if (!isAlreadyRunning) {
-            await syncAllKeyboardSettings();
+        if (activeTab === "keyboard") {
+            if (!isAlreadyRunning) {
+                await syncAllKeyboardSettings();
+            }
+
+            const isRunning = await invoke<boolean>("toggle_keyboard_clicker");
+            rememberRunningMode("keyboard", Boolean(isRunning));
+            setStartButtonState(Boolean(isRunning));
+            updateTabStates();
+            return;
         }
 
-        const isRunning = await invoke<boolean>("toggle_keyboard_clicker");
+        if (activeTab === "macro") {
+            const isRunning = await invoke<boolean>("toggle_macro_player");
+            rememberRunningMode("macro", Boolean(isRunning));
+            setStartButtonState(Boolean(isRunning));
+            updateTabStates();
+            return;
+        }
+
+        if (!isAlreadyRunning && getMouseIntervalMs() <= 3) {
+            showTimingWarningModal();
+            return;
+        }
+
+        if (!isAlreadyRunning) {
+            await syncAllMouseSettings();
+        }
+        const isRunning = await toggleMouseClicker();
+        rememberRunningMode("mouse", Boolean(isRunning));
         setStartButtonState(Boolean(isRunning));
         updateTabStates();
-        return;
+    } catch (error) {
+        console.error("Failed to toggle selected mode", error);
+        notify(error instanceof Error ? error.message : String(error), "error", 3200);
+    } finally {
+        isToggling = false;
     }
-
-    if (activeTab === "macro") {
-        try {
-            const isRunning = await invoke<boolean>("toggle_macro_player");
-            setStartButtonState(Boolean(isRunning));
-        } catch (error) {
-            console.error("Failed to toggle macro player", error);
-            notify(error instanceof Error ? error.message : String(error), "error", 3200);
-        }
-
-        updateTabStates();
-        return;
-    }
-
-    if (!isAlreadyRunning && getMouseIntervalMs() <= 3) {
-        showTimingWarningModal();
-        return;
-    }
-
-    await syncAllMouseSettings();
-    await toggleMouseClicker();
-    updateTabStates();
 }
 
 export function initStartStopControls() {
@@ -132,18 +148,24 @@ export function initStartStopControls() {
     }
 
     void listen<RunningPayload>("status-changed", (event) => {
-        setStartButtonState(Boolean(event.payload.running));
+        const isRunning = Boolean(event.payload.running);
+        rememberRunningMode("mouse", isRunning);
+        setStartButtonState(isRunning);
         updateTabStates();
     });
 
     void listen<RunningPayload>("keyboard-status-changed", (event) => {
-        setStartButtonState(Boolean(event.payload.running));
+        const isRunning = Boolean(event.payload.running);
+        rememberRunningMode("keyboard", isRunning);
+        setStartButtonState(isRunning);
         updateTabStates();
     });
 
     void listen<MacroStatusPayload>("macro-status-changed", (event) => {
         const state = String(event.payload?.state || "stopped");
-        setStartButtonState(state === "playing");
+        const isRunning = state === "playing";
+        rememberRunningMode("macro", isRunning);
+        setStartButtonState(isRunning);
         updateTabStates();
 
         if (state === "error" && event.payload?.error) {

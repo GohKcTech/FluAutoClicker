@@ -1,6 +1,31 @@
 import { invoke } from "@tauri-apps/api/core";
 import { updateSliderFill, updateIndicator } from "./utils";
 
+export type AppMode = "mouse" | "keyboard" | "macro";
+
+function isAppMode(value: string | undefined | null): value is AppMode {
+    return value === "mouse" || value === "keyboard" || value === "macro";
+}
+
+export function getSelectedMode(): AppMode {
+    const activeTab = document.querySelector<HTMLElement>(".mode-tabs .tab.active");
+    const activeSection = document.querySelector<HTMLElement>(".content-section.active");
+    const tabMode = activeTab?.dataset.tab;
+    const sectionMode = activeSection?.id.endsWith("-section")
+        ? activeSection.id.slice(0, -"section".length - 1)
+        : null;
+
+    if (isAppMode(tabMode)) {
+        return tabMode;
+    }
+
+    if (isAppMode(sectionMode)) {
+        return sectionMode;
+    }
+
+    return "mouse";
+}
+
 function formatThreadsLabel(raw: number | string): string {
     const count = Number(raw) || 0;
     return `${count} ${count === 1 ? 'Thread' : 'Threads'}`;
@@ -160,8 +185,8 @@ export function initInputs() {
 
 export function initTabs(updateIndicatorFn: typeof updateIndicator, createSlideIndicatorFn: any) {
     const tabContainer = document.querySelector('.mode-tabs');
-    const tabs = document.querySelectorAll('.tab');
-    const sections = document.querySelectorAll('.content-section');
+    const tabs = document.querySelectorAll<HTMLElement>('.mode-tabs .tab');
+    const sections = document.querySelectorAll<HTMLElement>('.content-section');
 
     if (tabContainer) {
         const activeTab = tabContainer.querySelector('.tab.active');
@@ -170,17 +195,20 @@ export function initTabs(updateIndicatorFn: typeof updateIndicator, createSlideI
 
     tabs.forEach(tab => {
         tab.addEventListener('click', async () => {
-            const targetTab = tab.getAttribute('data-tab');
+            const targetTab = tab.dataset.tab;
+            if (!isAppMode(targetTab)) {
+                return;
+            }
 
             
             const startBtn = document.getElementById('start-btn');
             const isRunning = startBtn?.classList.contains('running');
             const activeTabEl = document.querySelector('.mode-tabs .tab.active');
-            const activeTabText = activeTabEl?.textContent?.trim().toLowerCase();
+            const activeTabName = (activeTabEl as HTMLElement | null)?.dataset.tab;
 
             
-            if (isRunning && activeTabText && ['mouse', 'keyboard', 'macro'].includes(activeTabText)) {
-                if (targetTab !== activeTabText) {
+            if (isRunning && isAppMode(activeTabName)) {
+                if (targetTab !== activeTabName) {
                     
                     if (activeTabEl) {
                         activeTabEl.classList.remove('lock-flash');
@@ -227,14 +255,14 @@ export function updateTabStates() {
     const startBtn = document.getElementById('start-btn');
     const isRunning = startBtn?.classList.contains('running');
     const activeTabEl = document.querySelector('.mode-tabs .tab.active');
-    const activeTabText = activeTabEl?.textContent?.trim().toLowerCase();
+    const activeTabName = (activeTabEl as HTMLElement | null)?.dataset.tab;
 
-    const tabs = document.querySelectorAll('.tab');
+    const tabs = document.querySelectorAll<HTMLElement>('.mode-tabs .tab');
     tabs.forEach(tab => {
-        const tabName = tab.getAttribute('data-tab');
-        if (isRunning && activeTabText && ['mouse', 'keyboard', 'macro'].includes(activeTabText)) {
+        const tabName = tab.dataset.tab;
+        if (isRunning && isAppMode(activeTabName)) {
             
-            if (tabName !== activeTabText) {
+            if (tabName !== activeTabName) {
                 tab.classList.add('disabled');
             } else {
                 tab.classList.remove('disabled');

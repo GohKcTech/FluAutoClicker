@@ -18,4 +18,6 @@ This is the first FluAutoClicker beta release candidate for Windows testing.
 - Update checker with manual checks, automatic checks, release status, and GitHub release opening.
 - And other....
 
-
+### + hotfix #1 
+- fixed keyboard
+- fixed mode select

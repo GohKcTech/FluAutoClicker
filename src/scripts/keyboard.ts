@@ -14,8 +14,9 @@ let recordingModifiers: Set<string> = new Set();
 let recordingCallback: ((mainKey: string, modifiers: string[]) => void) | null = null;
 
 export function initKeyboard() {
-    const keys = document.querySelectorAll('.kb-key');
-    const tsuKeys = document.querySelectorAll<HTMLElement>('.kb-tsu');
+    const keyboardSection = document.getElementById('keyboard-section') || document;
+    const keys = keyboardSection.querySelectorAll('.kb-key');
+    const tsuKeys = keyboardSection.querySelectorAll<HTMLElement>('.kb-tsu');
     const kbMainKeyDisplay = document.getElementById('kb-main-key-display');
     const kbModifiersDisplay = document.getElementById('kb-modifiers-display');
     const kbContainer = document.getElementById('kb-sliding-container');
@@ -26,6 +27,31 @@ export function initKeyboard() {
     let selectedMainKey: string | null = null;
     let selectedMainElement: HTMLElement | null = null;
     let selectedModifiers: Set<string> = new Set();
+
+    function readSelectionFromActiveKeys() {
+        selectedMainKey = null;
+        selectedMainElement = null;
+        selectedModifiers.clear();
+
+        keys.forEach(k => {
+            if (!k.classList.contains('active')) {
+                return;
+            }
+
+            const label = k.textContent?.trim().toLowerCase() || '';
+            if (isModifierLabel(label)) {
+                selectedModifiers.add(label);
+                return;
+            }
+
+            if (!selectedMainElement) {
+                selectedMainElement = k as HTMLElement;
+                selectedMainKey = label;
+            } else {
+                k.classList.remove('active');
+            }
+        });
+    }
 
     function updateDisplays() {
         const modParts = Array.from(selectedModifiers);
@@ -54,6 +80,7 @@ export function initKeyboard() {
     }
 
     
+    readSelectionFromActiveKeys();
     updateDisplays();
     tsuKeys.forEach((key) => {
         key.textContent = ":)";
@@ -81,14 +108,14 @@ export function initKeyboard() {
 
                 if (isActive) {
                     selectedModifiers.delete(label);
-                    document.querySelectorAll('.kb-key').forEach(k => {
+                    keys.forEach(k => {
                         if (k.textContent?.trim().toLowerCase() === label) {
                             k.classList.remove('active');
                         }
                     });
                 } else {
                     selectedModifiers.add(label);
-                    document.querySelectorAll('.kb-key').forEach(k => {
+                    keys.forEach(k => {
                         if (k.textContent?.trim().toLowerCase() === label) {
                             k.classList.add('active');
                         }
@@ -217,7 +244,7 @@ export function initKeyboard() {
             
             recordingCallback = (mainKey: string, modifiers: string[]) => {
                 
-                document.querySelectorAll('.kb-key').forEach(k => {
+                keys.forEach(k => {
                     const kLabel = k.textContent?.trim().toLowerCase() || '';
                     if (isModifierLabel(kLabel)) {
                         k.classList.remove('active');
@@ -231,7 +258,7 @@ export function initKeyboard() {
                 selectedModifiers.clear();
 
                 
-                const allKbKeys = document.querySelectorAll('.kb-key');
+                const allKbKeys = keys;
                 for (const k of allKbKeys) {
                     const kLabel = k.textContent?.trim().toLowerCase() || '';
                     if (kLabel === mainKey) {
@@ -244,7 +271,7 @@ export function initKeyboard() {
                 
                 modifiers.forEach(mod => {
                     selectedModifiers.add(mod);
-                    document.querySelectorAll('.kb-key').forEach(k => {
+                    keys.forEach(k => {
                         const kLabel = k.textContent?.trim().toLowerCase() || '';
                         if (kLabel === mod) {
                             k.classList.add('active');
@@ -352,7 +379,8 @@ function handleRecordKeydown(e: KeyboardEvent) {
 
 export async function syncAllKeyboardSettings() {
     
-    const activeKeys = document.querySelectorAll('.kb-key.active');
+    const keyboardSection = document.getElementById('keyboard-section') || document;
+    const activeKeys = keyboardSection.querySelectorAll('.kb-key.active');
     let mainKey = "a";
     const modLabels: string[] = [];
 

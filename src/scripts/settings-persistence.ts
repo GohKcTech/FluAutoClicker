@@ -73,6 +73,7 @@ type AppConfigFile = {
 const SETTINGS_CHANGED_EVENT = "flu:settings-changed";
 const SETTINGS_APPLIED_EVENT = "flu:settings-applied";
 const UPDATE_LAST_CHECK_STORAGE_KEY = "flu-update-last-checked-at";
+const APP_MODES = new Set(["mouse", "keyboard", "macro"]);
 
 let currentConfig: AppConfigFile | null = null;
 let saveTimeoutId: number | null = null;
@@ -188,8 +189,10 @@ function setKeyboardSelection(key: string, modifiers: string) {
             .map((part) => part.trim().toLowerCase())
             .filter((part) => part && part !== "none")
     );
+    const keyboardSection = document.getElementById("keyboard-section") || document;
+    let hasActiveMainKey = false;
 
-    document.querySelectorAll(".kb-key").forEach((button) => {
+    keyboardSection.querySelectorAll(".kb-key").forEach((button) => {
         const element = button as HTMLElement;
         const label = element.textContent?.trim().toLowerCase() || "";
         if (!label || element.classList.contains("kb-tsu") || element.classList.contains("kb-menu")) {
@@ -198,7 +201,12 @@ function setKeyboardSelection(key: string, modifiers: string) {
         }
 
         const isModifier = ["ctrl", "shift", "alt", "win"].includes(label);
-        const isActive = isModifier ? modifierSet.has(label) : label === normalizedKey;
+        const isActive = isModifier
+            ? modifierSet.has(label)
+            : label === normalizedKey && !hasActiveMainKey;
+        if (!isModifier && isActive) {
+            hasActiveMainKey = true;
+        }
         element.classList.toggle("active", isActive);
     });
 
@@ -315,7 +323,8 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("remove-italic-toggle", config.general.remove_italic);
     setToggleState("acrylic-toggle", frontendState.acrylic_enabled === true);
 
-    const activeTab = String(frontendState.active_tab || "mouse");
+    const activeTabCandidate = String(frontendState.active_tab || "mouse");
+    const activeTab = APP_MODES.has(activeTabCandidate) ? activeTabCandidate : "mouse";
     document.querySelectorAll(".mode-tabs .tab").forEach((tab) => {
         tab.classList.toggle("active", (tab as HTMLElement).dataset.tab === activeTab);
     });
@@ -362,9 +371,11 @@ function getNumericValue(id: string, fallback: number): number {
 }
 
 function getKeyboardSnapshot() {
-    const activeKeys = document.querySelectorAll(".kb-key.active");
+    const keyboardSection = document.getElementById("keyboard-section") || document;
+    const activeKeys = keyboardSection.querySelectorAll(".kb-key.active");
     let key = "a";
     const modifiers: string[] = [];
+    let foundMainKey = false;
 
     activeKeys.forEach((entry) => {
         const label = (entry.textContent || "").trim().toLowerCase();
@@ -372,7 +383,10 @@ function getKeyboardSnapshot() {
             modifiers.push(label);
             return;
         }
-        key = label || key;
+        if (!foundMainKey && label) {
+            key = label;
+            foundMainKey = true;
+        }
     });
 
     return {
@@ -385,8 +399,9 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
     const base = currentConfig || defaultConfig();
     const hotkeys = await fetchHotkeys();
     const keyboard = getKeyboardSnapshot();
-    const activeTab =
+    const activeTabCandidate =
         document.querySelector<HTMLElement>(".mode-tabs .tab.active")?.dataset.tab || "mouse";
+    const activeTab = APP_MODES.has(activeTabCandidate) ? activeTabCandidate : "mouse";
     const multithreadMode = getActiveValue("#multithread-mode-row .multi-btn.active", "normal");
     return {
         ...base,
