@@ -1,0 +1,554 @@
+use std::collections::{BTreeSet, HashMap};
+use std::sync::atomic::Ordering;
+use std::time::{Duration, SystemTime};
+
+use enigo::{Enigo, Mouse, Settings};
+use rdev::{listen, Button as RdevButton, Event, EventType, Key as RdevKey};
+use tauri::{AppHandle, Emitter};
+
+use super::state::MacroEngineState;
+use super::storage;
+use super::types::{
+    MacroAction, MacroActionConfig, MacroKeyboardAction, MacroMouseAction, MacroMouseButton,
+    MacroMoveStyle, MacroPlayerState, MacroRecordingOptions,
+};
+
+const MIN_SLEEP_MS: u64 = 25;
+const MOVE_THRESHOLD_PX: i32 = 2;
+const MOVE_MERGE_WINDOW_MS: u64 = 125;
+const HOLD_THRESHOLD_MS: u64 = 160;
+
+#[derive(Clone)]
+struct PressSnapshot {
+    started_at: SystemTime,
+    position: Option<(i32, i32)>,
+    modifiers: Vec<String>,
+    text: Option<String>,
+}
+
+#[derive(Default)]
+pub struct MacroRecordingContext {
+    last_recorded_at: Option<SystemTime>,
+    last_pointer: Option<(i32, i32)>,
+    last_move_action_id: Option<u64>,
+    last_move_recorded_at: Option<SystemTime>,
+    active_modifiers: BTreeSet<String>,
+    pressed_mouse: HashMap<MacroMouseButton, PressSnapshot>,
+    pressed_keys: HashMap<String, PressSnapshot>,
+}
+
+impl MacroRecordingContext {
+    pub fn reset(&mut self, cursor_position: Option<(i32, i32)>) {
+        self.last_recorded_at = None;
+        self.last_pointer = cursor_position;
+        self.last_move_action_id = None;
+        self.last_move_recorded_at = None;
+        self.active_modifiers.clear();
+        self.pressed_mouse.clear();
+        self.pressed_keys.clear();
+    }
+}
+
+pub fn spawn_global_listener(state: MacroEngineState, app: AppHandle) {
+    #[cfg(target_os = "linux")]
+    {
+        let session_type = std::env::var("XDG_SESSION_TYPE")
+            .unwrap_or_default()
+            .to_lowercase();
+        if session_type == "wayland" {
+            state.recording_supported.store(false, Ordering::SeqCst);
+            if let Ok(mut guard) = state.recording_error.lock() {
+                *guard = Some(
+                    "Live macro recording is not available on Wayland in this build.".to_string(),
+                );
+            }
+            let _ = app.emit(
+                "macro-recording-availability",
+                serde_json::json!({
+                    "supported": false,
+                    "reason": "Live macro recording is not available on Wayland in this build."
+                }),
+            );
+            return;
+        }
+    }
+
+    std::thread::spawn(move || {
+        let state_for_listener = state.clone();
+        let app_for_listener = app.clone();
+
+        if let Err(error) = listen(move |event| {
+            handle_recording_event(&state_for_listener, &app_for_listener, event);
+        }) {
+            state.recording_supported.store(false, Ordering::SeqCst);
+            if let Ok(mut guard) = state.recording_error.lock() {
+                *guard = Some(format!("Failed to start live macro recording: {error:?}"));
+            }
+            let _ = app.emit(
+                "macro-recording-availability",
+                serde_json::json!({
+                    "supported": false,
+                    "reason": format!("Failed to start live macro recording: {error:?}")
+                }),
+            );
+        }
+    });
+}
+
+pub async fn start_recording(state: &MacroEngineState, app: AppHandle) -> Result<(), String> {
+    if !state.recording_supported.load(Ordering::SeqCst) {
+        let reason = state
+            .recording_error
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone())
+            .unwrap_or_else(|| "Live macro recording is not available on this system.".to_string());
+        return Err(reason);
+    }
+
+    let player_state = state.player_state.lock().await.clone();
+    if player_state == MacroPlayerState::Playing {
+        return Err("Stop macro playback before starting recording.".to_string());
+    }
+
+    let cursor_position = current_cursor_position().ok();
+    if let Ok(mut context) = state.recording_context.lock() {
+        context.reset(cursor_position);
+    }
+
+    state.cancel_playback.store(true, Ordering::SeqCst);
+    state.recording_active.store(true, Ordering::SeqCst);
+    *state.player_state.lock().await = MacroPlayerState::Recording;
+
+    let _ = app.emit(
+        "macro-status-changed",
+        serde_json::json!({
+            "state": "recording"
+        }),
+    );
+    Ok(())
+}
+
+pub async fn stop_recording(state: &MacroEngineState, app: AppHandle) -> Result<(), String> {
+    state.recording_active.store(false, Ordering::SeqCst);
+    if let Ok(mut context) = state.recording_context.lock() {
+        context.pressed_mouse.clear();
+        context.pressed_keys.clear();
+        context.active_modifiers.clear();
+        context.last_move_action_id = None;
+        context.last_move_recorded_at = None;
+    }
+
+    *state.player_state.lock().await = MacroPlayerState::Stopped;
+
+    let _ = app.emit(
+        "macro-status-changed",
+        serde_json::json!({
+            "state": "stopped"
+        }),
+    );
+    Ok(())
+}
+
+fn handle_recording_event(state: &MacroEngineState, app: &AppHandle, event: Event) {
+    if !state.recording_active.load(Ordering::SeqCst) {
+        return;
+    }
+
+    let recording_options = state.recording_options.blocking_lock().clone();
+    let event_time = SystemTime::now();
+    let Ok(mut context) = state.recording_context.lock() else {
+        return;
+    };
+
+    match event.event_type {
+        EventType::MouseMove { x, y } => {
+            let x = x.round() as i32;
+            let y = y.round() as i32;
+            let previous_pointer = context.last_pointer;
+            context.last_pointer = Some((x, y));
+
+            if !recording_options.record_mouse_moves {
+                return;
+            }
+
+            if let Some((prev_x, prev_y)) = previous_pointer {
+                let delta_x = (prev_x - x).abs();
+                let delta_y = (prev_y - y).abs();
+                if delta_x < MOVE_THRESHOLD_PX && delta_y < MOVE_THRESHOLD_PX {
+                    return;
+                }
+            }
+
+            let should_merge = context
+                .last_move_recorded_at
+                .and_then(|last| event_time.duration_since(last).ok())
+                .map(|elapsed| elapsed <= Duration::from_millis(MOVE_MERGE_WINDOW_MS))
+                .unwrap_or(false);
+
+            if should_merge {
+                if let Some(action_id) = context.last_move_action_id {
+                    let mut actions = state.actions.blocking_lock();
+                    if let Some(action) = actions.iter_mut().find(|action| action.id == action_id) {
+                        action.config = MacroActionConfig::Move {
+                            x,
+                            y,
+                            style: MacroMoveStyle::Instant,
+                        };
+                        context.last_pointer = Some((x, y));
+                        context.last_recorded_at = Some(event_time);
+                        context.last_move_recorded_at = Some(event_time);
+                        drop(actions);
+                        persist_and_emit(state, app);
+                        return;
+                    }
+                }
+            }
+
+            push_sleep_if_needed(state, &recording_options, &mut context, event_time);
+            append_action(
+                state,
+                MacroActionConfig::Move {
+                    x,
+                    y,
+                    style: MacroMoveStyle::Instant,
+                },
+                Some(&mut context),
+                event_time,
+            );
+            persist_and_emit(state, app);
+        }
+        EventType::ButtonPress(button) => {
+            if !recording_options.record_mouse_clicks {
+                return;
+            }
+            if let Some(button) = rdev_button_to_macro(button) {
+                let snapshot = PressSnapshot {
+                    started_at: event_time,
+                    position: context.last_pointer,
+                    modifiers: Vec::new(),
+                    text: None,
+                };
+                context.pressed_mouse.insert(button, snapshot);
+            }
+        }
+        EventType::ButtonRelease(button) => {
+            if !recording_options.record_mouse_clicks {
+                return;
+            }
+            if let Some(button) = rdev_button_to_macro(button) {
+                if let Some(snapshot) = context.pressed_mouse.remove(&button) {
+                    push_sleep_if_needed(
+                        state,
+                        &recording_options,
+                        &mut context,
+                        snapshot.started_at,
+                    );
+                    let hold_ms = event_time
+                        .duration_since(snapshot.started_at)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    append_action(
+                        state,
+                        MacroActionConfig::Mouse {
+                            button,
+                            action: if hold_ms >= HOLD_THRESHOLD_MS {
+                                MacroMouseAction::Hold {
+                                    duration_ms: hold_ms.min(u32::MAX as u64) as u32,
+                                }
+                            } else {
+                                MacroMouseAction::Press
+                            },
+                            position: if recording_options.record_click_position {
+                                snapshot.position
+                            } else {
+                                None
+                            },
+                        },
+                        Some(&mut context),
+                        event_time,
+                    );
+                    persist_and_emit(state, app);
+                }
+            }
+        }
+        EventType::KeyPress(key) => {
+            if !recording_options.record_keyboard {
+                return;
+            }
+            if let Some(modifier) = rdev_modifier_name(key) {
+                context.active_modifiers.insert(modifier.to_string());
+                return;
+            }
+
+            if let Some(key_name) = rdev_key_to_macro(&key) {
+                let raw_modifiers = context.active_modifiers.iter().cloned().collect::<Vec<_>>();
+                let text = normalize_recorded_text(event.name.as_deref());
+                let modifiers = normalize_recorded_modifiers(&raw_modifiers, text.as_deref());
+                context
+                    .pressed_keys
+                    .entry(key_name.clone())
+                    .or_insert_with(|| PressSnapshot {
+                        started_at: event_time,
+                        position: None,
+                        modifiers,
+                        text,
+                    });
+            }
+        }
+        EventType::KeyRelease(key) => {
+            if !recording_options.record_keyboard {
+                return;
+            }
+            if let Some(modifier) = rdev_modifier_name(key) {
+                context.active_modifiers.remove(modifier);
+                return;
+            }
+
+            if let Some(key_name) = rdev_key_to_macro(&key) {
+                if let Some(snapshot) = context.pressed_keys.remove(&key_name) {
+                    push_sleep_if_needed(
+                        state,
+                        &recording_options,
+                        &mut context,
+                        snapshot.started_at,
+                    );
+                    let hold_ms = event_time
+                        .duration_since(snapshot.started_at)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+                    append_action(
+                        state,
+                        MacroActionConfig::Keyboard {
+                            key: key_name,
+                            text: snapshot.text,
+                            modifiers: snapshot.modifiers,
+                            action: if hold_ms >= HOLD_THRESHOLD_MS {
+                                MacroKeyboardAction::Hold {
+                                    duration_ms: hold_ms.min(u32::MAX as u64) as u32,
+                                }
+                            } else {
+                                MacroKeyboardAction::Press
+                            },
+                        },
+                        Some(&mut context),
+                        event_time,
+                    );
+                    persist_and_emit(state, app);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn append_action(
+    state: &MacroEngineState,
+    config: MacroActionConfig,
+    context: Option<&mut MacroRecordingContext>,
+    recorded_at: SystemTime,
+) {
+    let is_move = matches!(config, MacroActionConfig::Move { .. });
+    let id = state.action_id_counter.fetch_add(1, Ordering::SeqCst);
+    let mut actions = state.actions.blocking_lock();
+    actions.push(MacroAction { id, config });
+    drop(actions);
+
+    if let Some(context) = context {
+        context.last_recorded_at = Some(recorded_at);
+        context.last_move_action_id = if is_move { Some(id) } else { None };
+        context.last_move_recorded_at = context.last_move_action_id.map(|_| recorded_at);
+        if context.last_move_action_id.is_none() {
+            context.last_move_recorded_at = None;
+        }
+    }
+}
+
+fn persist_and_emit(state: &MacroEngineState, app: &AppHandle) {
+    let actions = state.actions.blocking_lock().clone();
+    let action_count = actions.len();
+    let repeat_mode = state.repeat_mode.blocking_lock().clone();
+    let recording_options = state.recording_options.blocking_lock().clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = storage::save_macro(&actions, &repeat_mode, &recording_options).await;
+    });
+
+    let _ = app.emit(
+        "macro-actions-changed",
+        serde_json::json!({
+            "count": action_count
+        }),
+    );
+}
+
+fn current_cursor_position() -> Result<(i32, i32), String> {
+    let enigo = Enigo::new(&Settings::default())
+        .map_err(|error| format!("Failed to initialize input bridge: {error}"))?;
+    enigo
+        .location()
+        .map_err(|error| format!("Failed to read cursor position: {error}"))
+}
+
+fn rdev_button_to_macro(button: RdevButton) -> Option<MacroMouseButton> {
+    match button {
+        RdevButton::Left => Some(MacroMouseButton::Left),
+        RdevButton::Middle => Some(MacroMouseButton::Middle),
+        RdevButton::Right => Some(MacroMouseButton::Right),
+        _ => None,
+    }
+}
+
+fn rdev_modifier_name(key: RdevKey) -> Option<&'static str> {
+    match key {
+        RdevKey::ControlLeft | RdevKey::ControlRight => Some("ctrl"),
+        RdevKey::ShiftLeft | RdevKey::ShiftRight => Some("shift"),
+        RdevKey::Alt | RdevKey::AltGr => Some("alt"),
+        RdevKey::MetaLeft | RdevKey::MetaRight => Some("win"),
+        _ => None,
+    }
+}
+
+fn rdev_key_to_macro(key: &RdevKey) -> Option<String> {
+    let key = match key {
+        RdevKey::KeyA => "a",
+        RdevKey::KeyB => "b",
+        RdevKey::KeyC => "c",
+        RdevKey::KeyD => "d",
+        RdevKey::KeyE => "e",
+        RdevKey::KeyF => "f",
+        RdevKey::KeyG => "g",
+        RdevKey::KeyH => "h",
+        RdevKey::KeyI => "i",
+        RdevKey::KeyJ => "j",
+        RdevKey::KeyK => "k",
+        RdevKey::KeyL => "l",
+        RdevKey::KeyM => "m",
+        RdevKey::KeyN => "n",
+        RdevKey::KeyO => "o",
+        RdevKey::KeyP => "p",
+        RdevKey::KeyQ => "q",
+        RdevKey::KeyR => "r",
+        RdevKey::KeyS => "s",
+        RdevKey::KeyT => "t",
+        RdevKey::KeyU => "u",
+        RdevKey::KeyV => "v",
+        RdevKey::KeyW => "w",
+        RdevKey::KeyX => "x",
+        RdevKey::KeyY => "y",
+        RdevKey::KeyZ => "z",
+        RdevKey::Num0 => "0",
+        RdevKey::Num1 => "1",
+        RdevKey::Num2 => "2",
+        RdevKey::Num3 => "3",
+        RdevKey::Num4 => "4",
+        RdevKey::Num5 => "5",
+        RdevKey::Num6 => "6",
+        RdevKey::Num7 => "7",
+        RdevKey::Num8 => "8",
+        RdevKey::Num9 => "9",
+        RdevKey::F1 => "f1",
+        RdevKey::F2 => "f2",
+        RdevKey::F3 => "f3",
+        RdevKey::F4 => "f4",
+        RdevKey::F5 => "f5",
+        RdevKey::F6 => "f6",
+        RdevKey::F7 => "f7",
+        RdevKey::F8 => "f8",
+        RdevKey::F9 => "f9",
+        RdevKey::F10 => "f10",
+        RdevKey::F11 => "f11",
+        RdevKey::F12 => "f12",
+        RdevKey::Space => "space",
+        RdevKey::Return => "enter",
+        RdevKey::Tab => "tab",
+        RdevKey::Backspace => "backspace",
+        RdevKey::Escape => "escape",
+        RdevKey::Delete => "delete",
+        RdevKey::Home => "home",
+        RdevKey::End => "end",
+        RdevKey::PageUp => "pageup",
+        RdevKey::PageDown => "pagedown",
+        RdevKey::UpArrow => "up",
+        RdevKey::DownArrow => "down",
+        RdevKey::LeftArrow => "left",
+        RdevKey::RightArrow => "right",
+        RdevKey::Insert => "insert",
+        RdevKey::BackQuote => "`",
+        RdevKey::Minus => "-",
+        RdevKey::Equal => "=",
+        RdevKey::LeftBracket => "[",
+        RdevKey::RightBracket => "]",
+        RdevKey::BackSlash => "\\",
+        RdevKey::SemiColon => ";",
+        RdevKey::Quote => "'",
+        RdevKey::Comma => ",",
+        RdevKey::Dot => ".",
+        RdevKey::Slash => "/",
+        RdevKey::CapsLock => "capslock",
+        RdevKey::Kp0 => "numpad0",
+        RdevKey::Kp1 => "numpad1",
+        RdevKey::Kp2 => "numpad2",
+        RdevKey::Kp3 => "numpad3",
+        RdevKey::Kp4 => "numpad4",
+        RdevKey::Kp5 => "numpad5",
+        RdevKey::Kp6 => "numpad6",
+        RdevKey::Kp7 => "numpad7",
+        RdevKey::Kp8 => "numpad8",
+        RdevKey::Kp9 => "numpad9",
+        RdevKey::KpMinus => "-",
+        RdevKey::KpPlus => "+",
+        RdevKey::KpMultiply => "*",
+        RdevKey::KpDivide => "/",
+        RdevKey::KpDelete => ".",
+        RdevKey::KpReturn => "enter",
+        _ => return None,
+    };
+
+    Some(key.to_string())
+}
+
+fn normalize_recorded_text(raw: Option<&str>) -> Option<String> {
+    let text = raw?.trim_matches('\0').trim();
+    if text.is_empty() || text.chars().any(|ch| ch.is_control()) {
+        return None;
+    }
+    Some(text.to_string())
+}
+
+fn normalize_recorded_modifiers(modifiers: &[String], text: Option<&str>) -> Vec<String> {
+    let _ = text;
+    modifiers.to_vec()
+}
+
+fn push_sleep_if_needed(
+    state: &MacroEngineState,
+    recording_options: &MacroRecordingOptions,
+    context: &mut MacroRecordingContext,
+    event_time: SystemTime,
+) {
+    if !recording_options.record_delays {
+        return;
+    }
+
+    let Some(last_recorded_at) = context.last_recorded_at else {
+        return;
+    };
+
+    let elapsed_ms = event_time
+        .duration_since(last_recorded_at)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    if elapsed_ms < MIN_SLEEP_MS {
+        return;
+    }
+
+    append_action(
+        state,
+        MacroActionConfig::Sleep {
+            duration_ms: elapsed_ms.min(u32::MAX as u64) as u32,
+        },
+        Some(context),
+        event_time,
+    );
+}
