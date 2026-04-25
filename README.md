@@ -1,9 +1,8 @@
+
 <div align="center">
-
-`🛠️` FluAutoClicker next is in development and will be released for beta testing soon. (Windows, then Linux) <br>
-`ℹ️` Looking for the C# version? Switch to the [old branch](https://github.com/Agzes/FluAutoClicker/tree/main).
-
-</div><br>
+    
+`🎉`  FluAutoClicker [next] v.0.1.0-beta.1 is now available!
+</div>
 
 
 <div align="center" width="100%">
@@ -19,3 +18,8 @@
 
 
 ReadME is todo, will do later. If you need compile clone and use basic tauri instructions. (fluautoclicker using pnpm, so all u need is rust and pnpm installed and then run `pnpm install` and `pnpm tauri dev` or `pnpm tauri build` for exe). 
+
+<br><br><br><div align="center">
+
+`ℹ️` Looking for the C# version? Switch to the [old branch](https://github.com/Agzes/FluAutoClicker/tree/main).
+</div>
