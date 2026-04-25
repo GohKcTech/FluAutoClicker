@@ -1,0 +1,238 @@
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { closeDrawer, openDrawer } from "../drawer";
+import { notify } from "../notifications";
+import { createSlideIndicator } from "../utils";
+import { toBackendConfig } from "./backend";
+import { applyMouseButtonSupport, gatherConfig, generateConfigUi, setupConfigListeners } from "./config-ui";
+import { initRecordingSettingsUi, syncRecordingOptionsToUi, applyRecordAvailability, setMacroRecordingState } from "./recording";
+import { applyRepeatModeToUi, initRepeatSettingsListeners } from "./repeat";
+import { renderActions, loadActionsFromBackend, updateCurrentActionHighlight } from "./render";
+import { macroState } from "./state";
+import type { MacroActionType, MacroCapabilities, MacroRecordingOptions, MacroRepeatState } from "./types";
+
+function initRecordButton(recordButton: HTMLElement | null) {
+    if (!recordButton) {
+        return;
+    }
+
+    recordButton.addEventListener("click", async () => {
+        if (!macroState.capabilities.recording_supported) {
+            notify(
+                macroState.capabilities.recording_reason || "Live macro recording is not available on this system.",
+                "warning",
+                3600
+            );
+            return;
+        }
+
+        const playerState = await invoke<string>("get_macro_player_state");
+        try {
+            if (playerState === "recording") {
+                await invoke("stop_macro_recording");
+                notify("Macro recording stopped", "info", 1800);
+            } else {
+                await invoke("start_macro_recording");
+                notify("Macro recording started. Actions will be appended to the current list.", "success", 2600);
+            }
+        } catch (error) {
+            notify(error instanceof Error ? error.message : String(error), "error", 3200);
+        }
+    });
+}
+
+function initAddActionDrawer() {
+    const addButton = document.getElementById("macro-add-btn");
+    const selectionView = document.getElementById("macro-add-selection-view");
+    const configView = document.getElementById("macro-config-view");
+    const configContent = document.getElementById("macro-config-content");
+    const configTitle = document.getElementById("macro-config-title");
+    const saveButton = document.getElementById("macro-config-save");
+    const backButton = document.getElementById("macro-config-back");
+
+    if (!addButton || !selectionView || !configView || !configContent || !configTitle) {
+        return;
+    }
+
+    let currentType: MacroActionType | null = null;
+
+    const showSelectionView = () => {
+        selectionView.style.display = "flex";
+        selectionView.classList.remove("view-fade-in");
+        void selectionView.offsetWidth;
+        selectionView.classList.add("view-fade-in");
+        configView.style.display = "none";
+    };
+
+    addButton.addEventListener("click", () => {
+        showSelectionView();
+        openDrawer("section-macro-add", "Add Macro Action", "&#58490;");
+    });
+
+    document.querySelectorAll(".macro-add-item-trigger").forEach((trigger) => {
+        trigger.addEventListener("click", () => {
+            const actionType = trigger.getAttribute("data-action");
+            if (!actionType || !["mouse", "move", "keyboard", "sleep"].includes(actionType)) {
+                return;
+            }
+
+            currentType = actionType as MacroActionType;
+            selectionView.style.display = "none";
+            configView.style.display = "flex";
+            configView.classList.remove("view-fade-in");
+            void configView.offsetWidth;
+            configView.classList.add("view-fade-in");
+
+            configTitle.textContent = `Configure ${currentType.charAt(0).toUpperCase() + currentType.slice(1)} Action`;
+            configContent.innerHTML = generateConfigUi(currentType);
+            applyMouseButtonSupport(configContent);
+            setupConfigListeners(currentType, configContent);
+
+            window.setTimeout(() => {
+                configContent.querySelectorAll(".toggle-row, .multi-button-row").forEach((row) => {
+                    const activeButton = row.querySelector<HTMLElement>(".active");
+                    if (!activeButton) {
+                        return;
+                    }
+
+                    createSlideIndicator(row, activeButton, true);
+                    if (activeButton.dataset.value === "hold") {
+                        row.parentElement?.querySelector(".expandable-content")?.classList.add("expanded");
+                    }
+                    if (activeButton.dataset.value === "custom") {
+                        document.getElementById("cfg-mouse-coord-section")?.classList.add("expanded");
+                    }
+                });
+            }, 50);
+        });
+    });
+
+    backButton?.addEventListener("click", showSelectionView);
+
+    saveButton?.addEventListener("click", async () => {
+        if (!currentType) {
+            return;
+        }
+
+        const draft = gatherConfig(currentType);
+        const payload = toBackendConfig(currentType, draft);
+        if (!payload) {
+            return;
+        }
+
+        try {
+            const actionJson = JSON.stringify(payload);
+            await invoke("add_macro_action", { actionJson, action_json: actionJson });
+            await loadActionsFromBackend();
+            closeDrawer();
+            notify("Macro action added", "success", 1800);
+        } catch (error) {
+            console.error("Failed to add macro action", error);
+            notify("Failed to add macro action", "error", 2600);
+        }
+    });
+}
+
+function initClearButton(recordButton: HTMLElement | null) {
+    document.getElementById("macro-clear-btn")?.addEventListener("click", async () => {
+        try {
+            await invoke("clear_macros");
+            macroState.actions = [];
+            renderActions();
+            setMacroRecordingState(recordButton, false);
+            notify("Macro cleared", "info", 1800);
+        } catch (error) {
+            console.error("Failed to clear macros", error);
+            notify("Failed to clear macro", "error", 2600);
+        }
+    });
+}
+
+async function loadCapabilities(recordButton: HTMLElement | null) {
+    macroState.capabilities = await invoke<MacroCapabilities>("get_macro_capabilities");
+    applyRecordAvailability(recordButton);
+}
+
+async function loadRecordingOptions() {
+    macroState.recordingOptions = await invoke<MacroRecordingOptions>("get_macro_recording_options");
+    syncRecordingOptionsToUi();
+}
+
+async function loadMacroState(recordButton: HTMLElement | null) {
+    const state = await invoke<MacroRepeatState>("load_macro");
+    applyRepeatModeToUi(state.repeat_mode);
+    await loadActionsFromBackend();
+    const playerState = await invoke<string>("get_macro_player_state");
+    setMacroRecordingState(recordButton, playerState === "recording");
+}
+
+function initMacroEventListeners(recordButton: HTMLElement | null) {
+    void listen<{ action_id?: unknown }>("macro-step-changed", (event) => {
+        const rawId = event.payload?.action_id;
+        if (rawId === null || rawId === undefined) {
+            macroState.currentPlayingActionId = null;
+        } else {
+            const parsed = Number(rawId);
+            macroState.currentPlayingActionId = Number.isFinite(parsed) ? parsed : null;
+        }
+
+        updateCurrentActionHighlight();
+    });
+
+    void listen<{ state?: string }>("macro-status-changed", (event) => {
+        const state = String(event.payload?.state || "");
+        setMacroRecordingState(recordButton, state === "recording");
+        if (state === "stopped" || state === "error") {
+            macroState.currentPlayingActionId = null;
+            updateCurrentActionHighlight();
+        }
+    });
+
+    void listen("macro-actions-changed", () => {
+        void loadActionsFromBackend().catch((error) => {
+            console.error("Failed to refresh macro actions", error);
+        });
+    });
+
+    void listen<{ supported?: boolean; reason?: string | null }>("macro-recording-availability", (event) => {
+        macroState.capabilities = {
+            ...macroState.capabilities,
+            recording_supported: Boolean(event.payload?.supported),
+            recording_reason: event.payload?.reason ? String(event.payload.reason) : null,
+        };
+
+        applyRecordAvailability(recordButton);
+        if (!macroState.capabilities.recording_supported && macroState.capabilities.recording_reason) {
+            notify(macroState.capabilities.recording_reason, "warning", 4200);
+        }
+    });
+}
+
+export function initMacro() {
+    const recordButton = document.getElementById("macro-record-btn");
+
+    initRecordingSettingsUi();
+
+    document.getElementById("macro-record-settings-btn")?.addEventListener("click", () => {
+        openDrawer("section-macro-recording", "Recording Filters", "&#58700;");
+        syncRecordingOptionsToUi();
+    });
+
+    initRecordButton(recordButton);
+    initAddActionDrawer();
+    initClearButton(recordButton);
+    initRepeatSettingsListeners();
+
+    void loadCapabilities(recordButton).catch((error) => {
+        console.error("Failed to load macro capabilities", error);
+    });
+    void loadRecordingOptions().catch((error) => {
+        console.error("Failed to load macro recording options", error);
+    });
+    void loadMacroState(recordButton).catch((error) => {
+        console.error("Failed to initialize macro state", error);
+    });
+
+    renderActions();
+    initMacroEventListeners(recordButton);
+}

@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FluAutoClicker</title>
+    <script type="module" src="scripts/main.ts" defer></script>
+  </head>
+
+  <body>
+    <header data-tauri-drag-region>
+      <div class="title-group">
+        <span class="app-name" style="cursor: default;"><span style="color: var(--accent); transition: color 0.2s;">Flu</span><span style="color: var(--accent-dim); transition: color 0.2s;">AutoClicker</span></span>
+      </div>
+      <nav class="mode-tabs">
+        <div class="tab active" data-tab="mouse">Mouse</div>
+        <div class="tab" data-tab="keyboard">Keyboard</div>
+        <div class="tab" data-tab="macro">Macro</div>
+      </nav>
+      <div class="window-controls">
+        <button class="control-btn" id="minimize-btn" title="Minimize">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"></line></svg>
+        </button>
+        <button class="control-btn" id="maximize-btn" title="Maximize">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="5" width="14" height="14" rx="1"></rect></svg>
+        </button>
+        <button class="control-btn close" id="close-btn" title="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="app">
+      <div id="content">
+
+        
+        <section id="mouse-section" class="content-section active">
+          
+          
+          <div class="section-row">
+            <div class="time-inputs-row">
+              <div class="time-input-box">
+                <input type="number" value="0" id="mouse-hours" min="0">
+              </div>
+              <div class="time-input-box">
+                <input type="number" value="0" id="mouse-minutes" min="0">
+              </div>
+              <div class="time-input-box">
+                <input type="number" value="0" id="mouse-seconds" min="0">
+              </div>
+              <div class="time-input-box">
+                <input type="number" value="550" id="mouse-ms" min="0">
+              </div>
+              <div class="time-input-box">
+                <span class="variation-tilde">~</span>
+                <input type="number" value="0" id="mouse-variation" min="0" class="variation-input-value">
+              </div>
+            </div>
+            <div class="time-labels-row">
+              <span class="time-label">hours</span>
+              <span class="time-label">minutes</span>
+              <span class="time-label">seconds</span>
+              <span class="time-label">milliseconds</span>
+              <span class="time-label">random (ms)</span>
+            </div>
+
+            
+            <div class="slider-row">
+              <input type="range" class="interval-slider" id="mouse-slider" min="0" max="1000" value="550">
+            </div>
+          </div>
+
+          
+          <div class="section-row" id="mouse-mode-card">
+            <div class="toggle-row" id="press-hold-toggle" style="margin: 0;">
+              <button class="toggle-option active" data-value="press">Press</button>
+              <button class="toggle-option" data-value="hold">Hold</button>
+            </div>
+
+            <div class="expandable-content" id="mouse-hold-duration-section">
+              <div class="expandable-inner">
+                <div class="finite-inputs-row">
+                  <div class="coord-input-box" style="flex: 2;">
+                    <input type="number" value="100" id="mouse-hold-duration" min="1">
+                  </div>
+                  <div class="toggle-row" id="mouse-hold-mode-toggle" style="flex: 3; margin: 0;">
+                    <button class="toggle-option active" data-value="ms">Milliseconds</button>
+                    <button class="toggle-option" data-value="s">Seconds</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="section-row">
+            <div class="multi-button-row" id="mouse-button-toggle" style="margin: 0;">
+              <button class="multi-btn active" data-value="left">Left</button>
+              <button class="multi-btn" data-value="middle">Middle</button>
+              <button class="multi-btn" data-value="right">Right</button>
+            </div>
+          </div>
+
+          
+          <div class="section-row" id="mouse-repeat-card">
+            <div class="toggle-row" id="repeat-toggle" style="margin: 0;">
+              <button class="toggle-option active" data-value="infinite">Repeat ∞ times</button>
+              <button class="toggle-option" data-value="finite">Repeat for times / seconds</button>
+            </div>
+            
+            <div class="expandable-content" id="mouse-repeat-finite-section">
+              <div class="expandable-inner">
+                <div class="finite-inputs-row">
+                  <div class="coord-input-box" style="flex: 2;">
+                    <input type="number" value="10" id="mouse-repeat-count" min="1">
+                  </div>
+                  <div class="toggle-row" id="finite-mode-toggle" style="flex: 3; margin: 0;">
+                    <button class="toggle-option active" data-value="times">Times</button>
+                    <button class="toggle-option" data-value="seconds">Seconds</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="section-row" id="mouse-position-card">
+            <div class="toggle-row" id="position-toggle" style="margin: 0;">
+              <button class="toggle-option active" data-value="current">Current position</button>
+              <button class="toggle-option" data-value="custom">Choose a place</button>
+            </div>
+
+            <div class="expandable-content" id="mouse-coord-section">
+              <div class="expandable-inner">
+                <div class="coord-row-inner">
+                  <div class="coord-input-box">
+                    <input type="number" value="841" id="coord-x" min="0">
+                  </div>
+                  <div class="coord-input-box">
+                    <input type="number" value="425" id="coord-y" min="0">
+                  </div>
+                  <button class="pick-btn" id="pick-btn">
+                    <span class="icon" style="margin-right: 6px; font-size: 14px;">&#58633;</span>
+                    PICK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="height: 10px;"></div>
+        </section>
+
+        
+        <section id="keyboard-section" class="content-section">
+          
+          
+          <div class="section-row">
+            <div class="time-inputs-row">
+              <div class="time-input-box">
+                <input type="number" value="0" id="kb-hours" min="0">
+              </div>
+              <div class="time-input-box">
+                <input type="number" value="0" id="kb-minutes" min="0">
+              </div>
+              <div class="time-input-box">
+                <input type="number" value="0" id="kb-seconds" min="0">
+              </div>
+              <div class="time-input-box">
+                <input type="number" value="550" id="kb-ms" min="0">
+              </div>
+              <div class="time-input-box">
+                <span class="variation-tilde">~</span>
+                <input type="number" value="0" id="kb-variation" min="0" class="variation-input-value">
+              </div>
+            </div>
+            <div class="time-labels-row">
+              <span class="time-label">hours</span>
+              <span class="time-label">minutes</span>
+              <span class="time-label">seconds</span>
+              <span class="time-label">milliseconds</span>
+              <span class="time-label">random (ms)</span>
+            </div>
+            <div class="slider-row">
+              <input type="range" class="interval-slider" id="kb-slider" min="0" max="1000" value="550">
+            </div>
+          </div>
+
+          
+          <div class="section-row" id="kb-mode-card">
+            <div class="toggle-row" id="kb-mode-toggle" style="margin: 0;">
+              <button class="toggle-option active" data-value="press">Press</button>
+              <button class="toggle-option" data-value="hold">Hold</button>
+            </div>
+
+            <div class="expandable-content" id="kb-hold-duration-section">
+              <div class="expandable-inner">
+                <div class="finite-inputs-row">
+                  <div class="coord-input-box" style="flex: 2;">
+                    <input type="number" value="100" id="kb-hold-duration" min="1">
+                  </div>
+                  <div class="toggle-row" id="kb-hold-mode-toggle" style="flex: 3; margin: 0;">
+                    <button class="toggle-option active" data-value="ms">Milliseconds</button>
+                    <button class="toggle-option" data-value="s">Seconds</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="section-row keyboard-section-row">
+            <div class="kb-viewport">
+              <div class="kb-container" id="kb-sliding-container">
+                
+                <div class="kb-main-view">
+                  <div class="virtual-keyboard">
+                    
+                    <div class="kb-row">
+                      <button class="kb-key kb-esc">ESC</button><button class="kb-key kb-fn">F1</button><button class="kb-key kb-fn">F2</button><button class="kb-key kb-fn">F3</button><button class="kb-key kb-fn">F4</button><button class="kb-key kb-fn">F5</button><button class="kb-key kb-fn">F6</button><button class="kb-key kb-fn">F7</button><button class="kb-key kb-fn">F8</button><button class="kb-key kb-fn">F9</button><button class="kb-key kb-fn">F10</button><button class="kb-key kb-fn">F11</button><button class="kb-key kb-fn">F12</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key">`</button><button class="kb-key">1</button><button class="kb-key">2</button><button class="kb-key">3</button><button class="kb-key">4</button><button class="kb-key">5</button><button class="kb-key">6</button><button class="kb-key">7</button><button class="kb-key">8</button><button class="kb-key">9</button><button class="kb-key">0</button><button class="kb-key">-</button><button class="kb-key">=</button><button class="kb-key kb-backspace">←</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key kb-tab">Tab</button><button class="kb-key">Q</button><button class="kb-key">W</button><button class="kb-key">E</button><button class="kb-key">R</button><button class="kb-key">T</button><button class="kb-key">Y</button><button class="kb-key">U</button><button class="kb-key">I</button><button class="kb-key">O</button><button class="kb-key">P</button><button class="kb-key">[</button><button class="kb-key">]</button><button class="kb-key kb-bslash">\</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key kb-caps">Caps</button><button class="kb-key">A</button><button class="kb-key">S</button><button class="kb-key">D</button><button class="kb-key">F</button><button class="kb-key">G</button><button class="kb-key">H</button><button class="kb-key">J</button><button class="kb-key">K</button><button class="kb-key">L</button><button class="kb-key">;</button><button class="kb-key">'</button><button class="kb-key kb-enter">Enter</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key kb-shift">Shift</button><button class="kb-key">Z</button><button class="kb-key">X</button><button class="kb-key">C</button><button class="kb-key">V</button><button class="kb-key">B</button><button class="kb-key">N</button><button class="kb-key">M</button><button class="kb-key">,</button><button class="kb-key">.</button><button class="kb-key">/</button><button class="kb-key kb-shift">Shift</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key">Ctrl</button><button class="kb-key kb-mod">Win</button><button class="kb-key">Alt</button><button class="kb-key kb-space">Space</button><button class="kb-key">Alt</button><button class="kb-key kb-tsu" style="cursor: default; opacity: 0.5;">TSU</button><button class="kb-key">Ctrl</button><button class="kb-key kb-menu">≡</button>
+                    </div>
+                  </div>
+                </div>
+
+                
+                <div class="kb-numpad-view">
+                  <div class="kb-numpad-content">
+                    
+                    <div class="kb-row">
+                      <button class="kb-key">Home</button>
+                      <button class="kb-key">PgUp</button>
+                      <button class="kb-key">PgDn</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key">7</button>
+                      <button class="kb-key">8</button>
+                      <button class="kb-key">9</button>
+                      <button class="kb-key">Num</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key">4</button>
+                      <button class="kb-key">5</button>
+                      <button class="kb-key">6</button>
+                      <button class="kb-key">Ins</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key">1</button>
+                      <button class="kb-key">2</button>
+                      <button class="kb-key">3</button>
+                      <button class="kb-key">Del</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key">0</button>
+                      <button class="kb-key">.</button>
+                      <button class="kb-key">/</button>
+                      <button class="kb-key">End</button>
+                    </div>
+                    
+                    <div class="kb-row">
+                      <button class="kb-key kb-back-btn" id="kb-numpad-back">BACK</button>
+                      <button class="kb-key">*</button>
+                      <button class="kb-key">-</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="section-row">
+            <div class="kb-status-row">
+              <span class="kb-selected-combo">
+                <span class="kb-modifiers" id="kb-modifiers-display"></span><span class="kb-main-key" id="kb-main-key-display">...</span>
+              </span>
+              <button class="kb-record-btn" id="kb-record-btn">Click to Record</button>
+            </div>
+          </div>
+
+          
+          <div class="section-row" id="kb-repeat-card">
+            <div class="toggle-row" id="kb-repeat-toggle" style="margin: 0;">
+              <button class="toggle-option active" data-value="infinite">Repeat ∞ times</button>
+              <button class="toggle-option" data-value="finite">Repeat for times / seconds</button>
+            </div>
+
+            <div class="expandable-content" id="kb-repeat-finite-section">
+              <div class="expandable-inner">
+                <div class="finite-inputs-row">
+                  <div class="coord-input-box" style="flex: 2;">
+                    <input type="number" value="10" id="kb-repeat-count" min="1">
+                  </div>
+                  <div class="toggle-row" id="kb-finite-mode-toggle" style="flex: 3; margin: 0;">
+                    <button class="toggle-option active" data-value="times">Times</button>
+                    <button class="toggle-option" data-value="seconds">Seconds</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        
+        <section id="macro-section" class="content-section">
+          
+          
+          <div class="section-row" style="padding: 6px 0;">
+            <div class="macro-controls">
+              <button class="macro-btn record-btn" id="macro-record-btn">
+                <span class="icon">&#58570;</span>
+                RECORD
+              </button>
+              <button class="macro-btn" id="macro-record-settings-btn">
+                <span class="icon">&#58700;</span>
+                FILTERS
+              </button>
+              <button class="macro-btn" id="macro-clear-btn">
+                <span class="icon">&#57742;</span>
+                CLEAR
+              </button>
+              
+              <div style="margin-left: auto;">
+                <button class="macro-btn add-btn" id="macro-add-btn">
+                  <span class="icon">&#58490;</span>
+                  ADD
+                </button>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="section-row macro-list-row">
+            <div class="macro-list-container" id="macro-list-container">
+              <div class="macro-list-empty">
+                <span class="icon" style="font-size: 32px; color: var(--accent); margin-bottom: 12px; opacity: 0.6;">&#58964;</span>
+                <span style="letter-spacing: 1px; text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text); opacity: 0.9;">No actions recorded yet</span>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="section-row" id="macro-repeat-card">
+            <div class="toggle-row" id="macro-repeat-toggle" style="margin: 0;">
+              <button class="toggle-option active" data-value="infinite">Repeat ∞ times</button>
+              <button class="toggle-option" data-value="finite">Repeat for times / seconds</button>
+            </div>
+            
+            <div class="expandable-content" id="macro-repeat-finite-section">
+              <div class="expandable-inner">
+                <div class="finite-inputs-row">
+                  <div class="coord-input-box" style="flex: 2;">
+                    <input type="number" value="10" id="macro-repeat-count" min="1">
+                  </div>
+                  <div class="toggle-row" id="macro-finite-mode-toggle" style="flex: 3; margin: 0;">
+                    <button class="toggle-option active" data-value="times">Times</button>
+                    <button class="toggle-option" data-value="seconds">Seconds</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+      </div>
+    </main>
+
+    <div id="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+    
+    <div id="mouse-feature-bar" class="section-row feature-buttons-wrapper" style="margin: 0 5px 8px; display: flex;">
+      <div class="feature-buttons-row">
+        <button class="feature-btn" id="jiggler-btn">
+          <span class="icon">&#57987;</span>
+          Mouse Jiggler
+        </button>
+        <button class="feature-btn" id="multithread-btn">
+          <span class="icon">&#58548;</span>
+          Multi Thread
+        </button>
+      </div>
+    </div>
+
+    <footer class="main-footer">
+      <div class="footer-left">
+        <button class="footer-btn" id="settings-btn" title="Settings">
+          <span class="icon">&#xe154;</span>
+          <span class="footer-label">SETTINGS</span>
+        </button>
+        <button class="footer-btn" id="hotkeys-btn" title="HotKeys">
+          <span class="icon">&#xe284;</span>
+          <span class="footer-label">HOTKEYS</span>
+        </button>
+      </div>
+      
+      <button class="main-action-btn" id="start-btn">
+        <span class="start-hotkey">F6</span>
+        <span class="start-label">START</span>
+        <span class="start-cps">~ 1.7 CPS</span>
+      </button>
+
+      <div class="footer-right">
+        <button class="footer-btn" id="profiles-btn" title="Profiles">
+          <span class="icon">&#xe36b;</span>
+          <span class="footer-label">PROFILES</span>
+        </button>
+        <button class="footer-btn" id="help-btn" title="Help">
+          <span class="icon">&#xe47b;</span>
+          <span class="footer-label">HELP</span>
+        </button>
+      </div>
+    </footer>
+
+    <div id="first-welcome-modal" class="drawer-overlay startup-modal" style="display: none;">
+      <div class="modal-content">
+        <div class="startup-focus">
+          <span class="icon startup-focus-icon">&#57586;</span>
+        </div>
+
+        <div class="startup-copy-block">
+          <span class="startup-modal-kicker">Welcome to</span>
+          <strong><span>Flu</span><span>AutoClicker</span></strong>
+          <p>Simple, modern, and fast auto-clicker.<br>With keyboard and macro modes.</p>
+        </div>
+
+        <div class="startup-info-list">
+          <div class="startup-info-row">
+            <span class="icon">&#59021;</span>
+            <p>Free, open-source and easy to use.</p>
+          </div>
+          <div class="startup-info-row">
+            <span class="icon">&#57472;</span>
+            <p>Three modes: mouse, keyboard, and macro.</p>
+          </div>
+          <div class="startup-info-row">
+            <span class="icon">&#xe36b;</span>
+            <p>Profile system for saving setups.</p>
+          </div>
+        </div>
+
+        <div class="startup-modal-actions">
+          <button id="first-welcome-continue-btn" class="startup-modal-button">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="beta-warning-modal" class="drawer-overlay startup-modal beta" style="display: none;">
+      <div class="modal-content">
+        <div class="startup-focus">
+          <span class="icon startup-focus-icon">&#58485;</span>
+        </div>
+
+        <div class="startup-copy-block">
+          <span class="startup-modal-kicker">warning</span>
+          <strong>Beta Build </strong>
+          <p>FluAutoClicker is in beta. It may contain bugs and unfinished features.</p>
+        </div>
+
+        <div class="startup-info-list">
+          <div class="startup-info-row">
+            <span class="icon">&#58485;</span>
+            <p>Beta may contain bugs and unstable features.</p>
+          </div>
+          <div class="startup-info-row">
+            <span class="icon">&#58378;</span>
+            <p>Expect small changes after updates.</p>
+          </div>
+          <div class="startup-info-row">
+            <span class="icon">&#xe47b;</span>
+            <p>Tell the developer when something feels bad.</p>
+          </div>
+        </div>
+
+        <div class="startup-modal-actions">
+          <button id="beta-warning-confirm-btn" class="startup-modal-button">I understand</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="update-available-modal" class="drawer-overlay startup-modal update" style="display: none;">
+      <div class="modal-content">
+        <div class="startup-focus">
+          <span class="icon startup-focus-icon">&#58378;</span>
+        </div>
+
+        <div class="startup-copy-block">
+          <span class="startup-modal-kicker">update found</span>
+          <strong class="update-version-title" id="update-modal-version">New build</strong>
+          <p id="update-modal-notes">A newer FluAutoClicker build is available.</p>
+        </div>
+
+        <div class="startup-info-list">
+          <div class="startup-info-row">
+            <span class="icon">&#58546;</span>
+            <p id="update-modal-current">Installed version is being checked.</p>
+          </div>
+          <div class="startup-info-row">
+            <span class="icon">&#58378;</span>
+            <p id="update-modal-published">Release date will be shown when provided.</p>
+          </div>
+          <div class="startup-info-row">
+            <span class="icon">&#57472;</span>
+            <p>Open GitHub to download the latest build.</p>
+          </div>
+        </div>
+
+        <div class="startup-modal-actions update-modal-actions">
+          <button id="update-modal-later-btn" class="startup-modal-button secondary" type="button">Later</button>
+          <button id="update-modal-open-btn" class="startup-modal-button" type="button">Open GitHub</button>
+        </div>
+      </div>
+    </div>
+
+    
+    <div id="feature-config-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title">Settings</h3>
+          <button id="modal-close-btn" class="control-btn close">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p style="color: var(--text-dim); text-align: center; font-size: 13px; margin-top: 20px;">Configuration options coming soon...</p>
+        </div>
+      </div>
+    </div>
+
+    
+    <div id="uinput-permission-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+          <h3>🔒 Permission Required</h3>
+          <button id="uinput-modal-close-btn" class="control-btn close">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div style="padding: 20px 0;">
+            <p style="color: var(--text); font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
+              <strong>Mouse Jiggler</strong> requires access to <code style="background: var(--control-bg); padding: 2px 6px; border-radius: 4px;">/dev/uinput</code> to simulate mouse movements.
+            </p>
+            <p style="color: var(--text-dim); font-size: 13px; line-height: 1.5; margin-bottom: 20px;">
+              This requires administrator privileges. Click the button below to grant permissions.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+              <button id="uinput-modal-cancel-btn" class="feature-btn" style="flex: none; padding: 0 20px;">
+                Cancel
+              </button>
+              <button id="uinput-grant-btn" class="feature-btn" style="flex: none; padding: 0 20px; background: var(--accent); color: #000; font-weight: 700;">
+                Grant Permission
+              </button>
+            </div>
+            <p id="uinput-status" style="color: var(--text-dim); font-size: 12px; margin-top: 12px; text-align: center;"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="drawer-overlay" id="drawer-overlay"></div>
+    <div class="bottom-drawer" id="bottom-drawer">
+      <div class="drawer-header">
+        <div class="drawer-icon-box">
+          <span class="icon" id="drawer-title-icon" style="font-size: 14px; color: var(--accent);"></span>
+        </div>
+        <div class="drawer-title" id="drawer-title-container">
+          <span id="drawer-title-text">Settings</span>
+        </div>
+        <button class="drawer-close" id="drawer-close-btn" title="Close">
+           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      
+      <div class="drawer-sections-wrapper" id="drawer-sections-wrapper">
+        
+        <div class="drawer-section" id="section-settings">
+          <div class="settings-items-list">
+            <div class="settings-group-title">General</div>
+            
+            <div class="settings-list-item" id="autostart-trigger" style="cursor: pointer;">
+              <div class="settings-item-icon"><span class="icon">&#58704;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Start on System Startup</span>
+                <span class="settings-item-desc">Automatically launch when computer starts</span>
+              </div>
+              <div class="drawer-toggle" id="autostart-toggle"></div>
+            </div>
+            
+            <div class="settings-list-item" id="tray-trigger" style="cursor: pointer;">
+              <div class="settings-item-icon"><span class="icon">&#58835;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Minimize to Tray</span>
+                <span class="settings-item-desc">Close button hides window instead of exiting</span>
+              </div>
+              <div class="drawer-toggle active" id="tray-toggle"></div>
+            </div>
+            
+            <div class="settings-group-title">Theme & Appearance</div>
+            
+            <div class="settings-list-item" id="accent-settings-trigger" style="cursor: pointer;">
+              <div class="settings-item-icon"><span class="icon">&#xe3a2;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Accent Color</span>
+                <span class="settings-item-desc">Selected theme: <span id="current-accent-name">Flu Blue</span></span>
+              </div>
+              <div class="accent-color-indicator">
+                <div class="indicator-dot"></div>
+              </div>
+            </div>
+
+            <div class="settings-list-item" id="remove-italic-trigger" style="cursor: pointer;">
+              <div class="settings-item-icon"><span class="icon">&#57595;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Remove Italic</span>
+                <span class="settings-item-desc">Use standard font style instead of italics</span>
+              </div>
+              <div class="drawer-toggle" id="remove-italic-toggle"></div>
+            </div>
+
+            <div class="settings-list-item" id="acrylic-toggle-trigger" style="cursor: pointer;">
+              <div class="settings-item-icon"><span class="icon">&#58386;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Acrylic Blur</span>
+                <span class="settings-item-desc">Experimental, Windows only</span>
+              </div>
+              <div class="drawer-toggle" id="acrylic-toggle"></div>
+            </div>
+
+            <div class="settings-group-title">Utils</div>
+
+            <div class="settings-list-item" id="cps-test-btn" style="cursor: pointer;">
+              <div class="settings-item-icon"><span class="icon">&#58633;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">CPS Test</span>
+                <span class="settings-item-desc">Check your clicks per second speed</span>
+              </div>
+              <span class="icon settings-item-arrow">&#57529;</span>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="drawer-section" id="section-hotkeys">
+          <div class="hotkey-items-list">
+            <div class="hotkey-list-item" data-hotkey-action="toggle_start_stop">
+              <div class="hotkey-item-icon"><span class="icon">&#57472;</span></div>
+              <div class="hotkey-item-content">
+                <span class="hotkey-title">Toggle Start/Stop</span>
+                <span class="hotkey-desc">Tap toggles clicker, hold runs only while key is pressed</span>
+              </div>
+              <div class="hotkey-badge" data-hotkey-value title="Click to change">F6</div>
+            </div>
+            <div class="hotkey-list-item" data-hotkey-action="pick_position">
+              <div class="hotkey-item-icon"><span class="icon">&#58633;</span></div>
+              <div class="hotkey-item-content">
+                <span class="hotkey-title">Pick Position</span>
+                <span class="hotkey-desc">Capture the current cursor coordinates after a short delay</span>
+              </div>
+              <div class="hotkey-badge" data-hotkey-value title="Click to change">Ctrl + P</div>
+            </div>
+          </div>
+        </div>
+
+        
+        <div class="drawer-section" id="section-profiles">
+          <div class="settings-items-list">
+            <div class="settings-group-title">Active Profile</div>
+            <div class="settings-list-item">
+              <div class="settings-item-icon"><span class="icon">&#58218;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title" id="profiles-active-name">default</span>
+                <span class="settings-item-desc">The profile currently applied to runtime and UI</span>
+              </div>
+              <button class="feature-btn" id="profile-reload-btn" style="flex: none; width: 92px;">
+                <span class="icon">&#58546;</span>
+                REFRESH
+              </button>
+            </div>
+
+            <div class="settings-group-title">Profile Name</div>
+            <div class="settings-list-item" style="display: block;">
+              <div class="coord-input-box profile-name-box">
+                <input type="text" id="profile-name-input" value="default" maxlength="32" placeholder="default">
+              </div>
+              <div class="feature-buttons-row" style="margin-top: 10px;">
+                <button class="feature-btn" id="profile-save-btn">
+                  <span class="icon">&#57677;</span>
+                  SAVE
+                </button>
+                <button class="feature-btn" id="profile-rename-btn">
+                  <span class="icon">&#57648;</span>
+                  RENAME
+                </button>
+                <button class="feature-btn" id="profile-delete-btn">
+                  <span class="icon">&#57742;</span>
+                  DELETE
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-group-title">Saved Profiles</div>
+            <div id="profiles-list" class="profiles-list"></div>
+          </div>
+        </div>
+        <div class="drawer-section" id="section-help">
+          <div class="help-simple-hero">
+            <div class="app-logo-wrapper">
+              <div class="app-hero-title"><span style="color: var(--accent);">Flu</span><span style="color: var(--accent-dim);">AutoClicker</span></div>
+              <div class="version-tag" id="app-version-tag">v0.1.0-beta.1</div>
+            </div>
+            <p class="hero-desc-flat">Universal cross-platform automation for mouse, keyboard and macros with high-precision input emulation.</p>
+          </div>
+          
+          <div class="help-items-list">
+            <div class="help-list-item community" id="help-discord-link" tabindex="0" role="button">
+              <div class="help-item-icon"><span class="icon">&#58735;</span></div>
+              <div class="help-item-content">
+                <span class="help-item-title">Discord</span>
+                <span class="help-item-desc">Join developer discord server</span>
+              </div>
+              <span class="icon help-item-arrow">&#57529;</span>
+            </div>
+
+            <div class="help-list-item" id="help-github-link" tabindex="0" role="button">
+              <div class="help-item-icon"><span class="icon">&#58378;</span></div>
+              <div class="help-item-content">
+                <span class="help-item-title">GitHub</span>
+                <span class="help-item-desc">Check out the source code</span>
+              </div>
+              <span class="icon help-item-arrow">&#57529;</span>
+            </div>
+
+            <div class="help-list-item" id="help-updates-link" tabindex="0" role="button">
+              <div class="help-item-icon"><span class="icon">&#xe47b;</span></div>
+              <div class="help-item-content">
+                <span class="help-item-title">Updates</span>
+                <span class="help-item-desc">Open the update checker and release status screen</span>
+              </div>
+              <span class="icon help-item-arrow">&#57529;</span>
+            </div>
+
+          </div>
+
+          <div class="help-bottom-notes">
+            <span class="copyright">MIT License copyright Agzes 2026</span>
+          </div>
+        </div>
+
+        <div class="drawer-section" id="section-updates">
+          <div class="settings-items-list">
+            <div class="settings-group-title">Current Version</div>
+            <div class="settings-list-item">
+              <div class="settings-item-icon"><span class="icon">&#58378;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title" id="updates-current-version">v0.1.0-beta.1</span>
+                <span class="settings-item-desc" id="updates-current-channel">Current installed build. Feed: pre-release channel.</span>
+              </div>
+              <button class="feature-btn" id="update-check-btn" type="button" style="flex: none; width: 92px;">
+                <span class="icon">&#58546;</span>
+                <span id="update-check-btn-label">CHECK</span>
+              </button>
+            </div>
+
+            <div class="settings-group-title">Latest Release</div>
+            <div class="settings-list-item" style="display: block; cursor: default;">
+              <div class="settings-list-item updates-status-item" id="update-status-panel" data-update-status="idle" style="margin-bottom: 10px; cursor: default;">
+                <div class="settings-item-icon"><span class="icon" id="updates-status-icon">&#58437;</span></div>
+                <div class="settings-item-content">
+                  <span class="settings-item-title" id="updates-status-title">Version checks are ready</span>
+                  <span class="settings-item-desc" id="updates-status-desc">Checks compare your installed version with the hosted static release manifest.</span>
+                </div>
+              </div>
+
+              <div class="updates-release-box">
+                <div class="updates-release-head">
+                  <span class="settings-item-title" id="updates-latest-version">Latest published build is not loaded yet</span>
+                  <span class="hotkey-badge" id="updates-feed-badge">latest-beta.json</span>
+                </div>
+                <div class="settings-item-desc" id="updates-release-notes">Run a check to fetch version, date, and release notes from the manifest.</div>
+              </div>
+
+              <div class="feature-buttons-row" style="margin-top: 10px;">
+                <button class="feature-btn" id="update-open-github-btn" type="button">
+                  <span class="icon">&#58378;</span>
+                  OPEN GITHUB
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-section" id="section-jiggler">
+          <div class="settings-items-list">
+
+            
+            <div class="settings-list-item">
+              <div class="settings-item-icon"><span class="icon">&#57987;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Mouse Jiggler</span>
+                <span class="settings-item-desc">Prevent system sleep by moving cursor</span>
+              </div>
+              <div class="drawer-toggle" id="jiggler-toggle"></div>
+            </div>
+            <div class="settings-group-title">Movement Pattern</div>
+            <div class="settings-list-item" style="padding: 10px;">
+              <div class="multi-button-row" id="jiggler-pattern-row" style="margin: 0; width: 100%;">
+                <div class="slide-indicator" style="width: 25%; left: 0%;"></div>
+                <button class="multi-btn active" data-pattern="rnd">
+                  <span class="icon" style="margin-right: 6px; font-size: 14px;">&#58053;</span>
+                  Random
+                </button>
+                <button class="multi-btn" data-pattern="lin">
+                  <span class="icon" style="margin-right: 6px; font-size: 14px;">&#58911;</span>
+                  Linear
+                </button>
+                <button class="multi-btn" data-pattern="cir">
+                  <span class="icon" style="margin-right: 6px; font-size: 14px;">&#58544;</span>
+                  Circle
+                </button>
+                <button class="multi-btn" data-pattern="ozn">
+                  <span class="icon" style="margin-right: 6px; font-size: 14px;">&#58545;</span>
+                  O-Zone
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-group-title">Timing Configuration</div>
+            <div class="settings-list-item" style="flex-direction: column; align-items: stretch; gap: 4px; padding-bottom: 14px;">
+              <div class="visual-slider-info" style="display: flex; justify-content: space-between;">
+                <span class="settings-item-title">Movement Interval</span>
+                <span class="visual-slider-value" style="font-size: 13px; font-weight: 700; color: var(--accent);">30s</span>
+              </div>
+              <input type="range" class="interval-slider" id="jiggler-slider" min="5" max="300" value="30">
+            </div>
+
+            <div class="settings-group-title">Movement Distance</div>
+            <div class="settings-list-item" style="flex-direction: column; align-items: stretch; gap: 4px; padding-bottom: 14px;">
+              <div class="visual-slider-info" style="display: flex; justify-content: space-between;">
+                <span class="settings-item-title">Distance Radius</span>
+                <span class="visual-slider-value" style="font-size: 13px; font-weight: 700; color: var(--accent);">20px</span>
+              </div>
+              <input type="range" class="interval-slider" id="jiggler-distance-slider" min="5" max="500" value="20">
+            </div>
+
+          </div>
+        </div>
+
+        
+        <div class="drawer-section" id="section-multithread">
+          <div class="settings-items-list">
+
+            
+            <div class="settings-list-item">
+              <div class="settings-item-icon"><span class="icon">&#58548;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Multithreading</span>
+                <span class="settings-item-desc">Boost speed using multiple CPU cores</span>
+              </div>
+              <div class="drawer-toggle" id="multithread-toggle"></div>
+            </div>
+            
+            <div class="settings-list-item" style="pointer-events: none; background: color-mix(in srgb, var(--accent) 5%, transparent); border-top-color: color-mix(in srgb, var(--accent) 15%, transparent); margin: 2px 0 8px; padding: 8px 10px; align-items: flex-start; gap: 8px;">
+              <span class="icon" style="font-size: 14px; color: var(--accent); margin-top: 1px;">&#58487;</span>
+              <span style="font-size: 10px; color: var(--accent); opacity: 0.8; line-height: 1.4;">This is a beta feature in active development.</span>
+            </div>
+
+            
+            <div class="settings-group-title">Performance Mode</div>
+            <div class="settings-list-item" style="padding: 10px;">
+              <div class="multi-button-row" id="multithread-mode-row" style="margin: 0; width: 100%;">
+                <div class="slide-indicator" style="width: 33.33%; left: 33.33%;"></div>
+                <button class="multi-btn">
+                  <span style="font-weight: 700;">Eco</span>
+                </button>
+                <button class="multi-btn active">
+                  <span style="font-weight: 700;">Normal</span>
+                </button>
+                <button class="multi-btn" data-mode="extreme">
+                  <span style="font-weight: 700;">Extreme</span>
+                </button>
+              </div>
+            </div>
+
+            
+            <div class="settings-list-item"
+              style="pointer-events: none; background: rgba(255, 193, 7, 0.05); border-top-color: rgba(255, 193, 7, 0.15); margin-top: 2px; padding: 8px 10px; align-items: flex-start; gap: 8px;">
+              <span class="icon" style="font-size: 14px; color: #FFC107; margin-top: 1px;">&#58485;</span>
+              <span style="font-size: 10px; color: #FFC107; line-height: 1.5; opacity: 0.9;">Extreme mode excessively increases CPU
+                usage rather than performance.</span>
+            </div>
+            
+            <div class="settings-group-title">CPU Cores</div>
+            <div class="settings-list-item" style="flex-direction: column; align-items: stretch; gap: 6px; padding-bottom: 14px;">
+              <div class="visual-slider-info" style="display: flex; justify-content: space-between;">
+                <span class="settings-item-title">Thread Limit</span>
+                <span class="visual-slider-value" style="font-size: 13px; font-weight: 700; color: var(--accent);">4 Threads</span>
+              </div>
+              <input type="range" class="interval-slider" id="multithread-slider" min="1" max="16" value="4">
+            </div>
+
+
+          </div>
+        </div>
+
+        
+        <div class="drawer-section" id="section-macro-add">
+          <div class="settings-items-list" id="macro-add-selection-view">
+            <div class="settings-group-title">Other Actions</div>
+
+            <div class="settings-list-item macro-add-item-trigger" data-action="mouse">
+              <div class="settings-item-icon"><span class="icon">&#58633;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Mouse Click</span>
+                <span class="settings-item-desc">Click mouse button at current/custom position</span>
+              </div>
+              <span class="icon settings-item-arrow">&#57529;</span>
+            </div>
+
+            <div class="settings-list-item macro-add-item-trigger" data-action="move">
+              <div class="settings-item-icon"><span class="icon">&#57987;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Mouse Move</span>
+                <span class="settings-item-desc">Move cursor to specific coordinates</span>
+              </div>
+              <span class="icon settings-item-arrow">&#57529;</span>
+            </div>
+            
+            <div class="settings-list-item macro-add-item-trigger" data-action="keyboard">
+              <div class="settings-item-icon"><span class="icon">&#57988;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Keyboard Action</span>
+                <span class="settings-item-desc">Press or hold specific keys</span>
+              </div>
+              <span class="icon settings-item-arrow">&#57529;</span>
+            </div>
+            
+            <div class="settings-list-item macro-add-item-trigger" data-action="sleep">
+              <div class="settings-item-icon"><span class="icon">&#58394;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Sleep (Delay)</span>
+                <span class="settings-item-desc">Pause between macro actions</span>
+              </div>
+              <span class="icon settings-item-arrow">&#57529;</span>
+            </div>
+          </div>
+
+          
+          <div class="settings-items-list" id="macro-config-view" style="display: none;">
+            <div class="settings-group-title" id="macro-config-title">Configure Action</div>
+            
+            <div id="macro-config-content">
+              
+            </div>
+
+            <div style="padding: 16px 10px 10px; display: flex; gap: 6px; align-items: stretch; height: 54px;">
+              <button class="macro-btn" id="macro-config-back" 
+                style="flex: 1; justify-content: center; background: var(--control-bg); border-radius: var(--radius); color: var(--text-muted); font-size: 11px; font-weight: 500; letter-spacing: 0.5px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03); transition: all var(--transition); border: none; cursor: pointer;"
+                onmouseover="this.style.background='var(--control-dark)'; this.style.color='var(--text)'"
+                onmouseout="this.style.background='var(--control-bg)'; this.style.color='var(--text-muted)'"
+                onmousedown="this.style.transform='scale(0.98)'"
+                onmouseup="this.style.transform='scale(1)'">
+                CANCEL
+              </button>
+              <button class="macro-btn add-btn" id="macro-config-save" 
+                style="flex: 2; justify-content: center; background: var(--accent); border-radius: var(--radius); color: #000; font-size: 13px; font-weight: 600; letter-spacing: 0.2px; box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.2); transition: all var(--transition); border: none; cursor: pointer;"
+                onmouseover="this.style.filter='brightness(1.1)'"
+                onmouseout="this.style.filter='none'"
+                onmousedown="this.style.transform='scale(0.98)'"
+                onmouseup="this.style.transform='scale(1)'">
+                SAVE ACTION
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-section" id="section-macro-recording">
+          <div class="settings-items-list">
+            <div class="settings-group-title">Recording Filters</div>
+
+            <div class="settings-list-item macro-recording-item">
+              <div class="settings-item-icon"><span class="icon">&#58633;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Mouse Clicks</span>
+                <span class="settings-item-desc">Record left, middle and right clicks</span>
+              </div>
+              <div class="toggle-row macro-recording-toggle" id="macro-record-mouse-clicks-toggle">
+                <button class="toggle-option active" data-value="on">On</button>
+                <button class="toggle-option" data-value="off">Off</button>
+              </div>
+            </div>
+
+            <div class="settings-list-item macro-recording-item">
+              <div class="settings-item-icon"><span class="icon">&#57987;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Mouse Moves</span>
+                <span class="settings-item-desc">Store cursor movement actions while recording</span>
+              </div>
+              <div class="toggle-row macro-recording-toggle" id="macro-record-mouse-moves-toggle">
+                <button class="toggle-option active" data-value="on">On</button>
+                <button class="toggle-option" data-value="off">Off</button>
+              </div>
+            </div>
+
+            <div class="settings-list-item macro-recording-item">
+              <div class="settings-item-icon"><span class="icon">&#57988;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Keyboard</span>
+                <span class="settings-item-desc">Record typed keys and shortcuts</span>
+              </div>
+              <div class="toggle-row macro-recording-toggle" id="macro-record-keyboard-toggle">
+                <button class="toggle-option active" data-value="on">On</button>
+                <button class="toggle-option" data-value="off">Off</button>
+              </div>
+            </div>
+
+            <div class="settings-list-item macro-recording-item">
+              <div class="settings-item-icon"><span class="icon">&#57824;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Pauses</span>
+                <span class="settings-item-desc">Insert sleep steps between recorded actions</span>
+              </div>
+              <div class="toggle-row macro-recording-toggle" id="macro-record-delays-toggle">
+                <button class="toggle-option active" data-value="on">On</button>
+                <button class="toggle-option" data-value="off">Off</button>
+              </div>
+            </div>
+
+            <div class="settings-list-item macro-recording-item">
+              <div class="settings-item-icon"><span class="icon">&#58485;</span></div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Click Position</span>
+                <span class="settings-item-desc">Store cursor coordinates with click actions</span>
+              </div>
+              <div class="toggle-row macro-recording-toggle" id="macro-record-click-position-toggle">
+                <button class="toggle-option active" data-value="on">On</button>
+                <button class="toggle-option" data-value="off">Off</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    
+    <div id="extreme-warning-modal" class="drawer-overlay" style="display: none; z-index: 10000; justify-content: center; align-items: center; padding: 20px;">
+      <div class="modal-content" style="background: #0b0b0b; border: 1px solid rgba(255, 255, 255, 0.04); border-top: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; padding: 20px; max-width: 320px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8); animation: viewFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;">
+        
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+          <span class="icon" style="font-size: 20px; color: #FFC107;">&#58485;</span>
+          <span style="font-size: 14px; font-weight: 700; color: #fff;">Extreme Mode Warning</span>
+        </div>
+        
+        <div style="background: rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.04); border-radius: 12px; margin-bottom: 20px; padding: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
+          <p style="font-size: 11px; color: var(--text-dim); line-height: 1.5; margin: 0;">
+            Activating this mode will put extreme strain on your processor. The application may stop responding, and your CPU temperature may rise dangerously.
+          </p>
+          <p style="font-size: 11px; color: var(--text-dim); line-height: 1.5; margin: 0;">
+            Type <span style="color: #FFC107; font-weight: 700;">I AGREE</span> below to verify you accept risks.
+          </p>
+        </div>
+
+        <div class="coord-input-box" style="margin-bottom: 20px; height: 36px; border-radius: 8px;">
+          <input type="text" id="extreme-captcha-input" placeholder="Type I AGREE" style="height: 100%; text-transform: uppercase;">
+        </div>
+        
+        <div style="display: flex; gap: 8px;">
+          <button id="extreme-cancel-btn" style="flex: 1; height: 36px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: rgba(255, 255, 255, 0.9); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.08)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">Cancel</button>
+          <button id="extreme-confirm-btn" style="flex: 1; height: 36px; background: rgba(255, 193, 7, 0.05); border: none; box-shadow: inset 0 1px 0 rgba(255, 193, 7, 0.15); border-radius: 8px; color: rgba(255, 193, 7, 0.4); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: not-allowed; transition: 0.2s;" disabled>Enable Mode</button>
+        </div>
+      </div>
+    </div>
+
+    
+    <div id="timing-warning-modal" class="drawer-overlay" style="display: none; z-index: 10000; justify-content: center; align-items: center; padding: 20px;">
+      <div class="modal-content" style="background: #0b0b0b; border: 1px solid rgba(255, 255, 255, 0.04); border-top: 1px solid rgba(255, 193, 7, 0.4); border-radius: 12px; padding: 20px; max-width: 320px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8); animation: viewFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;">
+        
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+          <span class="icon" style="font-size: 20px; color: #FFC107;">&#58485;</span>
+          <span style="font-size: 14px; font-weight: 700; color: #fff;">Performance Warning</span>
+        </div>
+        
+        <div style="background: rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.04); border-radius: 12px; margin-bottom: 20px; padding: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
+          <p style="font-size: 11px; color: var(--text-dim); line-height: 1.5; margin: 0;">
+            FluAutoClicker is not a regular autoclicker where you can safely set the time to 0ms.
+          </p>
+          <p style="font-size: 11px; color: var(--text-dim); line-height: 1.5; margin: 0;">
+            Setting an interval below <span style="color: #FFC107; font-weight: 700;">3ms</span> may cause severe system lag, unresponsiveness, or high CPU usage.
+          </p>
+          <p style="font-size: 11px; color: var(--text-dim); line-height: 1.5; margin: 0;">
+            Slide to confirm that you accept all risks.
+          </p>
+        </div>
+
+        <div class="unlock-slider-track" id="timing-unlock-track" style="margin-bottom: 20px;">
+          <div class="unlock-slider-progress" id="timing-unlock-progress"></div>
+          <div class="unlock-slider-text">Slide to confirm</div>
+          <div class="unlock-slider-handle" id="timing-unlock-handle">
+            <span class="icon" id="timing-unlock-icon">&#58591;</span>
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 8px;">
+          <button id="timing-cancel-btn" style="flex: 1; height: 36px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: rgba(255, 255, 255, 0.9); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.08)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">Cancel</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="accent-color-modal" class="drawer-overlay" style="display: none; z-index: 10000; justify-content: center; align-items: center; padding: 20px;">
+      <div class="modal-content" style="background: #0b0b0b; border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 12px; padding: 20px; max-width: 320px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8); animation: viewFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;">
+        
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+          <span class="icon" style="font-size: 20px; color: var(--accent);">&#58386;</span>
+          <span style="font-size: 14px; font-weight: 700; color: #fff;">Theming</span>
+        </div>
+
+        
+        <div id="accent-custom-picker" class="custom-color-picker" style="--picker-color: #77B6DD; --picker-hue-color: #00aaff; --picker-x: 46%; --picker-y: 13%;">
+          <div id="accent-color-sv-plane" class="custom-color-plane" role="slider" tabindex="0" aria-label="Custom accent color" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+            <span id="accent-color-plane-handle" class="custom-color-plane-handle"></span>
+          </div>
+          <div class="custom-color-controls">
+            <span id="accent-color-preview" class="custom-color-preview"></span>
+            <input id="accent-color-hex" class="custom-color-hex" type="text" value="#77B6DD" maxlength="7" spellcheck="false" aria-label="HEX color">
+          </div>
+          <input id="accent-color-hue" class="custom-color-hue" type="range" min="0" max="360" value="203" aria-label="Hue">
+          <div id="accent-color-dark-warning" class="custom-color-warning" aria-hidden="true">
+            <span class="icon">&#58485;</span>
+            <span>Color is too dark for clear UI accents.</span>
+          </div>
+        </div>
+
+        <div id="accent-presets-modal" style="display: flex; gap: 8px; margin-bottom: 12px; width: 100%;">
+          <button class="accent-tile theme-preset-btn active" data-color="#77B6DD" data-name="Flu" style="flex: 1; height: 36px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: rgba(255, 255, 255, 0.9); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer; transition: 0.2s;" onmouseover="if(!this.classList.contains('active')) this.style.background='rgba(255, 255, 255, 0.08)'" onmouseout="if(!this.classList.contains('active')) this.style.background='rgba(255, 255, 255, 0.05)'">Flu</button>
+          <button class="accent-tile theme-preset-btn" data-color="#ffc799" data-name="Vesper" style="flex: 1; height: 36px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: rgba(255, 255, 255, 0.9); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer; transition: 0.2s;" onmouseover="if(!this.classList.contains('active')) this.style.background='rgba(255, 255, 255, 0.08)'" onmouseout="if(!this.classList.contains('active')) this.style.background='rgba(255, 255, 255, 0.05)'">Vesper</button>
+          <button class="accent-tile system-tile theme-preset-btn" data-mode="system" data-name="System" style="flex: 1; height: 36px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: rgba(255, 255, 255, 0.9); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer; transition: 0.2s;" onmouseover="if(!this.classList.contains('active')) this.style.background='rgba(255, 255, 255, 0.08)'" onmouseout="if(!this.classList.contains('active')) this.style.background='rgba(255, 255, 255, 0.05)'">System</button>
+        </div>
+        
+        <div style="display: flex; gap: 8px;">
+          <button id="accent-modal-close" style="flex: 1; height: 36px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.02); border-top: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: rgba(255, 255, 255, 0.9); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.08)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.05)'">Close Selection</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

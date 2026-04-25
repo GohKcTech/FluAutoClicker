@@ -1,0 +1,19 @@
+.main-action-btn.running {
+  background: #ff4757 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: scale(0.98);
+  opacity: 1 !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.main-action-btn.running .start-hotkey {
+  color: rgba(255, 255, 255, 0.8) !important;
+  transition: color 0.3s ease !important;
+}
+
+.main-action-btn.running .start-label {
+  font-weight: 900 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}

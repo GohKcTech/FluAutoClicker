@@ -1,0 +1,188 @@
+@font-face {
+  font-family: 'MuseoModerno';
+  src: url('../assets/fonts/MuseoModerno/MuseoModerno-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MuseoModerno';
+  src: url('../assets/fonts/MuseoModerno/MuseoModerno-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'LucideIcons';
+  src: url('../assets/icons/lucide-icons/lucide.woff2') format('woff2'),
+       url('../assets/icons/lucide-icons/lucide.woff') format('woff'),
+       url('../assets/icons/lucide-icons/lucide.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.icon {
+  font-family: 'LucideIcons' !important;
+  speak: none;
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(135, 206, 250, 1);
+}
+
+@property --accent-dim {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(79, 120, 145, 1);
+}
+
+:root {
+  --accent: rgba(135, 206, 250, 1);
+  --accent-dim: rgba(79, 120, 145, 1);
+  --bg: rgba(15, 15, 15, 1);
+  --surface: rgba(13, 13, 13, 1);
+  --control-bg: rgba(20, 20, 20, 1);
+  --control-dark: rgba(23, 23, 23, 1);
+  --acrylic-opacity: 74%;
+  --text: #FFFFFF;
+  --text-color: var(--text);
+  --text-muted: rgba(131, 131, 131, 1);
+  --text-label: rgba(150, 150, 150, 1);
+  --text-dim: rgba(120, 120, 120, 1);
+  --text-dark: rgba(54, 54, 54, 1);
+  --bg-color: var(--bg);
+  --action-bg: var(--accent);
+  --action-active-bg: var(--text-color);
+  --action-active-text: var(--bg-color);
+  --radius: 8px;
+  --radius-sm: 7px;
+  --radius-inner: 6px;
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --slide-transition: 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  --font: 'MuseoModerno', cursive;
+
+  transition: --accent 0.5s ease-in-out, --accent-dim 0.5s ease-in-out;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+body {
+  font-family: var(--font);
+  background-color: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  border-radius: var(--radius);
+}
+
+body.font-no-italic,
+body.font-no-italic * {
+  font-style: normal !important;
+}
+
+body.window-acrylic {
+  --bg: rgb(10 10 10 / 24%);
+  --surface: rgb(13 13 13 / var(--acrylic-opacity));
+  --control-bg: rgb(16 16 16 / var(--acrylic-opacity));
+  --control-dark: rgb(18 18 18 / var(--acrylic-opacity));
+  --bg-color: rgb(10 10 10 / var(--acrylic-opacity));
+  --action-bg: rgb(from var(--accent) r g b / var(--acrylic-opacity));
+  --action-active-bg: rgb(255 255 255 / var(--acrylic-opacity));
+  background: transparent;
+}
+
+body.window-acrylic.window-unfocused {
+  --bg: rgb(10 10 10 / 30%);
+  --surface: rgb(13 13 13 / 80%);
+  --control-bg: rgb(16 16 16 / 80%);
+  --control-dark: rgb(18 18 18 / 80%);
+  --bg-color: rgb(10 10 10 / 80%);
+  --action-bg: rgb(from var(--accent) r g b / 80%);
+  --action-active-bg: rgb(255 255 255 / 80%);
+}
+
+body.window-acrylic .settings-list-item,
+body.window-acrylic .hotkey-list-item,
+body.window-acrylic .help-list-item,
+body.window-acrylic .accent-tile,
+body.window-acrylic .unlock-slider-track {
+  background: rgb(8 10 14 / 18%);
+}
+
+body.window-acrylic .settings-list-item:hover,
+body.window-acrylic .hotkey-list-item:hover,
+body.window-acrylic .help-list-item:hover,
+body.window-acrylic .accent-tile:hover {
+  background: rgb(12 15 20 / 24%);
+}
+
+body.window-acrylic .settings-item-icon,
+body.window-acrylic .hotkey-item-icon,
+body.window-acrylic .help-item-icon,
+body.window-acrylic .accent-color-indicator,
+body.window-acrylic .hotkey-badge,
+body.window-acrylic .cpu-core {
+  background: rgb(10 12 16 / 22%);
+}
+
+body.window-acrylic .settings-list-item:hover .accent-color-indicator {
+  background: rgb(8 10 14 / 28%);
+}
+
+body.window-acrylic .interval-slider {
+  background: rgb(10 12 16 / 22%);
+}
+
+body.window-acrylic .warning-box {
+  background: rgb(38 28 8 / 20%);
+}
+
+body.window-acrylic header,
+body.window-acrylic .title-group,
+body.window-acrylic .mode-tabs,
+body.window-acrylic .section-row,
+body.window-acrylic .main-footer,
+body.window-acrylic .time-input-box,
+body.window-acrylic .toggle-row,
+body.window-acrylic .multi-button-row,
+body.window-acrylic .coord-input-box,
+body.window-acrylic .feature-btn,
+body.window-acrylic .footer-btn,
+body.window-acrylic .control-btn,
+body.window-acrylic .main-action-btn,
+body.window-acrylic .kb-key,
+body.window-acrylic .kb-record-btn,
+body.window-acrylic .macro-btn,
+body.window-acrylic .pick-btn,
+body.window-acrylic .variation-input,
+body.window-acrylic .section-container {
+  box-shadow: none;
+}
+
+::-webkit-scrollbar { width: 0; }
