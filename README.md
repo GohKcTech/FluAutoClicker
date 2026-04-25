@@ -6,13 +6,16 @@
 </div><br>
 
 
-<p align="center" width="100%">
-    <a href="https://agzes.github.io/go/to/discord"><image src="docs/readme/joincommunity.png" style="width:40%; min-width:150px; max-width:400px;"></a>
-    <br>
-    <image src="docs/readme/fluautoclicker.png">
-    <image src="docs/readme/comingsoon.png" style="width:60%; min-width:300px; max-width:800px;"><br>
-    <a href="https://agzes.github.io/"><image src="docs/readme/withlovebyagzes.png" style="width:35%; min-width:150px; max-width:400px;"></a>
-</p>
+<div align="center" width="100%">
+<a href="https://agzes.github.io/go/to/discord"><image src="docs/readme/joincommunity.png" style="width:40%; min-width:150px; max-width:400px;"></a>
+<br>
+<image src="docs/readme/fluautoclicker.png">
+    
+*a modern, cross-platform, and open-source auto clicker built with Rust and Tauri*
+<a href="https://github.com/Agzes/FluAutoClicker/releases/latest"><image src="docs/readme/downloadnow.png" style="width:60%; min-width:300px; max-width:800px;"></a><br>
+<a href="https://agzes.github.io/"><image src="docs/readme/withlovebyagzes.png" style="width:35%; min-width:150px; max-width:400px;"></a>
+</div>
 
 
 
+ReadME is todo, will do later. If you need compile clone and use basic tauri instructions. (fluautoclicker using pnpm, so all u need is rust and pnpm installed and then run `pnpm install` and `pnpm tauri dev` or `pnpm tauri build` for exe). 
