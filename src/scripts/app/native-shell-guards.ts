@@ -20,7 +20,6 @@ function shouldBlockBrowserShortcut(event: KeyboardEvent) {
     if (event.key === "F5") return true;
     if (event.key === "F3") return true;
     if (event.key === "F7") return true;
-    if (event.key === "F12") return true;
     if (event.altKey && event.key === "ArrowLeft") return true;
     if (event.altKey && event.key === "ArrowRight") return true;
     if (!hasModifier(event)) return false;
