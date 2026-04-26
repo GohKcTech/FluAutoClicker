@@ -1,4 +1,8 @@
+import { createRequire } from "node:module";
 import { defineConfig } from "vite";
+
+const require = createRequire(import.meta.url);
+const packageJson = require("./package.json");
 
 const host = process.env.TAURI_DEV_HOST;
 const devHost = host || "127.0.0.1";
@@ -6,6 +10,9 @@ const devHost = host || "127.0.0.1";
 export default defineConfig(async () => ({
   root: "src",
   clearScreen: false,
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+  },
   server: {
     port: 1420,
     strictPort: true,

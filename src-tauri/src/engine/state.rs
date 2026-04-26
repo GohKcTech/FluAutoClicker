@@ -113,63 +113,114 @@ pub struct ToggleHotkeyPressState {
 impl KeyboardModifier {
     #[cfg(target_os = "linux")]
     pub fn to_keys(&self) -> Vec<Key> {
-        match self {
-            KeyboardModifier::None => vec![],
-            KeyboardModifier::Ctrl => vec![Key::KEY_LEFTCTRL],
-            KeyboardModifier::Shift => vec![Key::KEY_LEFTSHIFT],
-            KeyboardModifier::Alt => vec![Key::KEY_LEFTALT],
-            KeyboardModifier::Win => vec![Key::KEY_LEFTMETA],
-            KeyboardModifier::CtrlShift => vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTSHIFT],
-            KeyboardModifier::CtrlAlt => vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTALT],
-            KeyboardModifier::CtrlWin => vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTMETA],
-            KeyboardModifier::ShiftAlt => vec![Key::KEY_LEFTSHIFT, Key::KEY_LEFTALT],
-            KeyboardModifier::ShiftWin => vec![Key::KEY_LEFTSHIFT, Key::KEY_LEFTMETA],
-            KeyboardModifier::AltWin => vec![Key::KEY_LEFTALT, Key::KEY_LEFTMETA],
-            KeyboardModifier::CtrlShiftAlt => {
-                vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTSHIFT, Key::KEY_LEFTALT]
-            }
-            KeyboardModifier::CtrlShiftWin => {
-                vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTSHIFT, Key::KEY_LEFTMETA]
-            }
-            KeyboardModifier::CtrlAltWin => {
-                vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTALT, Key::KEY_LEFTMETA]
-            }
-            KeyboardModifier::ShiftAltWin => {
-                vec![Key::KEY_LEFTSHIFT, Key::KEY_LEFTALT, Key::KEY_LEFTMETA]
-            }
-            KeyboardModifier::CtrlShiftAltWin => vec![
-                Key::KEY_LEFTCTRL,
-                Key::KEY_LEFTSHIFT,
-                Key::KEY_LEFTALT,
-                Key::KEY_LEFTMETA,
-            ],
+        let mut keys = Vec::new();
+
+        if self.has_ctrl() {
+            keys.push(Key::KEY_LEFTCTRL);
         }
+        if self.has_alt() {
+            keys.push(Key::KEY_LEFTALT);
+        }
+        if self.has_shift() {
+            keys.push(Key::KEY_LEFTSHIFT);
+        }
+        if self.has_win() {
+            keys.push(Key::KEY_LEFTMETA);
+        }
+
+        keys
+    }
+
+    pub fn has_ctrl(&self) -> bool {
+        matches!(
+            self,
+            KeyboardModifier::Ctrl
+                | KeyboardModifier::CtrlShift
+                | KeyboardModifier::CtrlAlt
+                | KeyboardModifier::CtrlWin
+                | KeyboardModifier::CtrlShiftAlt
+                | KeyboardModifier::CtrlShiftWin
+                | KeyboardModifier::CtrlAltWin
+                | KeyboardModifier::CtrlShiftAltWin
+        )
+    }
+
+    pub fn has_alt(&self) -> bool {
+        matches!(
+            self,
+            KeyboardModifier::Alt
+                | KeyboardModifier::CtrlAlt
+                | KeyboardModifier::ShiftAlt
+                | KeyboardModifier::AltWin
+                | KeyboardModifier::CtrlShiftAlt
+                | KeyboardModifier::CtrlAltWin
+                | KeyboardModifier::ShiftAltWin
+                | KeyboardModifier::CtrlShiftAltWin
+        )
+    }
+
+    pub fn has_shift(&self) -> bool {
+        matches!(
+            self,
+            KeyboardModifier::Shift
+                | KeyboardModifier::CtrlShift
+                | KeyboardModifier::ShiftAlt
+                | KeyboardModifier::ShiftWin
+                | KeyboardModifier::CtrlShiftAlt
+                | KeyboardModifier::CtrlShiftWin
+                | KeyboardModifier::ShiftAltWin
+                | KeyboardModifier::CtrlShiftAltWin
+        )
+    }
+
+    pub fn has_win(&self) -> bool {
+        matches!(
+            self,
+            KeyboardModifier::Win
+                | KeyboardModifier::CtrlWin
+                | KeyboardModifier::ShiftWin
+                | KeyboardModifier::AltWin
+                | KeyboardModifier::CtrlShiftWin
+                | KeyboardModifier::CtrlAltWin
+                | KeyboardModifier::ShiftAltWin
+                | KeyboardModifier::CtrlShiftAltWin
+        )
     }
 
     pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().trim() {
-            "ctrl" => KeyboardModifier::Ctrl,
-            "shift" => KeyboardModifier::Shift,
-            "alt" => KeyboardModifier::Alt,
-            "win" => KeyboardModifier::Win,
-            "ctrl+shift" | "shift+ctrl" => KeyboardModifier::CtrlShift,
-            "ctrl+alt" | "alt+ctrl" => KeyboardModifier::CtrlAlt,
-            "ctrl+win" | "win+ctrl" => KeyboardModifier::CtrlWin,
-            "shift+alt" | "alt+shift" => KeyboardModifier::ShiftAlt,
-            "shift+win" | "win+shift" => KeyboardModifier::ShiftWin,
-            "alt+win" | "win+alt" => KeyboardModifier::AltWin,
-            "ctrl+shift+alt" | "ctrl+alt+shift" | "shift+ctrl+alt" => {
-                KeyboardModifier::CtrlShiftAlt
+        let mut ctrl = false;
+        let mut alt = false;
+        let mut shift = false;
+        let mut win = false;
+
+        for part in s.to_lowercase().split('+').map(str::trim) {
+            match part {
+                "ctrl" | "control" => ctrl = true,
+                "alt" => alt = true,
+                "shift" => shift = true,
+                "win" | "meta" | "super" => win = true,
+                "none" | "" => {}
+                _ => return KeyboardModifier::None,
             }
-            "ctrl+shift+win" | "ctrl+win+shift" | "shift+ctrl+win" => {
-                KeyboardModifier::CtrlShiftWin
-            }
-            "ctrl+alt+win" | "ctrl+win+alt" | "alt+ctrl+win" => KeyboardModifier::CtrlAltWin,
-            "shift+alt+win" | "shift+win+alt" | "alt+shift+win" => KeyboardModifier::ShiftAltWin,
-            "ctrl+shift+alt+win" | "ctrl+shift+win+alt" | "ctrl+alt+shift+win" => {
-                KeyboardModifier::CtrlShiftAltWin
-            }
-            _ => KeyboardModifier::None,
+        }
+
+        match (ctrl, alt, shift, win) {
+            (false, false, false, false) => KeyboardModifier::None,
+            (true, false, false, false) => KeyboardModifier::Ctrl,
+            (false, false, true, false) => KeyboardModifier::Shift,
+            (false, true, false, false) => KeyboardModifier::Alt,
+            (false, false, false, true) => KeyboardModifier::Win,
+            (true, false, true, false) => KeyboardModifier::CtrlShift,
+            (true, true, false, false) => KeyboardModifier::CtrlAlt,
+            (true, false, false, true) => KeyboardModifier::CtrlWin,
+            (false, true, true, false) => KeyboardModifier::ShiftAlt,
+            (false, false, true, true) => KeyboardModifier::ShiftWin,
+            (false, true, false, true) => KeyboardModifier::AltWin,
+            (true, true, true, false) => KeyboardModifier::CtrlShiftAlt,
+            (true, false, true, true) => KeyboardModifier::CtrlShiftWin,
+            (true, true, false, true) => KeyboardModifier::CtrlAltWin,
+            (false, true, true, true) => KeyboardModifier::ShiftAltWin,
+            (true, true, true, true) => KeyboardModifier::CtrlShiftAltWin,
         }
     }
 

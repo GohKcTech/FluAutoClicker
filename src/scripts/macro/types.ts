@@ -5,6 +5,8 @@ export type MacroUiAction = {
     type: MacroActionType;
     name: string;
     details: string;
+    detailKeys?: string[];
+    detailSuffix?: string;
     icon: string;
 };
 
@@ -33,14 +35,14 @@ export type MacroBackendAction = {
     config?: {
         type?: MacroActionType;
         button?: string;
-        action?: string;
+        action?: unknown;
         position?: string | null;
         x?: number;
         y?: number;
         style?: string;
         key?: string;
         text?: string;
-        modifiers?: string;
+        modifiers?: unknown;
         duration_ms?: number;
     };
 };

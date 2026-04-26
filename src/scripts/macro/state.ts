@@ -14,7 +14,7 @@ const defaultState: MacroState = {
         supported_mouse_buttons: ["left", "middle", "right"],
         recording_supported: true,
         recording_reason: null,
-        pick_delay_ms: 2500,
+        pick_delay_ms: 5000,
     },
     recordingOptions: {
         record_mouse_clicks: true,

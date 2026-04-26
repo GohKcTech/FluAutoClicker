@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { setKeyBadgeContent } from "./key-badges";
+import { setSelectedMode } from "./ui";
+import type { AppMode } from "./ui";
+import { updateSliderFill } from "./utils";
 
 type Hotkeys = {
     toggle_start_stop: string;
@@ -159,6 +163,18 @@ function setInputValue(id: string, value: string | number) {
     }
 }
 
+function setSliderValueText(sliderId: string, value: string) {
+    const slider = document.getElementById(sliderId) as HTMLInputElement | null;
+    const valueEl = slider?.parentElement?.querySelector(".visual-slider-value");
+    if (valueEl) valueEl.textContent = value;
+}
+
+function refreshSliderFills() {
+    document.querySelectorAll(".interval-slider").forEach((slider) => {
+        updateSliderFill(slider as HTMLInputElement);
+    });
+}
+
 function setActiveButton(groupId: string, value: string) {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -210,16 +226,9 @@ function setKeyboardSelection(key: string, modifiers: string) {
         element.classList.toggle("active", isActive);
     });
 
-    const modifiersDisplay = document.getElementById("kb-modifiers-display");
-    const mainKeyDisplay = document.getElementById("kb-main-key-display");
-    if (modifiersDisplay) {
-        const display = Array.from(modifierSet)
-            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-            .join(" + ");
-        modifiersDisplay.textContent = display ? `${display} + ` : "";
-    }
-    if (mainKeyDisplay) {
-        mainKeyDisplay.textContent = normalizedKey || "...";
+    const comboDisplay = document.querySelector("#keyboard-section .kb-selected-combo");
+    if (comboDisplay) {
+        setKeyBadgeContent(comboDisplay, [...Array.from(modifierSet), normalizedKey || ""].filter(Boolean));
     }
 }
 
@@ -293,9 +302,13 @@ function applyConfigToUi(config: AppConfigFile) {
     setInputValue("kb-hold-duration", config.keyboard.hold_duration);
     setInputValue("kb-repeat-count", config.keyboard.repeat_count);
 
-    setInputValue("jiggler-slider", Math.max(1, Math.round(config.jiggler.interval_ms / 1000)));
+    const jigglerIntervalSeconds = Math.max(1, Math.round(config.jiggler.interval_ms / 1000));
+    setInputValue("jiggler-slider", jigglerIntervalSeconds);
     setInputValue("jiggler-distance-slider", config.jiggler.distance);
     setInputValue("multithread-slider", config.multithread.threads);
+    setSliderValueText("jiggler-slider", `${jigglerIntervalSeconds}s`);
+    setSliderValueText("jiggler-distance-slider", `${config.jiggler.distance}px`);
+    setSliderValueText("multithread-slider", `${config.multithread.threads} ${config.multithread.threads === 1 ? "Thread" : "Threads"}`);
 
     setActiveButton("mouse-button-toggle", config.mouse.button);
     setActiveButton("press-hold-toggle", config.mouse.click_mode);
@@ -324,13 +337,11 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("acrylic-toggle", frontendState.acrylic_enabled === true);
 
     const activeTabCandidate = String(frontendState.active_tab || "mouse");
-    const activeTab = APP_MODES.has(activeTabCandidate) ? activeTabCandidate : "mouse";
-    document.querySelectorAll(".mode-tabs .tab").forEach((tab) => {
-        tab.classList.toggle("active", (tab as HTMLElement).dataset.tab === activeTab);
-    });
-    document.querySelectorAll(".content-section").forEach((section) => {
-        section.classList.toggle("active", section.id === `${activeTab}-section`);
-    });
+    const activeTab: AppMode = APP_MODES.has(activeTabCandidate) ? activeTabCandidate as AppMode : "mouse";
+    setSelectedMode(activeTab);
+
+    refreshSliderFills();
+    requestAnimationFrame(refreshSliderFills);
 }
 
 export function applyPersistedConfig(config: AppConfigFile) {

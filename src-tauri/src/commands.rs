@@ -204,6 +204,38 @@ pub fn toggle_clicker(state: State<'_, Arc<AppState>>, app: AppHandle) -> bool {
 }
 
 #[tauri::command]
+pub async fn get_runtime_status(
+    state: State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let mouse_running = state.is_running.load(Ordering::SeqCst);
+    let keyboard_running = state.kb_is_running.load(Ordering::SeqCst);
+    let macro_player_state = state.macro_engine.player_state.lock().await.clone();
+    let macro_state = match macro_player_state {
+        MacroPlayerState::Stopped => "stopped",
+        MacroPlayerState::Playing => "playing",
+        MacroPlayerState::Recording => "recording",
+    };
+    let macro_running = macro_state == "playing";
+    let running_mode = if mouse_running {
+        Some("mouse")
+    } else if keyboard_running {
+        Some("keyboard")
+    } else if macro_running {
+        Some("macro")
+    } else {
+        None
+    };
+
+    Ok(serde_json::json!({
+        "mouse_running": mouse_running,
+        "keyboard_running": keyboard_running,
+        "macro_state": macro_state,
+        "running": mouse_running || keyboard_running || macro_running,
+        "running_mode": running_mode,
+    }))
+}
+
+#[tauri::command]
 pub fn set_cps(state: State<'_, Arc<AppState>>, cps: u32) {
     state
         .cps
@@ -1189,7 +1221,7 @@ pub async fn get_macro_capabilities(
         "supported_mouse_buttons": macro_supported_mouse_buttons(),
         "recording_supported": supported,
         "recording_reason": recording_error,
-        "pick_delay_ms": 2500u64,
+        "pick_delay_ms": 5000u64,
         "smooth_move_supported": true,
         "cursor_pick_supported": true
     }))

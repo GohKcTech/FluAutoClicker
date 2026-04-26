@@ -1,5 +1,6 @@
 import { updateIndicator } from "../utils";
 import { captureCursorPosition, normalizeKey } from "./backend";
+import { setKeyBadgeContent } from "../key-badges";
 import { macroState } from "./state";
 import type {
     MacroActionDraft,
@@ -129,6 +130,7 @@ function initKeyboardConfigUi() {
     const keyInput = document.getElementById("cfg-kb-key") as HTMLInputElement | null;
     const modifiersDisplay = document.getElementById("cfg-kb-modifiers-display");
     const mainKeyDisplay = document.getElementById("cfg-kb-main-key-display");
+    const comboDisplay = document.querySelector("#macro-config-content .kb-selected-combo");
     const slidingContainer = document.getElementById("cfg-kb-sliding-container");
     const numpadBack = document.getElementById("cfg-kb-numpad-back");
     const keyboardContainer = slidingContainer?.parentElement?.parentElement?.parentElement as HTMLElement | null;
@@ -147,20 +149,16 @@ function initKeyboardConfigUi() {
             activeMainKey = mainKey;
         }
 
-        const modifierText = activeModifiers.length > 0
-            ? activeModifiers.map((modifier) => modifier.charAt(0).toUpperCase() + modifier.slice(1)).join(" + ") + " + "
-            : "";
-        const mainText = activeMainKey || "...";
         const result = formatKeyboardCombo(activeModifiers, activeMainKey);
 
         if (keyInput) {
             keyInput.value = result;
         }
-        if (modifiersDisplay) {
-            modifiersDisplay.textContent = modifierText;
-        }
-        if (mainKeyDisplay) {
-            mainKeyDisplay.textContent = mainText;
+        if (comboDisplay || (modifiersDisplay && mainKeyDisplay)) {
+            setKeyBadgeContent(
+                comboDisplay || modifiersDisplay!.parentElement || modifiersDisplay!,
+                [...activeModifiers, activeMainKey || ""].filter(Boolean)
+            );
         }
     };
 

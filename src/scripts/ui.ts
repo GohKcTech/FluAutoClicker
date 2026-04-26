@@ -26,12 +26,46 @@ export function getSelectedMode(): AppMode {
     return "mouse";
 }
 
+export function setSelectedMode(mode: AppMode) {
+    const tabs = document.querySelectorAll<HTMLElement>(".mode-tabs .tab");
+    const sections = document.querySelectorAll<HTMLElement>(".content-section");
+    const tabContainer = document.querySelector<HTMLElement>(".mode-tabs");
+    const targetTab = document.querySelector<HTMLElement>(`.mode-tabs .tab[data-tab="${mode}"]`);
+
+    tabs.forEach(tab => tab.classList.toggle("active", tab.dataset.tab === mode));
+    sections.forEach(section => section.classList.toggle("active", section.id === `${mode}-section`));
+
+    if (tabContainer && targetTab) {
+        updateIndicator(tabContainer, targetTab);
+    }
+
+    const featureBar = document.getElementById("mouse-feature-bar");
+    if (featureBar) {
+        featureBar.style.display = mode === "mouse" ? "flex" : "none";
+    }
+}
+
 function formatThreadsLabel(raw: number | string): string {
     const count = Number(raw) || 0;
     return `${count} ${count === 1 ? 'Thread' : 'Threads'}`;
 }
 
 export function initInputs() {
+    let sliderResizeFrame = 0;
+    const refreshVisibleSliderFills = () => {
+        sliderResizeFrame = 0;
+        document.querySelectorAll('.interval-slider').forEach(slider => {
+            const input = slider as HTMLInputElement;
+            if (input.clientWidth > 0) updateSliderFill(input);
+        });
+    };
+    const scheduleSliderResizeRefresh = () => {
+        if (sliderResizeFrame) cancelAnimationFrame(sliderResizeFrame);
+        sliderResizeFrame = requestAnimationFrame(refreshVisibleSliderFills);
+    };
+
+    window.addEventListener('resize', scheduleSliderResizeRefresh);
+
     function updateCPS() {
         const h = parseInt((document.getElementById('mouse-hours') as HTMLInputElement)?.value) || 0;
         const m = parseInt((document.getElementById('mouse-minutes') as HTMLInputElement)?.value) || 0;

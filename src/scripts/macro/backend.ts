@@ -56,19 +56,60 @@ export function parseKeyboardCombo(raw: string) {
     return { key, modifiers };
 }
 
+function parseModifierList(value: unknown): string[] {
+    if (Array.isArray(value)) {
+        return value.map(String).map((part) => part.trim().toLowerCase()).filter(Boolean);
+    }
+
+    return String(value || "")
+        .split(/[+,]/)
+        .map((part) => part.trim().toLowerCase())
+        .filter((part) => part && part !== "none");
+}
+
+function getHoldMs(action: unknown): number | null {
+    if (typeof action === "string" && action.startsWith("hold_")) {
+        return Number.parseInt(action.replace("hold_", ""), 10);
+    }
+
+    if (action && typeof action === "object" && "hold" in action) {
+        const hold = (action as { hold?: { duration_ms?: unknown } }).hold;
+        const duration = Number(hold?.duration_ms);
+        return Number.isFinite(duration) ? duration : null;
+    }
+
+    return null;
+}
+
 export async function captureCursorPosition(
     pickButton: HTMLElement,
     xInputId: string,
     yInputId: string
 ) {
-    const delayMs = Math.max(0, Number(macroState.capabilities.pick_delay_ms || 2500));
+    const delayMs = Math.max(0, Number(macroState.capabilities.pick_delay_ms || 5000));
     const originalText = pickButton.innerHTML;
     const button = pickButton as HTMLButtonElement;
+    let countdownTimer: number | null = null;
 
     button.disabled = true;
-    pickButton.innerHTML = '<span class="icon">&#58633;</span> PICKING...';
     if (delayMs > 0) {
+        let remainingSeconds = Math.ceil(delayMs / 1000);
+        const renderCountdown = () => {
+            pickButton.innerHTML = `<span class="icon">&#58633;</span> PICK ${remainingSeconds}`;
+        };
+        renderCountdown();
+        countdownTimer = window.setInterval(() => {
+            remainingSeconds -= 1;
+            if (remainingSeconds > 0) {
+                renderCountdown();
+            } else {
+                window.clearInterval(countdownTimer!);
+                countdownTimer = null;
+            }
+        }, 1000);
         notify(`Move the cursor. Position will be captured in ${Math.round(delayMs / 1000)}s.`, "info", delayMs + 600);
+    } else {
+        pickButton.innerHTML = '<span class="icon">&#58633;</span> PICK';
     }
 
     try {
@@ -92,6 +133,9 @@ export async function captureCursorPosition(
     } catch (error) {
         notify(error instanceof Error ? error.message : String(error), "error", 3200);
     } finally {
+        if (countdownTimer !== null) {
+            window.clearInterval(countdownTimer);
+        }
         button.disabled = false;
         pickButton.innerHTML = originalText;
     }
@@ -111,8 +155,8 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
 
     if (type === "mouse") {
         const button = String(config.button || "left");
-        const action = String(config.action || "press");
-        const holdMs = action.startsWith("hold_") ? Number.parseInt(action.replace("hold_", ""), 10) : null;
+        const action = config.action || "press";
+        const holdMs = getHoldMs(action);
         const position = typeof config.position === "string" ? config.position : null;
 
         return {
@@ -140,16 +184,18 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
     if (type === "keyboard") {
         const text = typeof config.text === "string" && config.text.length > 0 ? config.text : "";
         const key = String(text || config.key || "a").toUpperCase();
-        const modifiers = String(config.modifiers || "");
-        const action = String(config.action || "press");
-        const holdMs = action.startsWith("hold_") ? Number.parseInt(action.replace("hold_", ""), 10) : null;
-        const combo = [modifiers, key].filter(Boolean).join(" + ");
+        const action = config.action || "press";
+        const holdMs = getHoldMs(action);
+        const detailKeys = [...parseModifierList(config.modifiers), key].filter(Boolean);
+        const combo = detailKeys.join(" + ");
 
         return {
             id,
             type,
             name: `Key ${holdMs ? "Hold" : "Press"}`,
             details: `${combo}${holdMs ? ` for ${holdMs}ms` : ""}`,
+            detailKeys,
+            detailSuffix: holdMs ? `for ${holdMs}ms` : "",
             icon: "&#57988;",
         };
     }

@@ -2,7 +2,7 @@
 <div align="center">
 
 `⚠️` Warning: Early beta version, full of bugs, and everything might break. <br>
-`🎉`  FluAutoClicker [next] v.0.1.0-beta.1 is now available!
+`🎉`  FluAutoClicker [next] v.0.1.0-beta.2 is now available!
 </div>
 
 

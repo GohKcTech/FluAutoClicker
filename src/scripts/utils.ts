@@ -37,8 +37,14 @@ export function updateSliderFill(slider: HTMLInputElement) {
     const min = parseFloat(slider.min) || 0;
     const max = parseFloat(slider.max) || 1000;
     const val = parseFloat(slider.value) || 0;
-    const percent = ((val - min) / (max - min)) * 100;
-    slider.style.background = `linear-gradient(to right, var(--accent-dim) ${percent}%, rgba(11, 11, 11, 1) ${percent}%)`;
+    const ratio = max === min ? 0 : Math.min(1, Math.max(0, (val - min) / (max - min)));
+    const thumbWidth = 16;
+    const fillPx = slider.clientWidth > thumbWidth
+        ? thumbWidth / 2 + ratio * (slider.clientWidth - thumbWidth)
+        : ratio * 100;
+    const fillStop = slider.clientWidth > thumbWidth ? `${fillPx}px` : `${fillPx}%`;
+
+    slider.style.background = `linear-gradient(to right, var(--accent-dim) ${fillStop}, rgba(11, 11, 11, 1) ${fillStop})`;
 }
 
 function getCssHighlightColor() {

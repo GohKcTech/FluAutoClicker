@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { setKeyBadgeContent } from "./key-badges";
 
 
 const MODIFIER_LABELS = ["ctrl", "alt", "win", "shift"];
@@ -19,6 +20,7 @@ export function initKeyboard() {
     const tsuKeys = keyboardSection.querySelectorAll<HTMLElement>('.kb-tsu');
     const kbMainKeyDisplay = document.getElementById('kb-main-key-display');
     const kbModifiersDisplay = document.getElementById('kb-modifiers-display');
+    const kbComboDisplay = document.querySelector("#keyboard-section .kb-selected-combo");
     const kbContainer = document.getElementById('kb-sliding-container');
     const numpadBackBtn = document.getElementById('kb-numpad-back');
     const recordBtn = document.getElementById('kb-record-btn');
@@ -54,23 +56,14 @@ export function initKeyboard() {
     }
 
     function updateDisplays() {
-        const modParts = Array.from(selectedModifiers);
-        const modString = modParts.length > 0
-            ? modParts.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(' + ') + ' + '
-            : '';
-
-        const mainLabel = selectedMainKey || '...';
-
-        if (kbModifiersDisplay) {
-            (kbModifiersDisplay as HTMLElement).textContent = modString;
-        }
-        if (kbMainKeyDisplay) {
-            (kbMainKeyDisplay as HTMLElement).textContent = mainLabel;
+        if (kbComboDisplay || (kbModifiersDisplay && kbMainKeyDisplay)) {
+            const combo = [...Array.from(selectedModifiers), selectedMainKey || ""].filter(Boolean);
+            setKeyBadgeContent(kbComboDisplay || kbModifiersDisplay!.parentElement || kbModifiersDisplay!, combo);
         }
     }
 
     function syncToBackend() {
-        const mainKey = selectedMainKey || "a";
+        const mainKey = selectedMainKey || "";
         const modifiers = selectedModifiers.size > 0
             ? Array.from(selectedModifiers).join('+')
             : "none";
@@ -381,7 +374,7 @@ export async function syncAllKeyboardSettings() {
     
     const keyboardSection = document.getElementById('keyboard-section') || document;
     const activeKeys = keyboardSection.querySelectorAll('.kb-key.active');
-    let mainKey = "a";
+    let mainKey = "";
     const modLabels: string[] = [];
 
     activeKeys.forEach(k => {

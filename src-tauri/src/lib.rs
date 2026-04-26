@@ -464,6 +464,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             toggle_clicker,
+            get_runtime_status,
             load_app_config,
             save_app_config,
             list_profiles_cmd,

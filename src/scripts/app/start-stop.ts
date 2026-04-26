@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { syncAllKeyboardSettings } from "../keyboard";
 import { syncAllMouseSettings } from "../mouse";
 import { notify } from "../notifications";
-import { getSelectedMode, updateTabStates } from "../ui";
+import { getSelectedMode, setSelectedMode, updateTabStates } from "../ui";
 import type { AppMode } from "../ui";
 
 type RunningPayload = {
@@ -16,6 +16,14 @@ type MacroStatusPayload = {
 };
 
 type SupportedTab = "mouse" | "keyboard" | "macro";
+
+type RuntimeStatusPayload = {
+    mouse_running?: boolean;
+    keyboard_running?: boolean;
+    macro_state?: string;
+    running?: boolean;
+    running_mode?: SupportedTab | null;
+};
 
 let runningMode: SupportedTab | null = null;
 let isToggling = false;
@@ -85,6 +93,27 @@ function rememberRunningMode(mode: AppMode, isRunning: boolean) {
 
     if (runningMode === mode) {
         runningMode = null;
+    }
+}
+
+function applyRuntimeStatus(status: RuntimeStatusPayload) {
+    const mode = status.running_mode || null;
+    runningMode = mode;
+
+    if (mode) {
+        setSelectedMode(mode);
+    }
+
+    setStartButtonState(Boolean(status.running));
+    updateTabStates();
+}
+
+async function syncRuntimeStatus() {
+    try {
+        const status = await invoke<RuntimeStatusPayload>("get_runtime_status");
+        applyRuntimeStatus(status);
+    } catch (error) {
+        console.error("Failed to sync runtime status", error);
     }
 }
 
@@ -172,6 +201,8 @@ export function initStartStopControls() {
             notify(String(event.payload.error), "error", 3600);
         }
     });
+
+    void syncRuntimeStatus();
 
     return toggleMouseClicker;
 }

@@ -202,24 +202,75 @@ fn string_to_enigo_key(key_str: &str) -> Key {
 
 #[cfg(not(target_os = "linux"))]
 fn modifier_to_enigo_keys(modifier: KeyboardModifier) -> Vec<Key> {
-    match modifier {
-        KeyboardModifier::None => vec![],
-        KeyboardModifier::Ctrl => vec![Key::Control],
-        KeyboardModifier::Shift => vec![Key::Shift],
-        KeyboardModifier::Alt => vec![Key::Alt],
-        KeyboardModifier::Win => vec![Key::Meta],
-        KeyboardModifier::CtrlShift => vec![Key::Control, Key::Shift],
-        KeyboardModifier::CtrlAlt => vec![Key::Control, Key::Alt],
-        KeyboardModifier::CtrlWin => vec![Key::Control, Key::Meta],
-        KeyboardModifier::ShiftAlt => vec![Key::Shift, Key::Alt],
-        KeyboardModifier::ShiftWin => vec![Key::Shift, Key::Meta],
-        KeyboardModifier::AltWin => vec![Key::Alt, Key::Meta],
-        KeyboardModifier::CtrlShiftAlt => vec![Key::Control, Key::Shift, Key::Alt],
-        KeyboardModifier::CtrlShiftWin => vec![Key::Control, Key::Shift, Key::Meta],
-        KeyboardModifier::CtrlAltWin => vec![Key::Control, Key::Alt, Key::Meta],
-        KeyboardModifier::ShiftAltWin => vec![Key::Shift, Key::Alt, Key::Meta],
-        KeyboardModifier::CtrlShiftAltWin => vec![Key::Control, Key::Shift, Key::Alt, Key::Meta],
+    let mut keys = Vec::new();
+
+    if modifier.has_ctrl() {
+        keys.push(Key::Control);
     }
+    if modifier.has_alt() {
+        keys.push(Key::Alt);
+    }
+    if modifier.has_shift() {
+        keys.push(Key::Shift);
+    }
+    if modifier.has_win() {
+        keys.push(Key::Meta);
+    }
+
+    keys
+}
+
+#[cfg(target_os = "windows")]
+fn windows_letter_scan(key_str: &str) -> Option<u16> {
+    let mut chars = key_str.chars();
+    let ch = chars.next()?.to_ascii_lowercase();
+    if chars.next().is_some() {
+        return None;
+    }
+
+    match ch {
+        'a' => Some(0x1E),
+        'b' => Some(0x30),
+        'c' => Some(0x2E),
+        'd' => Some(0x20),
+        'e' => Some(0x12),
+        'f' => Some(0x21),
+        'g' => Some(0x22),
+        'h' => Some(0x23),
+        'i' => Some(0x17),
+        'j' => Some(0x24),
+        'k' => Some(0x25),
+        'l' => Some(0x26),
+        'm' => Some(0x32),
+        'n' => Some(0x31),
+        'o' => Some(0x18),
+        'p' => Some(0x19),
+        'q' => Some(0x10),
+        'r' => Some(0x13),
+        's' => Some(0x1F),
+        't' => Some(0x14),
+        'u' => Some(0x16),
+        'v' => Some(0x2F),
+        'w' => Some(0x11),
+        'x' => Some(0x2D),
+        'y' => Some(0x15),
+        'z' => Some(0x2C),
+        _ => None,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn enigo_press_key(enigo: &mut Enigo, key_str: &str, key: Key, direction: Direction) {
+    if let Some(scan) = windows_letter_scan(key_str) {
+        let _ = enigo.raw(scan, direction);
+    } else {
+        let _ = enigo.key(key, direction);
+    }
+}
+
+#[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
+fn enigo_press_key(enigo: &mut Enigo, _key_str: &str, key: Key, direction: Direction) {
+    let _ = enigo.key(key, direction);
 }
 
 #[cfg(target_os = "linux")]
@@ -228,12 +279,14 @@ async fn perform_keyboard_press(device: &mut evdev::uinput::VirtualDevice, state
     let modifiers = state.keyboard_modifiers.lock().await.clone();
     let mode = *state.kb_click_mode.lock().await;
 
-    let key = match string_to_key(&key_str) {
-        Some(k) => k,
-        None => return,
-    };
-
+    let key = (!key_str.trim().is_empty())
+        .then(|| string_to_key(&key_str))
+        .flatten();
     let modifier_keys = modifiers.to_keys();
+
+    if key.is_none() && modifier_keys.is_empty() {
+        return;
+    }
 
     match mode {
         ClickMode::Press => {
@@ -244,12 +297,14 @@ async fn perform_keyboard_press(device: &mut evdev::uinput::VirtualDevice, state
                 ]);
             }
 
-            let _ = device.emit(&[
-                InputEvent::new(EventType::KEY, key.0, 1),
-                InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
-                InputEvent::new(EventType::KEY, key.0, 0),
-                InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
-            ]);
+            if let Some(key) = key {
+                let _ = device.emit(&[
+                    InputEvent::new(EventType::KEY, key.0, 1),
+                    InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
+                    InputEvent::new(EventType::KEY, key.0, 0),
+                    InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
+                ]);
+            }
 
             for &mod_key in modifier_keys.iter().rev() {
                 let _ = device.emit(&[
@@ -273,17 +328,21 @@ async fn perform_keyboard_press(device: &mut evdev::uinput::VirtualDevice, state
                 ]);
             }
 
-            let _ = device.emit(&[
-                InputEvent::new(EventType::KEY, key.0, 1),
-                InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
-            ]);
+            if let Some(key) = key {
+                let _ = device.emit(&[
+                    InputEvent::new(EventType::KEY, key.0, 1),
+                    InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
+                ]);
+            }
 
             tokio::time::sleep(tokio::time::Duration::from_millis(duration_ms as u64)).await;
 
-            let _ = device.emit(&[
-                InputEvent::new(EventType::KEY, key.0, 0),
-                InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
-            ]);
+            if let Some(key) = key {
+                let _ = device.emit(&[
+                    InputEvent::new(EventType::KEY, key.0, 0),
+                    InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
+                ]);
+            }
 
             for &mod_key in modifier_keys.iter().rev() {
                 let _ = device.emit(&[
@@ -301,8 +360,12 @@ async fn perform_keyboard_press(enigo: &mut Enigo, state: &AppState) {
     let modifiers = state.keyboard_modifiers.lock().await.clone();
     let mode = *state.kb_click_mode.lock().await;
 
-    let key = string_to_enigo_key(&key_str);
+    let key = (!key_str.trim().is_empty()).then(|| string_to_enigo_key(&key_str));
     let enigo_mod_keys = modifier_to_enigo_keys(modifiers);
+
+    if key.is_none() && enigo_mod_keys.is_empty() {
+        return;
+    }
 
     match mode {
         ClickMode::Press => {
@@ -310,7 +373,9 @@ async fn perform_keyboard_press(enigo: &mut Enigo, state: &AppState) {
                 let _ = enigo.key(mod_key, Direction::Press);
             }
 
-            let _ = enigo.key(key, Direction::Click);
+            if let Some(key) = key {
+                enigo_press_key(enigo, &key_str, key, Direction::Click);
+            }
 
             for &mod_key in enigo_mod_keys.iter().rev() {
                 let _ = enigo.key(mod_key, Direction::Release);
@@ -328,16 +393,42 @@ async fn perform_keyboard_press(enigo: &mut Enigo, state: &AppState) {
                 let _ = enigo.key(mod_key, Direction::Press);
             }
 
-            let _ = enigo.key(key, Direction::Press);
+            if let Some(key) = key {
+                enigo_press_key(enigo, &key_str, key, Direction::Press);
+            }
 
             tokio::time::sleep(tokio::time::Duration::from_millis(duration_ms as u64)).await;
 
-            let _ = enigo.key(key, Direction::Release);
+            if let Some(key) = key {
+                enigo_press_key(enigo, &key_str, key, Direction::Release);
+            }
 
             for &mod_key in enigo_mod_keys.iter().rev() {
                 let _ = enigo.key(mod_key, Direction::Release);
             }
         }
+    }
+}
+
+#[cfg(test)]
+#[cfg(not(target_os = "linux"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn modifier_keys_use_runtime_order() {
+        assert_eq!(
+            modifier_to_enigo_keys(KeyboardModifier::CtrlShiftAltWin),
+            vec![Key::Control, Key::Alt, Key::Shift, Key::Meta]
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_letters_use_physical_scan_codes() {
+        assert_eq!(windows_letter_scan("f"), Some(0x21));
+        assert_eq!(windows_letter_scan("F"), Some(0x21));
+        assert_eq!(windows_letter_scan("f1"), None);
     }
 }
 

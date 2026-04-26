@@ -203,11 +203,23 @@ export function initMouseSettings() {
         pickBtn.addEventListener('click', async () => {
             const button = pickBtn as HTMLButtonElement;
             const originalText = pickBtn.innerHTML;
-            const delayMs = 2500;
+            const delayMs = 5000;
+            let remainingSeconds = Math.ceil(delayMs / 1000);
+            const renderCountdown = () => {
+                pickBtn.innerHTML = `<span class="icon" style="margin-right: 6px; font-size: 14px;">&#58633;</span>PICK ${remainingSeconds}`;
+            };
 
             button.disabled = true;
-            pickBtn.innerHTML = '<span class="icon" style="margin-right: 6px; font-size: 14px;">&#58633;</span>PICKING...';
-            notify("Move the cursor. Position will be captured in 3s.", "info", delayMs + 600);
+            renderCountdown();
+            const countdownTimer = window.setInterval(() => {
+                remainingSeconds -= 1;
+                if (remainingSeconds > 0) {
+                    renderCountdown();
+                } else {
+                    window.clearInterval(countdownTimer);
+                }
+            }, 1000);
+            notify("Move the cursor. Position will be captured in 5s.", "info", delayMs + 600);
 
             try {
                 const position = (await invoke("pick_cursor_position", {
@@ -230,6 +242,7 @@ export function initMouseSettings() {
                 const message = e instanceof Error ? e.message : String(e);
                 notify(message, "error", 3200);
             } finally {
+                window.clearInterval(countdownTimer);
                 button.disabled = false;
                 pickBtn.innerHTML = originalText;
             }

@@ -11,6 +11,7 @@ const MIN_AUTO_RETRY_DELAY_MS = 30 * 1000;
 const LAST_CHECK_STORAGE_KEY = "flu-update-last-checked-at";
 const FRONTEND_STATE_STORAGE_KEY = "flu-frontend-state";
 const UPDATE_SNOOZE_STORAGE_KEY = "update_snoozed_until_by_version";
+const BUILD_VERSION = __APP_VERSION__;
 
 type UpdateManifest = {
   version: string;
@@ -110,6 +111,15 @@ function setVersionTag() {
   const currentVersionLabel = document.getElementById("updates-current-version");
   if (currentVersionLabel) {
     currentVersionLabel.textContent = `v${currentVersion}`;
+  }
+}
+
+async function resolveCurrentVersion(): Promise<string> {
+  try {
+    return normalizeVersion(await getVersion());
+  } catch (error) {
+    console.warn("Failed to read Tauri app version, using build version", error);
+    return normalizeVersion(BUILD_VERSION);
   }
 }
 
@@ -424,7 +434,10 @@ function bindActions() {
 }
 
 export async function initUpdateChecks() {
-  currentVersion = await getVersion();
+  currentVersion = normalizeVersion(BUILD_VERSION);
+  setVersionTag();
+
+  currentVersion = await resolveCurrentVersion();
   setVersionTag();
   setChannelPill();
   bindActions();

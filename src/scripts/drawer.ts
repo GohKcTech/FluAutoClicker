@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { notify } from "./notifications";
-import { } from "./utils";
+import { updateSliderFill } from "./utils";
 
 function formatThreadsLabel(raw: number | string): string {
     const count = Number(raw) || 0;
@@ -33,7 +33,7 @@ export function openDrawer(sectionId: string, title: string, icon?: string) {
     document.getElementById('content')?.classList.add('blurred');
     
     
-    setTimeout(refreshIndicators, 50);
+    setTimeout(() => refreshDrawerUi(target), 50);
 }
 
 export function closeDrawer() {
@@ -46,8 +46,7 @@ export function closeDrawer() {
     }, 300);
 }
 
-function refreshIndicators() {
-    
+function refreshDrawerUi(section?: HTMLElement | null) {
     const rows = document.querySelectorAll('.multi-button-row');
     rows.forEach(row => {
         const indicator = row.querySelector('.slide-indicator') as HTMLElement;
@@ -56,6 +55,10 @@ function refreshIndicators() {
             indicator.style.width = `${activeBtn.offsetWidth}px`;
             indicator.style.left = `${activeBtn.offsetLeft}px`;
         }
+    });
+
+    section?.querySelectorAll('.interval-slider').forEach(slider => {
+        updateSliderFill(slider as HTMLInputElement);
     });
 }
 

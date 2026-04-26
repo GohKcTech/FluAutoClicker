@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { setKeyBadgeContent } from "../key-badges";
 import { fromBackendAction } from "./backend";
 import { macroState } from "./state";
 import type { MacroBackendAction } from "./types";
@@ -36,12 +37,30 @@ export function renderActions() {
             <div class="action-icon"><span class="icon">${action.icon}</span></div>
             <div class="action-info">
                 <span class="action-name">${action.name}</span>
-                <span class="action-details">${action.details}</span>
+                <span class="action-details"></span>
             </div>
             <button class="action-remove" data-id="${action.id}">
                 <span class="icon">&#57742;</span>
             </button>
         `;
+
+        const details = item.querySelector(".action-details");
+        if (details && action.detailKeys?.length) {
+            details.classList.add("action-details-keys");
+            const combo = document.createElement("span");
+            combo.className = "key-badge-combo";
+            setKeyBadgeContent(combo, action.detailKeys);
+            details.appendChild(combo);
+
+            if (action.detailSuffix) {
+                const suffix = document.createElement("span");
+                suffix.className = "action-detail-suffix";
+                suffix.textContent = action.detailSuffix;
+                details.appendChild(suffix);
+            }
+        } else if (details) {
+            details.textContent = action.details;
+        }
 
         item.querySelector(".action-remove")?.addEventListener("click", () => {
             item.classList.add("removing");
