@@ -1,6 +1,6 @@
 use crate::engine::state::{AppState, ClickMode, HoldUnit, RepeatMode, RepeatUnit};
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "windows")]
@@ -502,7 +502,7 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
                 }
             }
 
-            let cps = state.kb_cps.load(Ordering::SeqCst);
+            let interval_ms = state.kb_interval_ms.load(Ordering::SeqCst);
             let multithread_active = state.is_multithread_active.load(Ordering::SeqCst);
             let threads = if multithread_active {
                 state.threads_count.load(Ordering::SeqCst).max(1)
@@ -510,29 +510,13 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
                 1
             };
 
-            #[cfg(target_os = "windows")]
-            let total_target_cps = {
-                let requested = if cps == 0 {
-                    1000u32.saturating_mul(threads)
-                } else {
-                    cps.saturating_mul(threads)
-                };
-                if multithread_active {
-                    requested.max(1)
-                } else {
-                    requested.clamp(1, WINDOWS_MAX_TOTAL_CPS)
-                }
-            };
-
-            #[cfg(not(target_os = "windows"))]
-            let total_target_cps = if cps == 0 {
-                1000u32.saturating_mul(threads)
+            let interval_us = if interval_ms == 0 {
+                200
             } else {
-                cps.saturating_mul(threads)
-            }
-            .max(1);
-
-            let interval_us = (1_000_000u32 / total_target_cps).max(200);
+                ((interval_ms as u64 * 1000) / threads as u64)
+                    .max(200)
+                    .min(u32::MAX as u64) as u32
+            };
 
             let variation_ms = state.kb_variation_ms.load(Ordering::SeqCst);
             let final_interval_us = if variation_ms > 0 {

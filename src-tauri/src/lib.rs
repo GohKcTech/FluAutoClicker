@@ -47,6 +47,33 @@ fn clear_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(_wi
     false
 }
 
+pub(crate) fn window_acrylic_supported() -> bool {
+    cfg!(target_os = "windows")
+}
+
+pub(crate) fn system_startup_supported() -> bool {
+    cfg!(target_os = "windows")
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn is_wayland_session() -> bool {
+    std::env::var("XDG_SESSION_TYPE")
+        .map(|session| session.eq_ignore_ascii_case("wayland"))
+        .unwrap_or(false)
+        || std::env::var("WAYLAND_DISPLAY")
+            .map(|display| !display.trim().is_empty())
+            .unwrap_or(false)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn is_wayland_session() -> bool {
+    false
+}
+
+pub(crate) fn global_hotkeys_supported() -> bool {
+    !is_wayland_session()
+}
+
 pub(crate) fn apply_window_acrylic<W: raw_window_handle::HasWindowHandle + ?Sized>(
     window: &W,
 ) -> bool {
@@ -200,6 +227,9 @@ pub(crate) async fn apply_config_to_state(state: &Arc<AppState>, config: &AppCon
         .kb_cps
         .store(config.keyboard.cps.max(1), Ordering::SeqCst);
     state
+        .kb_interval_ms
+        .store((1000 / config.keyboard.cps.max(1)).max(1), Ordering::SeqCst);
+    state
         .kb_variation_ms
         .store(config.keyboard.variation_ms, Ordering::SeqCst);
     state
@@ -331,6 +361,10 @@ pub(crate) fn register_runtime_hotkeys(
     manager
         .unregister_all()
         .map_err(|e| format!("failed to clear hotkeys: {e}"))?;
+
+    if !global_hotkeys_supported() {
+        return Ok(());
+    }
 
     for key in [
         hotkeys.toggle_start_stop.as_str(),
@@ -508,6 +542,7 @@ pub fn run() {
             set_keyboard_repeat_count,
             set_keyboard_repeat_unit,
             set_keyboard_cps,
+            set_keyboard_interval_ms,
             set_keyboard_variation_ms,
             add_macro_action,
             remove_macro_action,
@@ -527,6 +562,7 @@ pub fn run() {
             start_macro_recording,
             stop_macro_recording,
             get_hotkeys,
+            get_platform_capabilities,
             suspend_hotkeys,
             resume_hotkeys,
             set_hotkey,

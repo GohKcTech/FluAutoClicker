@@ -59,8 +59,12 @@ pub async fn load_app_config() -> Result<crate::engine::config_store::AppConfigF
 pub async fn save_app_config(
     state: State<'_, Arc<AppState>>,
     app: AppHandle,
-    config: crate::engine::config_store::AppConfigFile,
+    mut config: crate::engine::config_store::AppConfigFile,
 ) -> Result<(), String> {
+    if !crate::system_startup_supported() {
+        config.general.autostart = false;
+    }
+
     set_system_startup_impl(&app, config.general.autostart)?;
     state
         .minimize_to_tray
@@ -371,6 +375,10 @@ pub fn quit_app(state: State<'_, Arc<AppState>>, app: AppHandle) {
 
 #[tauri::command]
 pub fn set_start_on_system_startup(app: AppHandle, enabled: bool) -> Result<(), String> {
+    if enabled && !crate::system_startup_supported() {
+        return Err("Start on system startup is not supported on this desktop.".to_string());
+    }
+
     set_system_startup_impl(&app, enabled)
 }
 
@@ -379,6 +387,7 @@ pub fn get_start_on_system_startup(app: AppHandle) -> Result<bool, String> {
     get_system_startup_impl(&app)
 }
 
+#[cfg(target_os = "windows")]
 fn startup_command(app: &AppHandle) -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| format!("Failed to resolve app path: {e}"))?;
     let exe = exe
@@ -415,7 +424,11 @@ fn set_system_startup_impl(app: &AppHandle, enabled: bool) -> Result<(), String>
 
 #[cfg(not(target_os = "windows"))]
 fn set_system_startup_impl(_app: &AppHandle, _enabled: bool) -> Result<(), String> {
-    Err("Start on system startup is only implemented on Windows.".to_string())
+    if _enabled {
+        Err("Start on system startup is only implemented on Windows.".to_string())
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -562,6 +575,16 @@ pub async fn get_hotkeys(state: State<'_, Arc<AppState>>) -> Result<RuntimeHotke
 }
 
 #[tauri::command]
+pub fn get_platform_capabilities() -> serde_json::Value {
+    serde_json::json!({
+        "window_acrylic": crate::window_acrylic_supported(),
+        "system_startup": crate::system_startup_supported(),
+        "global_hotkeys": crate::global_hotkeys_supported(),
+        "wayland": crate::is_wayland_session(),
+    })
+}
+
+#[tauri::command]
 pub fn suspend_hotkeys(state: State<'_, Arc<AppState>>, app: AppHandle) -> Result<(), String> {
     state.hotkeys_suspended.store(true, Ordering::SeqCst);
 
@@ -578,6 +601,12 @@ pub fn suspend_hotkeys(state: State<'_, Arc<AppState>>, app: AppHandle) -> Resul
 
 #[tauri::command]
 pub async fn resume_hotkeys(state: State<'_, Arc<AppState>>, app: AppHandle) -> Result<(), String> {
+    if !crate::global_hotkeys_supported() {
+        state.hotkeys_suspended.store(true, Ordering::SeqCst);
+        let _ = app.global_shortcut().unregister_all();
+        return Err("Global hotkeys are not supported on Wayland sessions.".to_string());
+    }
+
     state.hotkeys_suspended.store(false, Ordering::SeqCst);
     let hotkeys = state.hotkeys.lock().await.clone();
 
@@ -596,6 +625,10 @@ pub async fn set_hotkey(
     action: String,
     shortcut: String,
 ) -> Result<RuntimeHotkeys, String> {
+    if !crate::global_hotkeys_supported() {
+        return Err("Global hotkeys are not supported on Wayland sessions.".to_string());
+    }
+
     let normalized_action = action.trim().to_lowercase();
     let parsed_shortcut =
         Shortcut::from_str(shortcut.trim()).map_err(|e| format!("Invalid shortcut: {e}"))?;
@@ -829,6 +862,14 @@ pub fn set_keyboard_cps(state: State<'_, Arc<AppState>>, cps: u32) {
     state
         .kb_cps
         .store(clamp_u32(cps, MIN_CPS, MAX_CPS), Ordering::SeqCst);
+}
+
+#[tauri::command]
+pub fn set_keyboard_interval_ms(state: State<'_, Arc<AppState>>, interval_ms: u32) {
+    state.kb_interval_ms.store(
+        interval_ms.min(MAX_MACRO_ACTION_DURATION_MS),
+        Ordering::SeqCst,
+    );
 }
 
 #[tauri::command]

@@ -2,8 +2,8 @@ use crate::engine::state::{
     AppState, ClickMode, HoldUnit, MouseButton, PositionMode, RepeatMode, RepeatUnit,
 };
 use enigo::{Enigo, Mouse, Settings};
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "windows")]

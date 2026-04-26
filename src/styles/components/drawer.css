@@ -344,6 +344,23 @@
   border-color: var(--accent-dim);
 }
 
+.settings-list-item.disabled,
+.hotkey-list-item.disabled {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+}
+
+.settings-list-item.disabled:hover,
+.hotkey-list-item.disabled:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: transparent;
+}
+
+.settings-list-item.disabled .drawer-toggle,
+.hotkey-list-item.disabled .hotkey-badge {
+  filter: grayscale(1);
+}
+
 .hotkey-item-icon {
   width: 36px;
   height: 36px;

@@ -125,6 +125,7 @@ export function initInputs() {
             const totalMs = h * 3600000 + m * 60000 + s * 1000 + ms;
             const cps = totalMs > 0 ? Math.round(1000 / totalMs) : 10000;
             invoke("set_keyboard_cps", { cps });
+            invoke("set_keyboard_interval_ms", { intervalMs: totalMs });
             
             const variation = parseInt(kbVariation?.value) || 0;
             invoke("set_keyboard_variation_ms", { variation });

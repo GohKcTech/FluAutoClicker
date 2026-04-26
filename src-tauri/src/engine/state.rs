@@ -287,6 +287,7 @@ pub struct AppState {
     pub kb_repeat_unit: Mutex<RepeatUnit>,
     pub kb_is_running: AtomicBool,
     pub kb_cps: AtomicU32,
+    pub kb_interval_ms: AtomicU32,
     pub kb_variation_ms: AtomicU32,
 
     #[cfg(target_os = "linux")]
@@ -340,6 +341,7 @@ impl Default for AppState {
             kb_repeat_unit: Mutex::new(RepeatUnit::Times),
             kb_is_running: AtomicBool::new(false),
             kb_cps: AtomicU32::new(10),
+            kb_interval_ms: AtomicU32::new(100),
             kb_variation_ms: AtomicU32::new(0),
 
             #[cfg(target_os = "linux")]

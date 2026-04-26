@@ -1,6 +1,7 @@
 import { getSystemAccentColor, updateSliderFill } from "./utils";
 import { applyWindowEffects, isAcrylicPreferred, setAcrylicPreferred } from "./window-effects";
 import { emitSettingsChanged } from "./settings-persistence";
+import { getPlatformCapabilities } from "./platform-capabilities";
 
 type HsvColor = {
     h: number;
@@ -282,6 +283,7 @@ export function initTheme() {
     const storedNoItalic = localStorage.getItem('flu-no-italic') === 'true';
     const acrylicTrigger = document.getElementById('acrylic-toggle-trigger');
     const acrylicToggle = document.getElementById('acrylic-toggle');
+    let acrylicSupported = true;
     
     if (italicTrigger && italicToggle) {
         if (storedNoItalic) {
@@ -305,7 +307,30 @@ export function initTheme() {
 
         syncAcrylicToggle(isAcrylicPreferred());
 
+        void getPlatformCapabilities().then((capabilities) => {
+            acrylicSupported = capabilities.window_acrylic;
+            acrylicTrigger.classList.toggle('disabled', !acrylicSupported);
+            acrylicTrigger.setAttribute(
+                'aria-disabled',
+                acrylicSupported ? 'false' : 'true',
+            );
+
+            if (!acrylicSupported) {
+                setAcrylicPreferred(false);
+                syncAcrylicToggle(false);
+                void applyWindowEffects(false);
+                const description = acrylicTrigger.querySelector<HTMLElement>('.settings-item-desc');
+                if (description) {
+                    description.textContent = 'Unavailable on this desktop';
+                }
+            }
+        });
+
         acrylicTrigger.addEventListener('click', async () => {
+            if (!acrylicSupported) {
+                return;
+            }
+
             const next = !acrylicToggle.classList.contains('active');
             setAcrylicPreferred(next);
             emitSettingsChanged();
@@ -323,6 +348,6 @@ export function initTheme() {
         const noItalic = localStorage.getItem('flu-no-italic') === 'true';
         italicToggle?.classList.toggle('active', noItalic);
         document.body.classList.toggle('font-no-italic', noItalic);
-        acrylicToggle?.classList.toggle('active', isAcrylicPreferred());
+        acrylicToggle?.classList.toggle('active', acrylicSupported && isAcrylicPreferred());
     });
 }

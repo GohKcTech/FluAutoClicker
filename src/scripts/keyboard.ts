@@ -398,6 +398,7 @@ export async function syncAllKeyboardSettings() {
     const totalMs = h * 3600000 + m * 60000 + s * 1000 + ms;
     const cps = totalMs > 0 ? Math.round(1000 / totalMs) : 10000;
     await invoke("set_keyboard_cps", { cps });
+    await invoke("set_keyboard_interval_ms", { intervalMs: totalMs });
 
     
     const variation = parseInt((document.getElementById('kb-variation') as HTMLInputElement)?.value) || 0;

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { setKeyBadgeContent } from "./key-badges";
+import { getPlatformCapabilities, type PlatformCapabilities } from "./platform-capabilities";
 import { setSelectedMode } from "./ui";
 import type { AppMode } from "./ui";
 import { updateSliderFill } from "./utils";
@@ -82,6 +83,11 @@ const APP_MODES = new Set(["mouse", "keyboard", "macro"]);
 let currentConfig: AppConfigFile | null = null;
 let saveTimeoutId: number | null = null;
 let isApplyingSnapshot = false;
+let platformCapabilities: PlatformCapabilities | null = null;
+
+function isSystemStartupAvailable() {
+    return platformCapabilities?.system_startup !== false;
+}
 
 function defaultConfig(): AppConfigFile {
     return {
@@ -331,7 +337,14 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("multithread-btn", config.multithread.active);
     setActiveButton("multithread-mode-row", config.multithread.mode);
 
-    setToggleState("autostart-toggle", config.general.autostart);
+    setToggleState("autostart-toggle", isSystemStartupAvailable() && config.general.autostart);
+    const autostartTrigger = document.getElementById("autostart-trigger");
+    autostartTrigger?.classList.toggle("disabled", !isSystemStartupAvailable());
+    autostartTrigger?.setAttribute("aria-disabled", isSystemStartupAvailable() ? "false" : "true");
+    if (!isSystemStartupAvailable()) {
+        const desc = autostartTrigger?.querySelector<HTMLElement>(".settings-item-desc");
+        if (desc) desc.textContent = "Unavailable on this desktop";
+    }
     setToggleState("tray-toggle", config.general.minimize_to_tray);
     setToggleState("remove-italic-toggle", config.general.remove_italic);
     setToggleState("acrylic-toggle", frontendState.acrylic_enabled === true);
@@ -423,7 +436,8 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
             theme_name: localStorage.getItem("flu-theme-name") || base.general.theme_name,
             remove_italic: localStorage.getItem("flu-no-italic") === "true",
             language: "en",
-            autostart: document.getElementById("autostart-toggle")?.classList.contains("active") ?? base.general.autostart,
+            autostart: isSystemStartupAvailable()
+                && (document.getElementById("autostart-toggle")?.classList.contains("active") ?? base.general.autostart),
             minimize_to_tray: document.getElementById("tray-toggle")?.classList.contains("active") ?? base.general.minimize_to_tray,
         },
         mouse: {
@@ -539,6 +553,10 @@ function initSimpleToggle(
     if (!trigger || !toggle) return;
 
     trigger.addEventListener("click", () => {
+        if (trigger.classList.contains("disabled") || trigger.getAttribute("aria-disabled") === "true") {
+            return;
+        }
+
         toggle.classList.toggle("active");
         const active = toggle.classList.contains("active");
         void Promise.resolve(onToggle?.(active)).catch((error) => {
@@ -557,8 +575,10 @@ export function emitSettingsChanged() {
 export async function loadPersistedSettings() {
     isApplyingSnapshot = true;
     try {
+        platformCapabilities = await getPlatformCapabilities();
         currentConfig = await invoke<AppConfigFile>("load_app_config");
     } catch {
+        platformCapabilities = platformCapabilities || await getPlatformCapabilities();
         currentConfig = defaultConfig();
     }
 
@@ -572,7 +592,14 @@ export async function persistCurrentSettings(): Promise<AppConfigFile> {
 }
 
 export async function initSettingsPersistence() {
+    platformCapabilities = platformCapabilities || await getPlatformCapabilities();
+
     initSimpleToggle("autostart-trigger", "autostart-toggle", async (active) => {
+        if (!isSystemStartupAvailable()) {
+            document.getElementById("autostart-toggle")?.classList.remove("active");
+            return;
+        }
+
         await invoke("set_start_on_system_startup", { enabled: active });
     });
     initSimpleToggle("tray-trigger", "tray-toggle", async (active) => {

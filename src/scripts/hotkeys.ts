@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { notify } from "./notifications";
+import { getPlatformCapabilities } from "./platform-capabilities";
 
 type HotkeyAction =
     | "toggle_start_stop"
@@ -144,6 +145,8 @@ async function fetchHotkeys(): Promise<RuntimeHotkeys> {
 export async function initHotkeysEditor() {
     const rows = Array.from(document.querySelectorAll<HTMLElement>(".hotkey-list-item[data-hotkey-action]"));
     if (!rows.length) return;
+    const capabilities = await getPlatformCapabilities();
+    const hotkeysAvailable = capabilities.global_hotkeys;
 
     const rowByAction = new Map<HotkeyAction, HTMLElement>();
     rows.forEach((row) => {
@@ -168,10 +171,18 @@ export async function initHotkeysEditor() {
 
             const raw = getHotkeyValue(hotkeys, action);
             badge.dataset.rawHotkey = raw;
-            badge.textContent = formatHotkeyDisplay(raw);
+            badge.textContent = hotkeysAvailable ? formatHotkeyDisplay(raw) : "Unavailable";
+            badge.title = hotkeysAvailable ? "Click to change" : "Global hotkeys are unavailable on Wayland";
+            row.classList.toggle("disabled", !hotkeysAvailable);
+            row.setAttribute("aria-disabled", hotkeysAvailable ? "false" : "true");
         });
 
-        updateStartHotkeyLabel(hotkeys);
+        if (hotkeysAvailable) {
+            updateStartHotkeyLabel(hotkeys);
+        } else {
+            const label = document.querySelector<HTMLElement>(".start-hotkey");
+            if (label) label.textContent = "BETA";
+        }
     };
 
     const clearCaptureState = async (restoreBadge: boolean, resumeHotkeys = true) => {
@@ -241,6 +252,11 @@ export async function initHotkeysEditor() {
     };
 
     const startCapture = async (row: HTMLElement, action: HotkeyAction) => {
+        if (!hotkeysAvailable) {
+            notify("Global hotkeys are unavailable on Wayland", "info", 2400);
+            return;
+        }
+
         const badge = row.querySelector<HTMLElement>("[data-hotkey-value]");
         if (!badge) return;
 
