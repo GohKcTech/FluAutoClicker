@@ -1,8 +1,6 @@
-use crate::engine::state::{
-    AppState, ClickMode, HoldUnit, KeyboardModifier, RepeatMode, RepeatUnit,
-};
-use std::sync::atomic::Ordering;
+use crate::engine::state::{AppState, ClickMode, HoldUnit, RepeatMode, RepeatUnit};
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "windows")]
@@ -10,6 +8,9 @@ const WINDOWS_MAX_TOTAL_CPS: u32 = 650;
 
 #[cfg(not(target_os = "linux"))]
 use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+
+#[cfg(not(target_os = "linux"))]
+use crate::engine::state::KeyboardModifier;
 
 #[cfg(target_os = "linux")]
 use evdev::{EventType, InputEvent, Key};
@@ -534,7 +535,7 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
             let interval_us = (1_000_000u32 / total_target_cps).max(200);
 
             let variation_ms = state.kb_variation_ms.load(Ordering::SeqCst);
-            let mut final_interval_us = if variation_ms > 0 {
+            let final_interval_us = if variation_ms > 0 {
                 use rand::Rng;
                 let mut rng = rand::thread_rng();
                 let variation_us = rng.gen_range(0..=variation_ms * 1000) as u64;
@@ -549,12 +550,14 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
             };
 
             #[cfg(target_os = "windows")]
-            {
+            let final_interval_us = {
+                let mut final_interval_us = final_interval_us;
                 if !multithread_active {
                     let min_interval_us = 1_000_000u32 / WINDOWS_MAX_TOTAL_CPS;
                     final_interval_us = final_interval_us.max(min_interval_us);
                 }
-            }
+                final_interval_us
+            };
 
             #[cfg(target_os = "linux")]
             {

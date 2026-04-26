@@ -2,8 +2,8 @@ use crate::engine::state::{
     AppState, ClickMode, HoldUnit, MouseButton, PositionMode, RepeatMode, RepeatUnit,
 };
 use enigo::{Enigo, Mouse, Settings};
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "windows")]
@@ -42,7 +42,7 @@ fn map_extended_button() -> Result<Button, String> {
     Err("Front mouse button is not supported on macOS in this build.".to_string())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
 fn map_extended_button() -> Result<Button, String> {
     Ok(Button::Back)
 }
@@ -52,7 +52,7 @@ fn map_back_button() -> Result<Button, String> {
     Err("Back mouse button is not supported on macOS in this build.".to_string())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
 fn map_back_button() -> Result<Button, String> {
     Ok(Button::Forward)
 }
@@ -256,7 +256,7 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
             let interval_us = (1_000_000u32 / total_target_cps).max(200);
 
             let variation_ms = state.variation_ms.load(Ordering::SeqCst);
-            let mut final_interval_us = if variation_ms > 0 {
+            let final_interval_us = if variation_ms > 0 {
                 use rand::Rng;
                 let mut rng = rand::thread_rng();
                 let variation_us = rng.gen_range(0..=variation_ms * 1000) as u64;
@@ -271,12 +271,14 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
             };
 
             #[cfg(target_os = "windows")]
-            {
+            let final_interval_us = {
+                let mut final_interval_us = final_interval_us;
                 if !multithread_active {
                     let min_interval_us = 1_000_000u32 / WINDOWS_MAX_TOTAL_CPS;
                     final_interval_us = final_interval_us.max(min_interval_us);
                 }
-            }
+                final_interval_us
+            };
 
             let position_mode = *state.position_mode.lock().await;
             if position_mode == PositionMode::Custom {

@@ -161,6 +161,53 @@ fn modifier_to_key(modifier: &str) -> Option<Key> {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn str_to_key(key: &str) -> Key {
+    match key.to_lowercase().as_str() {
+        "space" => return Key::Space,
+        "enter" => return Key::Return,
+        "tab" => return Key::Tab,
+        "backspace" => return Key::Backspace,
+        "escape" => return Key::Escape,
+        "delete" => return Key::Delete,
+        "insert" => return Key::Insert,
+        "home" => return Key::Home,
+        "end" => return Key::End,
+        "pageup" => return Key::PageUp,
+        "pagedown" => return Key::PageDown,
+        "up" => return Key::UpArrow,
+        "down" => return Key::DownArrow,
+        "left" => return Key::LeftArrow,
+        "right" => return Key::RightArrow,
+        "f1" => return Key::F1,
+        "f2" => return Key::F2,
+        "f3" => return Key::F3,
+        "f4" => return Key::F4,
+        "f5" => return Key::F5,
+        "f6" => return Key::F6,
+        "f7" => return Key::F7,
+        "f8" => return Key::F8,
+        "f9" => return Key::F9,
+        "f10" => return Key::F10,
+        "f11" => return Key::F11,
+        "f12" => return Key::F12,
+        "numpad0" => return Key::Unicode('0'),
+        "numpad1" => return Key::Unicode('1'),
+        "numpad2" => return Key::Unicode('2'),
+        "numpad3" => return Key::Unicode('3'),
+        "numpad4" => return Key::Unicode('4'),
+        "numpad5" => return Key::Unicode('5'),
+        "numpad6" => return Key::Unicode('6'),
+        "numpad7" => return Key::Unicode('7'),
+        "numpad8" => return Key::Unicode('8'),
+        "numpad9" => return Key::Unicode('9'),
+        _ => {}
+    }
+
+    Key::Unicode(key.chars().next().unwrap_or('a'))
+}
+
+#[cfg(not(target_os = "linux"))]
 fn str_to_key(key: &str) -> Key {
     match key.to_lowercase().as_str() {
         "a" => return Key::A,
