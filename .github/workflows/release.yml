@@ -116,6 +116,7 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $versionTag = $tag
+          $assetVersion = $versionTag -replace '^v\.?', ''
           "name=$tag $([char]0x2022) FluAutoClicker [next]" >> $env:GITHUB_OUTPUT
 
           $notesPath = "docs/release-notes/$versionTag.md"
@@ -150,8 +151,23 @@ jobs:
             } |
             ForEach-Object {
               $targetName = $_.Name
-              if ($_.Name -eq "fluautoclicker.exe") {
-                $targetName = "FluAutoClicker-$versionTag-windows-x64.exe"
+              switch -Regex ($_.Name) {
+                '^fluautoclicker\.exe$' {
+                  $targetName = "FluAutoClicker-$assetVersion-windows-x64.exe"
+                  break
+                }
+                '\.AppImage$' {
+                  $targetName = "FluAutoClicker-$assetVersion-linux-x64.AppImage"
+                  break
+                }
+                '\.deb$' {
+                  $targetName = "FluAutoClicker-$assetVersion-linux-x64.deb"
+                  break
+                }
+                '\.rpm$' {
+                  $targetName = "FluAutoClicker-$assetVersion-linux-x64.rpm"
+                  break
+                }
               }
 
               Copy-Item $_.FullName -Destination (Join-Path "release-assets" $targetName)
@@ -161,13 +177,28 @@ jobs:
             throw "No release assets were found after filtering."
           }
 
-          Get-ChildItem release-assets -File |
-            Sort-Object Name |
+          $assetOrder = @(
+            "FluAutoClicker-$assetVersion-windows-x64.exe",
+            "FluAutoClicker-$assetVersion-linux-x64.AppImage",
+            "FluAutoClicker-$assetVersion-linux-x64.deb",
+            "FluAutoClicker-$assetVersion-linux-x64.rpm"
+          )
+
+          $assetOrder |
+            Where-Object { Test-Path (Join-Path "release-assets" $_) } |
             ForEach-Object {
-              $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-              "$hash  $($_.Name)"
+              $filePath = Join-Path "release-assets" $_
+              $hash = (Get-FileHash $filePath -Algorithm SHA256).Hash.ToLowerInvariant()
+              "$hash  $_"
             } |
             Set-Content -Path release-assets/SHA256SUMS.txt -Encoding ASCII
+
+          "files<<EOF" >> $env:GITHUB_OUTPUT
+          $assetOrder |
+            Where-Object { Test-Path (Join-Path "release-assets" $_) } |
+            ForEach-Object { "release-assets/$_" >> $env:GITHUB_OUTPUT }
+          "release-assets/SHA256SUMS.txt" >> $env:GITHUB_OUTPUT
+          "EOF" >> $env:GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -175,4 +206,4 @@ jobs:
           name: ${{ steps.release_meta.outputs.name }}
           body_path: release-body.md
           prerelease: true
-          files: release-assets/*
+          files: ${{ steps.release_meta.outputs.files }}
