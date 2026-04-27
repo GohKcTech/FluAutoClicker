@@ -1,10 +1,12 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createSlideIndicator, updateIndicator } from "./utils";
+import { initWebviewErrorModal } from "./webview-error-modal";
 import { initWindowEffects } from "./window-effects";
 
 const appWindow = getCurrentWindow();
 
 window.addEventListener("DOMContentLoaded", async () => {
+    initWebviewErrorModal();
     await initWindowEffects();
 
     const closeBtn = document.getElementById('close-btn');

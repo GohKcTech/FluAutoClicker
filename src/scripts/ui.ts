@@ -31,6 +31,11 @@ export function setSelectedMode(mode: AppMode) {
     const sections = document.querySelectorAll<HTMLElement>(".content-section");
     const tabContainer = document.querySelector<HTMLElement>(".mode-tabs");
     const targetTab = document.querySelector<HTMLElement>(`.mode-tabs .tab[data-tab="${mode}"]`);
+    const activeElement = document.activeElement;
+
+    if (activeElement instanceof HTMLElement && activeElement !== document.body) {
+        activeElement.blur();
+    }
 
     tabs.forEach(tab => tab.classList.toggle("active", tab.dataset.tab === mode));
     sections.forEach(section => section.classList.toggle("active", section.id === `${mode}-section`));
@@ -43,6 +48,19 @@ export function setSelectedMode(mode: AppMode) {
     if (featureBar) {
         featureBar.style.display = mode === "mouse" ? "flex" : "none";
     }
+
+    const content = document.getElementById("content");
+    if (content) {
+        content.classList.toggle("macro-content-active", mode === "macro");
+        content.scrollTop = 0;
+        requestAnimationFrame(() => {
+            content.scrollTop = 0;
+        });
+    }
+
+    void invoke("set_active_app_mode", { mode }).catch((error) => {
+        console.error("Failed to sync active app mode", error);
+    });
 }
 
 function formatThreadsLabel(raw: number | string): string {
@@ -257,20 +275,10 @@ export function initTabs(updateIndicatorFn: typeof updateIndicator, createSlideI
                 }
             }
 
-            
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            if (tabContainer) updateIndicatorFn(tabContainer, tab);
-
-            const featureBar = document.getElementById('mouse-feature-bar');
-            if (featureBar) {
-                featureBar.style.display = targetTab === 'mouse' ? 'flex' : 'none';
-            }
+            setSelectedMode(targetTab);
 
             sections.forEach(section => {
-                section.classList.remove('active');
                 if (section.id === `${targetTab}-section`) {
-                    section.classList.add('active');
                     requestAnimationFrame(() => {
                         section.querySelectorAll('.toggle-row, .multi-button-row').forEach(row => {
                             const activeBtn = row.querySelector('.active');

@@ -9,6 +9,50 @@ function formatThreadsLabel(raw: number | string): string {
     return `${count} ${count === 1 ? 'Thread' : 'Threads'}`;
 }
 
+const DRAWER_FOCUSABLE_SELECTOR = [
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    'a[href]',
+    '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+let drawerReturnFocus: HTMLElement | null = null;
+
+function isVisibleElement(element: HTMLElement) {
+    return Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+}
+
+function getDrawerFocusableElements(drawer: HTMLElement) {
+    return Array.from(drawer.querySelectorAll<HTMLElement>(DRAWER_FOCUSABLE_SELECTOR))
+        .filter((element) => !element.hasAttribute("inert") && isVisibleElement(element));
+}
+
+function setDrawerAccessibilityState(drawer: HTMLElement, isOpen: boolean) {
+    drawer.toggleAttribute("inert", !isOpen);
+    drawer.setAttribute("aria-hidden", isOpen ? "false" : "true");
+}
+
+function rememberDrawerReturnFocus(drawer: HTMLElement) {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && !drawer.contains(activeElement)) {
+        drawerReturnFocus = activeElement;
+    }
+}
+
+function restoreDrawerReturnFocus(drawer: HTMLElement) {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement && drawer.contains(activeElement)) {
+        activeElement.blur();
+    }
+
+    if (drawerReturnFocus?.isConnected) {
+        drawerReturnFocus.focus({ preventScroll: true });
+    }
+    drawerReturnFocus = null;
+}
+
 export function openDrawer(sectionId: string, title: string, icon?: string) {
     const drawer = document.getElementById('bottom-drawer');
     const drawerOverlay = document.getElementById('drawer-overlay');
@@ -17,6 +61,9 @@ export function openDrawer(sectionId: string, title: string, icon?: string) {
     const drawerSections = document.querySelectorAll('.drawer-section');
 
     if (!drawer || !drawerOverlay || !drawerTitleText) return;
+
+    rememberDrawerReturnFocus(drawer);
+    setDrawerAccessibilityState(drawer, true);
     
     drawerTitleText.textContent = title;
     if (drawerTitleIcon) {
@@ -41,6 +88,10 @@ export function closeDrawer() {
     const drawerOverlay = document.getElementById('drawer-overlay');
     drawer?.classList.remove('active');
     drawerOverlay?.classList.remove('active');
+    if (drawer) {
+        restoreDrawerReturnFocus(drawer);
+        setDrawerAccessibilityState(drawer, false);
+    }
     setTimeout(() => {
         document.getElementById('content')?.classList.remove('blurred');
     }, 300);
@@ -104,7 +155,34 @@ function bindDrawerLink(elementId: string, sectionId: string, title: string, ico
 
 export function initDrawer() {
     const drawerOverlay = document.getElementById('drawer-overlay');
+    const drawer = document.getElementById('bottom-drawer');
     const drawerClose = document.getElementById('drawer-close-btn');
+
+    if (drawer) {
+        setDrawerAccessibilityState(drawer, drawer.classList.contains('active'));
+
+        drawer.addEventListener('keydown', (event) => {
+            if (event.key !== 'Tab' || !drawer.classList.contains('active')) return;
+
+            const focusableElements = getDrawerFocusableElements(drawer);
+            if (focusableElements.length === 0) {
+                event.preventDefault();
+                return;
+            }
+
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+            const activeElement = document.activeElement;
+
+            if (event.shiftKey && activeElement === firstElement) {
+                event.preventDefault();
+                lastElement.focus({ preventScroll: true });
+            } else if (!event.shiftKey && activeElement === lastElement) {
+                event.preventDefault();
+                firstElement.focus({ preventScroll: true });
+            }
+        });
+    }
 
     drawerClose?.addEventListener('click', closeDrawer);
     drawerOverlay?.addEventListener('click', closeDrawer);

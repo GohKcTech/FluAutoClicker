@@ -178,6 +178,10 @@ header {
 	scrollbar-width: none;
 }
 
+#content.macro-content-active {
+	overflow: hidden;
+}
+
 #content::-webkit-scrollbar {
 	display: none;
 }

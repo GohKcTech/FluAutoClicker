@@ -59,14 +59,14 @@ pub fn spawn_global_listener(state: MacroEngineState, app: AppHandle) {
             state.recording_supported.store(false, Ordering::SeqCst);
             if let Ok(mut guard) = state.recording_error.lock() {
                 *guard = Some(
-                    "Live macro recording is not available on Wayland in this build.".to_string(),
+                    "Live macro recording is not available on Wayland in this version.".to_string(),
                 );
             }
             let _ = app.emit(
                 "macro-recording-availability",
                 serde_json::json!({
                     "supported": false,
-                    "reason": "Live macro recording is not available on Wayland in this build."
+                    "reason": "Live macro recording is not available on Wayland in this version."
                 }),
             );
             return;
@@ -82,13 +82,15 @@ pub fn spawn_global_listener(state: MacroEngineState, app: AppHandle) {
         }) {
             state.recording_supported.store(false, Ordering::SeqCst);
             if let Ok(mut guard) = state.recording_error.lock() {
-                *guard = Some(format!("Failed to start live macro recording: {error:?}"));
+                *guard = Some(format!(
+                    "Live macro recording could not start. Check input permissions and try again. Details: {error:?}"
+                ));
             }
             let _ = app.emit(
                 "macro-recording-availability",
                 serde_json::json!({
                     "supported": false,
-                    "reason": format!("Failed to start live macro recording: {error:?}")
+                    "reason": format!("Live macro recording could not start. Check input permissions and try again. Details: {error:?}")
                 }),
             );
         }
@@ -108,7 +110,7 @@ pub async fn start_recording(state: &MacroEngineState, app: AppHandle) -> Result
 
     let player_state = state.player_state.lock().await.clone();
     if player_state == MacroPlayerState::Playing {
-        return Err("Stop macro playback before starting recording.".to_string());
+        return Err("Stop macro playback before starting a recording.".to_string());
     }
 
     let cursor_position = current_cursor_position().ok();

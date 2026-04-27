@@ -19,7 +19,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
             if let Some((x, y)) = position {
                 enigo
                     .move_mouse(*x, *y, Coordinate::Abs)
-                    .map_err(|e| format!("Failed to move mouse: {}", e))?;
+                    .map_err(|e| format!("Could not move the mouse. Details: {}", e))?;
 
                 sleep(Duration::from_millis(10)).await;
             }
@@ -29,21 +29,21 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                     let btn = macro_button_to_enigo(button)?;
                     enigo
                         .button(btn, enigo::Direction::Press)
-                        .map_err(|e| format!("Failed to press mouse button: {}", e))?;
+                        .map_err(|e| format!("Could not press the mouse button. Details: {}", e))?;
                     sleep(Duration::from_millis(50)).await;
-                    enigo
-                        .button(btn, enigo::Direction::Release)
-                        .map_err(|e| format!("Failed to release mouse button: {}", e))?;
+                    enigo.button(btn, enigo::Direction::Release).map_err(|e| {
+                        format!("Could not release the mouse button. Details: {}", e)
+                    })?;
                 }
                 MacroMouseAction::Hold { duration_ms } => {
                     let btn = macro_button_to_enigo(button)?;
                     enigo
                         .button(btn, enigo::Direction::Press)
-                        .map_err(|e| format!("Failed to press mouse button: {}", e))?;
+                        .map_err(|e| format!("Could not press the mouse button. Details: {}", e))?;
                     sleep(Duration::from_millis(*duration_ms as u64)).await;
-                    enigo
-                        .button(btn, enigo::Direction::Release)
-                        .map_err(|e| format!("Failed to release mouse button: {}", e))?;
+                    enigo.button(btn, enigo::Direction::Release).map_err(|e| {
+                        format!("Could not release the mouse button. Details: {}", e)
+                    })?;
                 }
             }
         }
@@ -51,7 +51,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
             MacroMoveStyle::Instant => {
                 enigo
                     .move_mouse(*x, *y, Coordinate::Abs)
-                    .map_err(|e| format!("Failed to move mouse: {}", e))?;
+                    .map_err(|e| format!("Could not move the mouse. Details: {}", e))?;
             }
             MacroMoveStyle::Smooth { duration_ms } => {
                 smooth_move_to(enigo, *x, *y, *duration_ms).await?;
@@ -67,7 +67,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                 if modifiers.is_empty() && matches!(action, MacroKeyboardAction::Press) {
                     enigo
                         .text(recorded_text)
-                        .map_err(|e| format!("Failed to type recorded text: {}", e))?;
+                        .map_err(|e| format!("Could not type the recorded text. Details: {}", e))?;
                     return Ok(());
                 }
             }
@@ -76,7 +76,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                 if let Some(key_code) = modifier_to_key(modifier) {
                     enigo
                         .key(key_code, enigo::Direction::Press)
-                        .map_err(|e| format!("Failed to press modifier: {}", e))?;
+                        .map_err(|e| format!("Could not hold a shortcut key. Details: {}", e))?;
                 }
             }
 
@@ -90,16 +90,16 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                 MacroKeyboardAction::Press => {
                     enigo
                         .key(key_code, enigo::Direction::Click)
-                        .map_err(|e| format!("Failed to press key: {}", e))?;
+                        .map_err(|e| format!("Could not press the key. Details: {}", e))?;
                 }
                 MacroKeyboardAction::Hold { duration_ms } => {
                     enigo
                         .key(key_code, enigo::Direction::Press)
-                        .map_err(|e| format!("Failed to press key: {}", e))?;
+                        .map_err(|e| format!("Could not press the key. Details: {}", e))?;
                     sleep(Duration::from_millis(*duration_ms as u64)).await;
                     enigo
                         .key(key_code, enigo::Direction::Release)
-                        .map_err(|e| format!("Failed to release key: {}", e))?;
+                        .map_err(|e| format!("Could not release the key. Details: {}", e))?;
                 }
             }
 
@@ -107,7 +107,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                 if let Some(key_code) = modifier_to_key(modifier) {
                     enigo
                         .key(key_code, enigo::Direction::Release)
-                        .map_err(|e| format!("Failed to release modifier: {}", e))?;
+                        .map_err(|e| format!("Could not release a shortcut key. Details: {}", e))?;
                 }
             }
         }
@@ -306,7 +306,7 @@ async fn smooth_move_to(
 ) -> Result<(), String> {
     let (start_x, start_y) = enigo
         .location()
-        .map_err(|e| format!("Failed to read cursor location: {}", e))?;
+        .map_err(|e| format!("Could not read the cursor position. Details: {}", e))?;
 
     let duration_ms = duration_ms.max(16);
     let step_count = ((duration_ms as f32 / 12.0).ceil() as u32).clamp(2, 120);
@@ -319,7 +319,7 @@ async fn smooth_move_to(
 
         enigo
             .move_mouse(next_x, next_y, Coordinate::Abs)
-            .map_err(|e| format!("Failed to smooth move mouse: {}", e))?;
+            .map_err(|e| format!("Could not move the mouse smoothly. Details: {}", e))?;
 
         sleep(Duration::from_millis(
             (duration_ms / step_count.max(1)) as u64,
@@ -349,10 +349,10 @@ pub async fn start_playback(
             "macro-status-changed",
             serde_json::json!({
                 "state": "stopped",
-                "error": "No actions to play"
+                "error": "Add at least one macro action before starting playback."
             }),
         );
-        return Err("No actions to play.".to_string());
+        return Err("Add at least one macro action before starting playback.".to_string());
     }
 
     *state.player_state.lock().await = MacroPlayerState::Playing;
@@ -406,7 +406,7 @@ async fn playback_loop(
                 "macro-status-changed",
                 serde_json::json!({
                     "state": "error",
-                    "error": format!("Failed to initialize input bridge: {}", error)
+                    "error": format!("The app could not control your mouse or keyboard. Check system permissions and try again. Details: {}", error)
                 }),
             );
             *state.player_state.lock().await = MacroPlayerState::Stopped;
@@ -472,7 +472,7 @@ async fn playback_loop(
                     "macro-status-changed",
                     serde_json::json!({
                         "state": "error",
-                        "error": e
+                        "error": format!("Macro playback stopped because an action could not be completed. {}", e)
                     }),
                 );
                 cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);

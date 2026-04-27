@@ -1,8 +1,9 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { showWebviewCreationError } from "../webview-error-modal";
 
 export function initCpsTestWindow() {
     document.getElementById("cps-test-btn")?.addEventListener("click", () => {
-        new WebviewWindow("cps-test", {
+        const cpsWindow = new WebviewWindow("cps-test", {
             url: "cps.html",
             title: "CPS Test",
             width: 400,
@@ -11,6 +12,10 @@ export function initCpsTestWindow() {
             decorations: false,
             transparent: true,
             center: true,
+        });
+
+        void cpsWindow.once("tauri://error", (event) => {
+            showWebviewCreationError("CPS Test", event.payload);
         });
     });
 }

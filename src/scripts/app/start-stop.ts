@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { syncAllKeyboardSettings } from "../keyboard";
+import { ensureMacroReady } from "../macro";
 import { syncAllMouseSettings } from "../mouse";
 import { notify } from "../notifications";
 import { getSelectedMode, setSelectedMode, updateTabStates } from "../ui";
@@ -141,6 +142,10 @@ async function handleStartButtonClick() {
         }
 
         if (activeTab === "macro") {
+            if (!isAlreadyRunning) {
+                await ensureMacroReady();
+            }
+
             const isRunning = await invoke<boolean>("toggle_macro_player");
             rememberRunningMode("macro", Boolean(isRunning));
             setStartButtonState(Boolean(isRunning));

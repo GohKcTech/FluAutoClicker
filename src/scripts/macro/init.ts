@@ -11,6 +11,8 @@ import { renderActions, loadActionsFromBackend, updateCurrentActionHighlight } f
 import { macroState } from "./state";
 import type { MacroActionType, MacroCapabilities, MacroRecordingOptions, MacroRepeatState } from "./types";
 
+let macroReadyPromise: Promise<void> | null = null;
+
 function initRecordButton(recordButton: HTMLElement | null) {
     if (!recordButton) {
         return;
@@ -33,7 +35,7 @@ function initRecordButton(recordButton: HTMLElement | null) {
                 notify("Macro recording stopped", "info", 1800);
             } else {
                 await invoke("start_macro_recording");
-                notify("Macro recording started. Actions will be appended to the current list.", "success", 2600);
+                notify("Recording started. New actions will be added to this macro.", "success", 2600);
             }
         } catch (error) {
             notify(error instanceof Error ? error.message : String(error), "error", 3200);
@@ -123,12 +125,12 @@ function initAddActionDrawer() {
         try {
             const actionJson = JSON.stringify(payload);
             await invoke("add_macro_action", { actionJson, action_json: actionJson });
-            await loadActionsFromBackend();
+            await loadActionsFromBackend({ animateNew: true });
             closeDrawer();
             notify("Macro action added", "success", 1800);
         } catch (error) {
             console.error("Failed to add macro action", error);
-            notify("Failed to add macro action", "error", 2600);
+            notify("Could not add this macro action. Check the values and try again.", "error", 2600);
         }
     });
 }
@@ -143,7 +145,7 @@ function initClearButton(recordButton: HTMLElement | null) {
             notify("Macro cleared", "info", 1800);
         } catch (error) {
             console.error("Failed to clear macros", error);
-            notify("Failed to clear macro", "error", 2600);
+            notify("Could not clear the macro. Try again in a moment.", "error", 2600);
         }
     });
 }
@@ -189,7 +191,7 @@ function initMacroEventListeners(recordButton: HTMLElement | null) {
     });
 
     void listen("macro-actions-changed", () => {
-        void loadActionsFromBackend().catch((error) => {
+        void loadActionsFromBackend({ animateNew: true }).catch((error) => {
             console.error("Failed to refresh macro actions", error);
         });
     });
@@ -223,16 +225,19 @@ export function initMacro() {
     initClearButton(recordButton);
     initRepeatSettingsListeners();
 
-    void loadCapabilities(recordButton).catch((error) => {
-        console.error("Failed to load macro capabilities", error);
-    });
-    void loadRecordingOptions().catch((error) => {
-        console.error("Failed to load macro recording options", error);
-    });
-    void loadMacroState(recordButton).catch((error) => {
+    macroReadyPromise = Promise.all([
+        loadCapabilities(recordButton),
+        loadRecordingOptions(),
+        loadMacroState(recordButton),
+    ]).then(() => undefined).catch((error) => {
+        macroReadyPromise = null;
         console.error("Failed to initialize macro state", error);
     });
 
     renderActions();
     initMacroEventListeners(recordButton);
+}
+
+export async function ensureMacroReady() {
+    await macroReadyPromise;
 }

@@ -208,6 +208,21 @@ pub fn toggle_clicker(state: State<'_, Arc<AppState>>, app: AppHandle) -> bool {
 }
 
 #[tauri::command]
+pub fn set_active_app_mode(state: State<'_, Arc<AppState>>, mode: String) -> Result<(), String> {
+    match mode.as_str() {
+        "mouse" | "keyboard" | "macro" => {
+            let mut active_mode = state
+                .active_mode
+                .lock()
+                .map_err(|_| "Failed to lock active mode.".to_string())?;
+            *active_mode = mode;
+            Ok(())
+        }
+        _ => Err("Unknown app mode.".to_string()),
+    }
+}
+
+#[tauri::command]
 pub async fn get_runtime_status(
     state: State<'_, Arc<AppState>>,
 ) -> Result<serde_json::Value, String> {

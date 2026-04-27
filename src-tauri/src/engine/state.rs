@@ -108,6 +108,7 @@ impl Default for RuntimeHotkeys {
 pub struct ToggleHotkeyPressState {
     pub started_at: Instant,
     pub was_running_before_press: bool,
+    pub mode: String,
 }
 
 impl KeyboardModifier {
@@ -262,6 +263,7 @@ pub struct AppState {
     pub jiggler_pattern: Mutex<JigglerPattern>,
     pub threads_count: AtomicU32,
     pub hotkeys: Mutex<RuntimeHotkeys>,
+    pub active_mode: StdMutex<String>,
     pub hotkeys_suspended: AtomicBool,
     pub toggle_hotkey_press_state: StdMutex<Option<ToggleHotkeyPressState>>,
 
@@ -316,6 +318,7 @@ impl Default for AppState {
             jiggler_pattern: Mutex::new(JigglerPattern::Random),
             threads_count: AtomicU32::new(1),
             hotkeys: Mutex::new(RuntimeHotkeys::default()),
+            active_mode: StdMutex::new("mouse".to_string()),
             hotkeys_suspended: AtomicBool::new(false),
             toggle_hotkey_press_state: StdMutex::new(None),
 

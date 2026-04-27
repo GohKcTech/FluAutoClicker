@@ -10,6 +10,7 @@ import { initTheme } from "../theme";
 import { initInputs } from "../ui";
 import { initUpdateChecks } from "../update-check";
 import { initWindowEffects } from "../window-effects";
+import { initWebviewErrorModal } from "../webview-error-modal";
 import { initCpsTestWindow, initDrawerLaunchers } from "./quick-actions";
 import { initStartStopControls } from "./start-stop";
 import { initTabAndToggleUi } from "./toggle-groups";
@@ -18,6 +19,7 @@ import { initKeyboardPartyMode } from "./easter-egg";
 import { initNativeShellGuards } from "./native-shell-guards";
 
 export async function bootstrapApp() {
+    initWebviewErrorModal();
     initNativeShellGuards();
 
     await loadPersistedSettings();

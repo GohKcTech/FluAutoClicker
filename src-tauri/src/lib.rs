@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::commands::*;
 use crate::engine::config_store::AppConfigFile;
+use crate::engine::macro_engine::types::MacroPlayerState;
 use crate::engine::state::{
     AppState, ClickMode, HoldUnit, JigglerPattern, KeyboardModifier, MouseButton, PositionMode,
     RepeatMode, RepeatUnit, RuntimeHotkeys,
@@ -128,6 +129,63 @@ fn hotkeys_from_state(state: &Arc<AppState>) -> RuntimeHotkeys {
 fn set_clicker_running(app: &AppHandle, state: &Arc<AppState>, running: bool) {
     state.is_running.store(running, Ordering::SeqCst);
     let _ = app.emit("status-changed", serde_json::json!({ "running": running }));
+}
+
+fn active_mode_from_state(state: &Arc<AppState>) -> String {
+    state
+        .active_mode
+        .lock()
+        .map(|mode| mode.clone())
+        .unwrap_or_else(|_| "mouse".to_string())
+}
+
+fn running_mode_from_state(state: &Arc<AppState>) -> Option<String> {
+    if state.is_running.load(Ordering::SeqCst) {
+        return Some("mouse".to_string());
+    }
+    if state.kb_is_running.load(Ordering::SeqCst) {
+        return Some("keyboard".to_string());
+    }
+    if matches!(
+        *state.macro_engine.player_state.blocking_lock(),
+        MacroPlayerState::Playing
+    ) {
+        return Some("macro".to_string());
+    }
+    None
+}
+
+async fn set_mode_running(app: AppHandle, state: Arc<AppState>, mode: String, running: bool) {
+    match mode.as_str() {
+        "keyboard" => {
+            state.kb_is_running.store(running, Ordering::SeqCst);
+            let _ = app.emit(
+                "keyboard-status-changed",
+                serde_json::json!({ "running": running }),
+            );
+        }
+        "macro" => {
+            if running {
+                if let Err(error) = crate::engine::macro_engine::playback::start_playback(
+                    &state.macro_engine,
+                    app.clone(),
+                )
+                .await
+                {
+                    let _ = app.emit(
+                        "macro-status-changed",
+                        serde_json::json!({ "state": "error", "error": error }),
+                    );
+                }
+            } else {
+                crate::engine::macro_engine::playback::stop_playback(&state.macro_engine, app)
+                    .await;
+            }
+        }
+        _ => {
+            set_clicker_running(&app, &state, running);
+        }
+    }
 }
 
 const TRAY_SHOW_ID: &str = "show";
@@ -403,18 +461,24 @@ pub fn run() {
                     if matches_hotkey(&shortcut, hotkeys.toggle_start_stop.as_str()) {
                         match event.state {
                             ShortcutState::Pressed => {
-                                let was_running_before_press =
-                                    state.is_running.load(Ordering::SeqCst);
+                                let running_mode = running_mode_from_state(&state);
+                                let was_running_before_press = running_mode.is_some();
+                                let mode = running_mode.unwrap_or_else(|| active_mode_from_state(&state));
                                 if let Ok(mut press_state) = state.toggle_hotkey_press_state.lock() {
                                     *press_state =
                                         Some(crate::engine::state::ToggleHotkeyPressState {
                                             started_at: std::time::Instant::now(),
                                             was_running_before_press,
+                                            mode: mode.clone(),
                                         });
                                 }
 
                                 if !was_running_before_press {
-                                    set_clicker_running(app, &state, true);
+                                    let app_handle = app.clone();
+                                    let state = state.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        set_mode_running(app_handle, state, mode, true).await;
+                                    });
                                 }
                             }
                             ShortcutState::Released => {
@@ -430,14 +494,30 @@ pub fn run() {
 
                                     if held_long_enough {
                                         if !press_state.was_running_before_press {
-                                            set_clicker_running(app, &state, false);
+                                            let app_handle = app.clone();
+                                            let state = state.clone();
+                                            tauri::async_runtime::spawn(async move {
+                                                set_mode_running(
+                                                    app_handle,
+                                                    state,
+                                                    press_state.mode,
+                                                    false,
+                                                )
+                                                .await;
+                                            });
                                         }
                                     } else {
-                                        set_clicker_running(
-                                            app,
-                                            &state,
-                                            !press_state.was_running_before_press,
-                                        );
+                                        let app_handle = app.clone();
+                                        let state = state.clone();
+                                        tauri::async_runtime::spawn(async move {
+                                            set_mode_running(
+                                                app_handle,
+                                                state,
+                                                press_state.mode,
+                                                !press_state.was_running_before_press,
+                                            )
+                                            .await;
+                                        });
                                     }
                                 }
                             }
@@ -498,6 +578,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             toggle_clicker,
+            set_active_app_mode,
             get_runtime_status,
             load_app_config,
             save_app_config,
@@ -587,6 +668,21 @@ pub fn run() {
                     .unwrap_or_default()
             });
             tauri::async_runtime::block_on(apply_config_to_state(&state, &loaded_config));
+            tauri::async_runtime::block_on(async {
+                if let Ok((actions, repeat_mode, recording_options)) =
+                    crate::engine::macro_engine::storage::load_macro().await
+                {
+                    let max_id = actions.iter().map(|action| action.id).max().unwrap_or(0);
+
+                    *state.macro_engine.actions.lock().await = actions;
+                    *state.macro_engine.repeat_mode.lock().await = repeat_mode;
+                    *state.macro_engine.recording_options.lock().await = recording_options;
+                    state
+                        .macro_engine
+                        .action_id_counter
+                        .store(max_id + 1, Ordering::SeqCst);
+                }
+            });
             state
                 .minimize_to_tray
                 .store(loaded_config.general.minimize_to_tray, Ordering::SeqCst);

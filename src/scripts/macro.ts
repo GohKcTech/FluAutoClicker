@@ -1,1 +1,1 @@
-export { initMacro } from "./macro/init";
+export { ensureMacroReady, initMacro } from "./macro/init";
