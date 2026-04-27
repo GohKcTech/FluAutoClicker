@@ -93,7 +93,9 @@ jobs:
           if-no-files-found: error
           path: |
             ${{ matrix.binary-path }}
-            src-tauri/target/release/bundle/**
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
 
   publish:
     name: Publish GitHub Release
@@ -143,20 +145,21 @@ jobs:
 
           Get-ChildItem release-downloads -Recurse -File |
             Where-Object {
-              $_.Name -notmatch '\.(d|rlib|pdb|lib|exp)$' -and
-              $_.FullName -notmatch '[/\\]\.fingerprint[/\\]'
+              $_.Name -eq "fluautoclicker.exe" -or
+              $_.Name -match '\.(AppImage|deb|rpm)$'
             } |
             ForEach-Object {
               $targetName = $_.Name
-              if ($_.Name -eq "fluautoclicker") {
-                $targetName = "FluAutoClicker-$versionTag-linux-x64"
-              }
               if ($_.Name -eq "fluautoclicker.exe") {
                 $targetName = "FluAutoClicker-$versionTag-windows-x64.exe"
               }
 
               Copy-Item $_.FullName -Destination (Join-Path "release-assets" $targetName)
             }
+
+          if (-not (Get-ChildItem release-assets -File)) {
+            throw "No release assets were found after filtering."
+          }
 
           Get-ChildItem release-assets -File |
             Sort-Object Name |
