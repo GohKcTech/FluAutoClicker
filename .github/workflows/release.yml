@@ -84,7 +84,14 @@ jobs:
         run: pnpm run build
 
       - name: Build Tauri app
-        run: pnpm tauri build ${{ matrix.build-args }}
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          if ($version -match 'beta') {
+            pnpm tauri build --features beta-devtools ${{ matrix.build-args }}
+          } else {
+            pnpm tauri build ${{ matrix.build-args }}
+          }
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
