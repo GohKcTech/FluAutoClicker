@@ -94,6 +94,7 @@ pub enum KeyboardModifier {
 pub struct RuntimeHotkeys {
     pub toggle_start_stop: String,
     pub pick_position: String,
+    pub toggle_macro_recording: String,
 }
 
 impl Default for RuntimeHotkeys {
@@ -101,6 +102,7 @@ impl Default for RuntimeHotkeys {
         Self {
             toggle_start_stop: "F6".to_string(),
             pick_position: "Ctrl+P".to_string(),
+            toggle_macro_recording: "Ctrl+Shift+R".to_string(),
         }
     }
 }

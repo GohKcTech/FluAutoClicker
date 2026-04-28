@@ -14,6 +14,7 @@ import {
 type Hotkeys = {
     toggle_start_stop: string;
     pick_position: string;
+    toggle_macro_recording: string;
 };
 
 type AppConfigFile = {
@@ -154,6 +155,7 @@ function defaultConfig(): AppConfigFile {
         hotkeys: {
             toggle_start_stop: "F6",
             pick_position: "Ctrl+P",
+            toggle_macro_recording: "Ctrl+Shift+R",
         },
         updates: {
             prerelease_channel: true,

@@ -32,14 +32,21 @@ fn hotkey_field_mut<'a>(hotkeys: &'a mut RuntimeHotkeys, action: &str) -> Option
     match action {
         "toggle_start_stop" | "toggle-start-stop" => Some(&mut hotkeys.toggle_start_stop),
         "pick_position" | "pick-position" => Some(&mut hotkeys.pick_position),
+        "toggle_macro_recording" | "toggle-macro-recording" => {
+            Some(&mut hotkeys.toggle_macro_recording)
+        }
         _ => None,
     }
 }
 
-fn hotkey_entries(hotkeys: &RuntimeHotkeys) -> [(&'static str, &str); 2] {
+fn hotkey_entries(hotkeys: &RuntimeHotkeys) -> [(&'static str, &str); 3] {
     [
         ("toggle_start_stop", hotkeys.toggle_start_stop.as_str()),
         ("pick_position", hotkeys.pick_position.as_str()),
+        (
+            "toggle_macro_recording",
+            hotkeys.toggle_macro_recording.as_str(),
+        ),
     ]
 }
 
@@ -47,6 +54,7 @@ fn hotkey_action_title(action: &str) -> &'static str {
     match action {
         "toggle_start_stop" => "Toggle Start/Stop",
         "pick_position" => "Pick Position",
+        "toggle_macro_recording" => "Macro Recording",
         _ => "Unknown action",
     }
 }
@@ -597,6 +605,8 @@ pub fn get_platform_capabilities() -> serde_json::Value {
         "system_startup": crate::system_startup_supported(),
         "global_hotkeys": crate::global_hotkeys_supported(),
         "wayland": crate::is_wayland_session(),
+        "webview_devtools": env!("CARGO_PKG_VERSION").contains("beta")
+            && (cfg!(debug_assertions) || cfg!(feature = "beta-devtools")),
     })
 }
 
@@ -705,6 +715,7 @@ pub async fn set_hotkey(
         .unwrap_or_default();
     config.hotkeys.toggle_start_stop = next_hotkeys.toggle_start_stop.clone();
     config.hotkeys.pick_position = next_hotkeys.pick_position.clone();
+    config.hotkeys.toggle_macro_recording = next_hotkeys.toggle_macro_recording.clone();
     crate::engine::config_store::save_config(&config).await?;
 
     let _ = app.emit(

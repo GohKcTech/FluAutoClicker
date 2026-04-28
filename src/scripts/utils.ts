@@ -67,3 +67,22 @@ export async function getSystemAccentColor() {
         fallback: getCssHighlightColor(),
     });
 }
+
+export async function toggleWebviewDevtools() {
+    await safeInvoke<void>("plugin:webview|internal_toggle_devtools");
+}
+
+export function isBetaBuild() {
+    return __APP_VERSION__.toLowerCase().includes("beta");
+}
+
+export async function isWebviewDevtoolsAvailable() {
+    if (!isBetaBuild()) return false;
+
+    const capabilities = await safeInvoke<{ webview_devtools?: boolean }>(
+        "get_platform_capabilities",
+        undefined,
+        { fallback: {} },
+    );
+    return Boolean(capabilities.webview_devtools);
+}

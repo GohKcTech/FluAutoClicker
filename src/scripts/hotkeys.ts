@@ -4,16 +4,19 @@ import { getPlatformCapabilities } from "./platform-capabilities";
 
 type HotkeyAction =
     | "toggle_start_stop"
-    | "pick_position";
+    | "pick_position"
+    | "toggle_macro_recording";
 
 type RuntimeHotkeys = {
     toggle_start_stop: string;
     pick_position: string;
+    toggle_macro_recording: string;
 };
 
 const ACTIONS: HotkeyAction[] = [
     "toggle_start_stop",
     "pick_position",
+    "toggle_macro_recording",
 ];
 
 const MODIFIER_KEYS = new Set(["control", "shift", "alt", "meta"]);
@@ -131,6 +134,7 @@ function fallbackHotkeys(): RuntimeHotkeys {
     return {
         toggle_start_stop: "F6",
         pick_position: "Ctrl+P",
+        toggle_macro_recording: "Ctrl+Shift+R",
     };
 }
 

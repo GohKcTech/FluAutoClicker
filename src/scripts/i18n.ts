@@ -42,6 +42,8 @@ const translations: Record<AppLang, Dict> = {
 
     "settings.cps_test.title": "CPS Test",
     "settings.cps_test.desc": "Check your clicks per second speed",
+    "settings.webview_devtools.title": "Webview DevTools",
+    "settings.webview_devtools.desc": "Open inspector for the current webview",
 
     "profiles.input.placeholder": "new profile name",
     "profiles.create": "CREATE",
@@ -49,6 +51,7 @@ const translations: Record<AppLang, Dict> = {
 
     "hotkey.toggle_start_stop": "Toggle Start/Stop",
     "hotkey.pick_position": "Pick Coordinate",
+    "hotkey.toggle_macro_recording": "Macro Record",
     "hotkey.hypr.apply": "Apply Hyprland Binding",
 
     "notify.settings_saved": "Settings saved",
@@ -129,6 +132,10 @@ function applyTranslations() {
   const cpsDesc = document.querySelector('#cps-test-btn .settings-item-desc');
   if (cpsTitle) cpsTitle.textContent = tr["settings.cps_test.title"];
   if (cpsDesc) cpsDesc.textContent = tr["settings.cps_test.desc"];
+  const webviewDevtoolsTitle = document.querySelector('#webview-devtools-btn .settings-item-title');
+  const webviewDevtoolsDesc = document.querySelector('#webview-devtools-btn .settings-item-desc');
+  if (webviewDevtoolsTitle) webviewDevtoolsTitle.textContent = tr["settings.webview_devtools.title"];
+  if (webviewDevtoolsDesc) webviewDevtoolsDesc.textContent = tr["settings.webview_devtools.desc"];
 
   const profileInput = document.getElementById('profile-name-input') as HTMLInputElement | null;
   if (profileInput) profileInput.placeholder = tr["profiles.input.placeholder"];
@@ -143,6 +150,7 @@ function applyTranslations() {
 
     if (action === "toggle_start_stop") title.textContent = tr["hotkey.toggle_start_stop"];
     if (action === "pick_position") title.textContent = tr["hotkey.pick_position"];
+    if (action === "toggle_macro_recording") title.textContent = tr["hotkey.toggle_macro_recording"];
   });
 
   const hyprTitle = document.querySelector('#hyprland-hotkey-apply .hotkey-title');

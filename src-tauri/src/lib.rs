@@ -379,6 +379,7 @@ pub(crate) async fn apply_config_to_state(state: &Arc<AppState>, config: &AppCon
     *state.hotkeys.lock().await = RuntimeHotkeys {
         toggle_start_stop: config.hotkeys.toggle_start_stop.clone(),
         pick_position: config.hotkeys.pick_position.clone(),
+        toggle_macro_recording: config.hotkeys.toggle_macro_recording.clone(),
     };
 }
 
@@ -427,6 +428,7 @@ pub(crate) fn register_runtime_hotkeys(
     for key in [
         hotkeys.toggle_start_stop.as_str(),
         hotkeys.pick_position.as_str(),
+        hotkeys.toggle_macro_recording.as_str(),
     ] {
         if key.trim().is_empty() {
             continue;
@@ -439,6 +441,24 @@ pub(crate) fn register_runtime_hotkeys(
     }
 
     Ok(())
+}
+
+async fn toggle_macro_recording_from_hotkey(app: AppHandle, state: Arc<AppState>) {
+    let player_state = state.macro_engine.player_state.lock().await.clone();
+    let result = if player_state == MacroPlayerState::Recording {
+        crate::engine::macro_engine::recording::stop_recording(&state.macro_engine, app.clone())
+            .await
+    } else {
+        crate::engine::macro_engine::recording::start_recording(&state.macro_engine, app.clone())
+            .await
+    };
+
+    if let Err(error) = result {
+        let _ = app.emit(
+            "macro-status-changed",
+            serde_json::json!({ "state": "error", "error": error }),
+        );
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -544,6 +564,14 @@ pub fn run() {
                                     );
                                 }
                             }
+                        });
+                    }
+
+                    if matches_hotkey(&shortcut, hotkeys.toggle_macro_recording.as_str()) {
+                        let app_handle = app.clone();
+                        let state = state.clone();
+                        tauri::async_runtime::spawn(async move {
+                            toggle_macro_recording_from_hotkey(app_handle, state).await;
                         });
                     }
                 })
@@ -690,6 +718,7 @@ pub fn run() {
             let loaded_hotkeys = RuntimeHotkeys {
                 toggle_start_stop: loaded_config.hotkeys.toggle_start_stop.clone(),
                 pick_position: loaded_config.hotkeys.pick_position.clone(),
+                toggle_macro_recording: loaded_config.hotkeys.toggle_macro_recording.clone(),
             };
 
             #[cfg(target_os = "linux")]
