@@ -37,6 +37,8 @@ const translations: Record<AppLang, Dict> = {
 
     "settings.accent.title": "Accent Color",
     "settings.remove_italic.title": "Remove Italic",
+    "settings.classic_window_icons.title": "Classic Window Icons",
+    "settings.classic_window_icons.desc": "Use the previous topbar SVG icons",
 
     "settings.cps_test.title": "CPS Test",
     "settings.cps_test.desc": "Check your clicks per second speed",
@@ -119,6 +121,10 @@ function applyTranslations() {
   if (accentTitle) accentTitle.textContent = tr["settings.accent.title"];
   const italicTitle = document.querySelector('#remove-italic-trigger .settings-item-title');
   if (italicTitle) italicTitle.textContent = tr["settings.remove_italic.title"];
+  const classicWindowIconsTitle = document.querySelector('#classic-window-icons-trigger .settings-item-title');
+  const classicWindowIconsDesc = document.querySelector('#classic-window-icons-trigger .settings-item-desc');
+  if (classicWindowIconsTitle) classicWindowIconsTitle.textContent = tr["settings.classic_window_icons.title"];
+  if (classicWindowIconsDesc) classicWindowIconsDesc.textContent = tr["settings.classic_window_icons.desc"];
   const cpsTitle = document.querySelector('#cps-test-btn .settings-item-title');
   const cpsDesc = document.querySelector('#cps-test-btn .settings-item-desc');
   if (cpsTitle) cpsTitle.textContent = tr["settings.cps_test.title"];

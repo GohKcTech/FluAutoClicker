@@ -9,6 +9,7 @@ use crate::engine::state::{
     RepeatMode, RepeatUnit, RuntimeHotkeys,
 };
 use enigo::{Enigo, Mouse, Settings};
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -1004,6 +1005,46 @@ pub async fn remove_macro_action(
 ) -> Result<(), String> {
     let mut actions = state.macro_engine.actions.lock().await;
     actions.retain(|a| a.id != action_id);
+    drop(actions);
+
+    let actions_clone = state.macro_engine.actions.lock().await.clone();
+    let repeat_mode = state.macro_engine.repeat_mode.lock().await.clone();
+    let recording_options = state.macro_engine.recording_options.lock().await.clone();
+    tokio::spawn(async move {
+        let _ = storage::save_macro(&actions_clone, &repeat_mode, &recording_options).await;
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn reorder_macro_actions(
+    state: State<'_, Arc<AppState>>,
+    action_ids: Vec<u64>,
+) -> Result<(), String> {
+    let mut actions = state.macro_engine.actions.lock().await;
+
+    if action_ids.len() != actions.len() {
+        return Err("Macro action list changed. Refresh and try again.".to_string());
+    }
+
+    let existing_ids: HashSet<u64> = actions.iter().map(|action| action.id).collect();
+    let requested_ids: HashSet<u64> = action_ids.iter().copied().collect();
+
+    if requested_ids.len() != action_ids.len() || requested_ids != existing_ids {
+        return Err("Macro action order does not match the current action list.".to_string());
+    }
+
+    let mut actions_by_id: HashMap<u64, MacroAction> = actions
+        .drain(..)
+        .map(|action| (action.id, action))
+        .collect();
+
+    *actions = action_ids
+        .into_iter()
+        .filter_map(|id| actions_by_id.remove(&id))
+        .collect();
+
     drop(actions);
 
     let actions_clone = state.macro_engine.actions.lock().await.clone();

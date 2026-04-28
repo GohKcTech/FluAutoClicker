@@ -2,12 +2,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createSlideIndicator, updateIndicator } from "./utils";
 import { initWebviewErrorModal } from "./webview-error-modal";
 import { initWindowEffects } from "./window-effects";
+import { applyWindowControlIcons, WINDOW_CONTROL_ICONS_STORAGE_KEY } from "./window-control-icons";
 
 const appWindow = getCurrentWindow();
 
 window.addEventListener("DOMContentLoaded", async () => {
     initWebviewErrorModal();
     await initWindowEffects();
+    applyWindowControlIcons();
 
     const closeBtn = document.getElementById('close-btn');
     const minimizeBtn = document.getElementById('minimize-btn');
@@ -129,6 +131,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     window.addEventListener('storage', (e) => {
         if (e.key?.startsWith('flu-theme')) applyTheme();
+        if (e.key === WINDOW_CONTROL_ICONS_STORAGE_KEY) applyWindowControlIcons();
     });
     applyTheme();
 

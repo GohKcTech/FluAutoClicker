@@ -20,10 +20,10 @@
       </nav>
       <div class="window-controls">
         <button class="control-btn" id="minimize-btn" title="Minimize">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"></line></svg>
+          <span class="window-control-glyph" aria-hidden="true">&#57627;</span>
         </button>
         <button class="control-btn" id="maximize-btn" title="Maximize">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="5" width="14" height="14" rx="1"></rect></svg>
+          <span class="window-control-glyph" aria-hidden="true">&#57618;</span>
         </button>
         <button class="control-btn close" id="close-btn" title="Close">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -650,6 +650,23 @@
                 <span class="settings-item-desc">Experimental, Windows only</span>
               </div>
               <div class="drawer-toggle" id="acrylic-toggle"></div>
+            </div>
+
+            <div class="settings-list-item" id="classic-window-icons-trigger" style="cursor: pointer;">
+              <div class="settings-item-icon">
+                <svg class="settings-window-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <rect x="2" y="3" width="12" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/>
+                  <path d="M2 6h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  <circle cx="5" cy="4.5" r="0.65" fill="currentColor"/>
+                  <circle cx="7.4" cy="4.5" r="0.65" fill="currentColor"/>
+                  <circle cx="9.8" cy="4.5" r="0.65" fill="currentColor"/>
+                </svg>
+              </div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Classic Window Icons</span>
+                <span class="settings-item-desc">Use the previous topbar SVG icons</span>
+              </div>
+              <div class="drawer-toggle" id="classic-window-icons-toggle"></div>
             </div>
 
             <div class="settings-group-title">Utils</div>

@@ -5,6 +5,11 @@ import { getPlatformCapabilities, type PlatformCapabilities } from "./platform-c
 import { setSelectedMode } from "./ui";
 import type { AppMode } from "./ui";
 import { updateSliderFill } from "./utils";
+import {
+    setPreferredWindowControlIconStyle,
+    WINDOW_CONTROL_ICONS_STORAGE_KEY,
+    type WindowControlIconStyle,
+} from "./window-control-icons";
 
 type Hotkeys = {
     toggle_start_stop: string;
@@ -246,6 +251,8 @@ function applyLocalStorageSnapshot(config: AppConfigFile) {
     localStorage.setItem("flu-language", "en");
 
     const frontendState = config.frontend_state || {};
+    const windowControlIcons = frontendState.window_control_icons === "classic" ? "classic" : "fluent";
+    localStorage.setItem(WINDOW_CONTROL_ICONS_STORAGE_KEY, windowControlIcons);
     const notifications = {
         ...readFrontendNotifications(),
         ...asFrontendRecord(frontendState.notifications),
@@ -348,6 +355,7 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("tray-toggle", config.general.minimize_to_tray);
     setToggleState("remove-italic-toggle", config.general.remove_italic);
     setToggleState("acrylic-toggle", frontendState.acrylic_enabled === true);
+    setToggleState("classic-window-icons-toggle", frontendState.window_control_icons === "classic");
 
     const activeTabCandidate = String(frontendState.active_tab || "mouse");
     const activeTab: AppMode = APP_MODES.has(activeTabCandidate) ? activeTabCandidate as AppMode : "mouse";
@@ -504,6 +512,11 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
             ...base.frontend_state,
             active_tab: activeTab,
             acrylic_enabled: localStorage.getItem("flu-window-acrylic") === "true",
+            window_control_icons: (
+                document.getElementById("classic-window-icons-toggle")?.classList.contains("active")
+                    ? "classic"
+                    : "fluent"
+            ) as WindowControlIconStyle,
             notifications: readFrontendNotifications(),
             mouse_timing: {
                 hours: getNumericValue("mouse-hours", 0),
@@ -604,6 +617,9 @@ export async function initSettingsPersistence() {
     });
     initSimpleToggle("tray-trigger", "tray-toggle", async (active) => {
         await invoke("set_minimize_to_tray", { enabled: active });
+    });
+    initSimpleToggle("classic-window-icons-trigger", "classic-window-icons-toggle", (active) => {
+        setPreferredWindowControlIconStyle(active ? "classic" : "fluent");
     });
 
     window.addEventListener(SETTINGS_CHANGED_EVENT, scheduleSave);

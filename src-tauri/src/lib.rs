@@ -627,6 +627,7 @@ pub fn run() {
             set_keyboard_variation_ms,
             add_macro_action,
             remove_macro_action,
+            reorder_macro_actions,
             clear_macros,
             toggle_macro_player,
             set_macro_repeat_mode,

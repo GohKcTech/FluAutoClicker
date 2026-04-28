@@ -2,10 +2,253 @@ import { invoke } from "@tauri-apps/api/core";
 import { setKeyBadgeContent } from "../key-badges";
 import { fromBackendAction } from "./backend";
 import { macroState } from "./state";
-import type { MacroBackendAction } from "./types";
+import type { MacroBackendAction, MacroUiAction } from "./types";
+
+type DropPosition = "before" | "after";
+
+type PointerDragState = {
+    actionId: number;
+    pointerId: number;
+    item: HTMLElement;
+    startY: number;
+    hasMoved: boolean;
+    previousActions: MacroUiAction[];
+};
+
+let pointerDragState: PointerDragState | null = null;
+let reorderRequestSerial = 0;
 
 function getListContainer() {
     return document.getElementById("macro-list-container");
+}
+
+function bindPointerDragListeners() {
+    window.addEventListener("pointermove", handlePointerDragMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerDragEnd, { passive: false });
+    window.addEventListener("pointercancel", handlePointerDragCancel);
+}
+
+function unbindPointerDragListeners() {
+    window.removeEventListener("pointermove", handlePointerDragMove);
+    window.removeEventListener("pointerup", handlePointerDragEnd);
+    window.removeEventListener("pointercancel", handlePointerDragCancel);
+}
+
+function getActionItems() {
+    const listContainer = getListContainer();
+    if (!listContainer) {
+        return [];
+    }
+
+    return Array.from(listContainer.querySelectorAll<HTMLElement>(".macro-action-item"));
+}
+
+function getActionIdFromElement(element: HTMLElement | null) {
+    const rawId = element?.getAttribute("data-action-id");
+    const id = Number(rawId);
+    return Number.isFinite(id) ? id : null;
+}
+
+function getDropPosition(item: HTMLElement, pointer: { clientY: number }): DropPosition {
+    const rect = item.getBoundingClientRect();
+    return pointer.clientY > rect.top + rect.height / 2 ? "after" : "before";
+}
+
+function getDropTarget(clientY: number) {
+    const listContainer = getListContainer();
+    if (!listContainer || !pointerDragState) {
+        return null;
+    }
+
+    const items = getActionItems()
+        .filter((item) => getActionIdFromElement(item) !== pointerDragState?.actionId);
+
+    if (items.length === 0) {
+        return null;
+    }
+
+    let closestItem = items[0];
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    items.forEach((item) => {
+        const rect = item.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        const distance = Math.abs(clientY - midpoint);
+
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestItem = item;
+        }
+    });
+
+    return {
+        item: closestItem,
+        position: getDropPosition(closestItem, { clientY }),
+    };
+}
+
+function animateActionLayoutChange(updateLayout: () => void) {
+    const previousRects = new Map<HTMLElement, DOMRect>();
+
+    getActionItems().forEach((item) => {
+        previousRects.set(item, item.getBoundingClientRect());
+    });
+
+    updateLayout();
+
+    getActionItems().forEach((item) => {
+        const previousRect = previousRects.get(item);
+        if (!previousRect || item.classList.contains("dragging")) {
+            return;
+        }
+
+        const nextRect = item.getBoundingClientRect();
+        const deltaY = previousRect.top - nextRect.top;
+
+        if (Math.abs(deltaY) < 1) {
+            return;
+        }
+
+        item.animate(
+            [
+                { transform: `translateY(${deltaY}px)` },
+                { transform: "translateY(0)" },
+            ],
+            {
+                duration: 160,
+                easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+            }
+        );
+    });
+}
+
+function moveDraggedElement(clientY: number) {
+    if (!pointerDragState) {
+        return;
+    }
+
+    if (!pointerDragState.hasMoved) {
+        if (Math.abs(clientY - pointerDragState.startY) < 4) {
+            return;
+        }
+
+        pointerDragState.hasMoved = true;
+        getListContainer()?.classList.add("dragging");
+        pointerDragState.item.classList.add("dragging");
+    }
+
+    const target = getDropTarget(clientY);
+    if (!target) {
+        return;
+    }
+
+    const draggedItem = pointerDragState.item;
+    animateActionLayoutChange(() => {
+        if (target.position === "after") {
+            target.item.after(draggedItem);
+        } else {
+            target.item.before(draggedItem);
+        }
+    });
+}
+
+function getVisibleActionOrder() {
+    const listContainer = getListContainer();
+    if (!listContainer) {
+        return [];
+    }
+
+    return Array.from(listContainer.querySelectorAll<HTMLElement>(".macro-action-item"))
+        .map((item) => getActionIdFromElement(item))
+        .filter((id): id is number => id !== null);
+}
+
+function finishPointerDrag(commit: boolean) {
+    const dragState = pointerDragState;
+    if (!dragState) {
+        return;
+    }
+
+    unbindPointerDragListeners();
+    pointerDragState = null;
+    dragState.item.classList.remove("dragging", "drag-pressed");
+    getListContainer()?.classList.remove("dragging");
+
+    if (commit) {
+        applyVisibleActionOrder(dragState.previousActions);
+    } else {
+        renderActions();
+    }
+}
+
+function handlePointerDragMove(event: PointerEvent) {
+    if (!pointerDragState || pointerDragState.pointerId !== event.pointerId) {
+        return;
+    }
+
+    event.preventDefault();
+    moveDraggedElement(event.clientY);
+}
+
+function handlePointerDragEnd(event: PointerEvent) {
+    if (!pointerDragState || pointerDragState.pointerId !== event.pointerId) {
+        return;
+    }
+
+    event.preventDefault();
+    moveDraggedElement(event.clientY);
+    finishPointerDrag(true);
+}
+
+function handlePointerDragCancel(event: PointerEvent) {
+    if (!pointerDragState || pointerDragState.pointerId !== event.pointerId) {
+        return;
+    }
+
+    finishPointerDrag(false);
+}
+
+async function persistActionOrder(actionIds: number[], previousActions: MacroUiAction[]) {
+    const requestSerial = ++reorderRequestSerial;
+
+    try {
+        await invoke("reorder_macro_actions", { actionIds, action_ids: actionIds });
+    } catch (error) {
+        console.error("Failed to reorder macro actions", error);
+        if (requestSerial === reorderRequestSerial) {
+            macroState.actions = previousActions;
+            renderActions();
+            await loadActionsFromBackend();
+        }
+    }
+}
+
+function applyVisibleActionOrder(previousActions: MacroUiAction[]) {
+    const visibleOrder = getVisibleActionOrder();
+    if (visibleOrder.length !== previousActions.length) {
+        renderActions();
+        return;
+    }
+
+    if (visibleOrder.every((id, index) => id === previousActions[index]?.id)) {
+        macroState.actions = previousActions;
+        renderActions();
+        return;
+    }
+
+    const actionsById = new Map(previousActions.map((action) => [action.id, action]));
+    const nextActions = visibleOrder
+        .map((id) => actionsById.get(id))
+        .filter((action): action is MacroUiAction => Boolean(action));
+
+    if (nextActions.length !== previousActions.length) {
+        renderActions();
+        return;
+    }
+
+    macroState.actions = nextActions;
+    renderActions();
+    void persistActionOrder(visibleOrder, previousActions);
 }
 
 function appendHighlightedDetails(container: Element, text: string) {
@@ -55,11 +298,14 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
     }
 
     item.innerHTML = `
+        <button class="action-drag-handle" type="button" aria-label="Drag action to reorder" title="Drag to reorder">
+            <span class="icon">&#57579;</span>
+        </button>
         <div class="action-icon"><span class="icon">${action.icon}</span></div>
         <div class="action-info">
             <span class="action-details"></span>
         </div>
-        <button class="action-remove" data-id="${action.id}">
+        <button class="action-remove" type="button" data-id="${action.id}">
             <span class="icon">&#57742;</span>
         </button>
     `;
@@ -86,6 +332,27 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
     } else if (details) {
         appendHighlightedDetails(details, getActionSummary(action));
     }
+
+    const dragHandle = item.querySelector<HTMLElement>(".action-drag-handle");
+    dragHandle?.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+            return;
+        }
+
+        event.preventDefault();
+        finishPointerDrag(false);
+        pointerDragState = {
+            actionId: action.id,
+            pointerId: event.pointerId,
+            item,
+            startY: event.clientY,
+            hasMoved: false,
+            previousActions: [...macroState.actions],
+        };
+
+        bindPointerDragListeners();
+        item.classList.add("drag-pressed");
+    });
 
     item.querySelector(".action-remove")?.addEventListener("click", () => {
         item.classList.add("removing");
