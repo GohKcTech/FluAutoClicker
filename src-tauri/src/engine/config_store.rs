@@ -3,9 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
-use super::macro_engine::types::MacroAction;
-#[cfg(test)]
-use super::macro_engine::types::MacroRepeatMode;
+use super::macro_engine::types::{MacroAction, MacroRecordingOptions, MacroRepeatMode};
 
 pub const CURRENT_CONFIG_VERSION: u32 = 2;
 pub const CURRENT_PROFILE_VERSION: u32 = 1;
@@ -173,6 +171,7 @@ pub struct MacroSettings {
     pub repeat_mode: String,
     pub repeat_count: u32,
     pub repeat_duration_ms: u64,
+    pub recording_options: MacroRecordingOptions,
     pub actions: Vec<MacroAction>,
 }
 
@@ -182,12 +181,12 @@ impl Default for MacroSettings {
             repeat_mode: "infinite".to_string(),
             repeat_count: 10,
             repeat_duration_ms: 10_000,
+            recording_options: MacroRecordingOptions::default(),
             actions: Vec::new(),
         }
     }
 }
 
-#[cfg(test)]
 impl MacroSettings {
     pub fn from_repeat_mode(mode: &MacroRepeatMode) -> (String, u32, u64) {
         match mode {
@@ -479,6 +478,15 @@ pub async fn load_profile(name: &str) -> Result<AppConfigFile, String> {
     Ok(profile.data.migrate())
 }
 
+pub async fn load_profile_file(name: &str) -> Result<ProfileFile, String> {
+    let path = profile_path(name);
+    let raw = fs::read_to_string(&path)
+        .await
+        .map_err(|e| format!("Failed to read profile: {e}"))?;
+
+    serde_json::from_str::<ProfileFile>(&raw).map_err(|e| format!("Failed to parse profile: {e}"))
+}
+
 pub async fn delete_profile(name: &str) -> Result<(), String> {
     let path = profile_path(name);
     if path.exists() {
@@ -529,6 +537,7 @@ mod tests {
             repeat_mode: "finite_seconds".to_string(),
             repeat_count: 10,
             repeat_duration_ms: 12_000,
+            recording_options: MacroRecordingOptions::default(),
             actions: Vec::new(),
         };
 

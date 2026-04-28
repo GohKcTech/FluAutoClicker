@@ -363,6 +363,7 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+.action-duplicate,
 .action-remove {
     background: var(--control-bg);
     border: none;
@@ -378,6 +379,11 @@
     opacity: 1;
     flex-shrink: 0;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.action-duplicate:hover {
+    background: color-mix(in srgb, var(--accent) 12%, var(--control-bg));
+    color: var(--accent);
 }
 
 .action-remove:hover {

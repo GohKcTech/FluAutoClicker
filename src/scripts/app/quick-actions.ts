@@ -1,7 +1,64 @@
+import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { save } from "@tauri-apps/plugin-dialog";
 import { t } from "../i18n";
+import { notify } from "../notifications";
+import { applyPersistedConfig, persistCurrentSettings, type AppConfigFile } from "../settings-persistence";
 import { isWebviewDevtoolsAvailable, toggleWebviewDevtools } from "../utils";
 import { showWebviewCreationError } from "../webview-error-modal";
+
+function timestampForFile() {
+    return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+async function saveJson(filename: string, payload: unknown) {
+    const path = await save({
+        defaultPath: filename,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!path) return false;
+
+    await invoke("save_export_file", {
+        path,
+        contents: JSON.stringify(payload, null, 2),
+    });
+    return true;
+}
+
+function readJsonFile(onRead: (payload: unknown) => void | Promise<void>) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.style.display = "none";
+    input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        input.remove();
+        if (!file) return;
+
+        try {
+            const payload = JSON.parse(await file.text());
+            await onRead(payload);
+        } catch (error) {
+            notify(error instanceof Error ? error.message : "Could not read JSON file", "error", 3200);
+        }
+    }, { once: true });
+    document.body.appendChild(input);
+    input.click();
+}
+
+async function exportConfig() {
+    const config = await persistCurrentSettings();
+    const saved = await saveJson(`fluautoclicker-config-${timestampForFile()}.json`, config);
+    if (saved) notify("Config exported", "success", 1800);
+}
+
+function importConfig() {
+    readJsonFile(async (payload) => {
+        const updated = await invoke<AppConfigFile>("import_app_config", { config: payload });
+        applyPersistedConfig(updated);
+        notify("Config imported", "success", 2200);
+    });
+}
 
 export function initCpsTestWindow() {
     document.getElementById("cps-test-btn")?.addEventListener("click", () => {
@@ -58,6 +115,16 @@ export function initCpsTestWindow() {
 }
 
 export function initDrawerLaunchers() {
+    document.getElementById("config-export-btn")?.addEventListener("click", () => {
+        void exportConfig().catch((error) => {
+            notify(error instanceof Error ? error.message : "Could not export config", "error", 3200);
+        });
+    });
+
+    document.getElementById("config-import-btn")?.addEventListener("click", () => {
+        importConfig();
+    });
+
     document.getElementById("jiggler-btn")?.addEventListener("click", async (event) => {
         event.stopPropagation();
         const { openDrawer } = await import("../drawer");

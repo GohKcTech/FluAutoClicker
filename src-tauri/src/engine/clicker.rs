@@ -8,8 +8,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
-#[cfg(target_os = "windows")]
-const WINDOWS_MAX_TOTAL_CPS: u32 = 650;
+const MIN_INTERVAL_US: u32 = 650;
 
 #[cfg(not(target_os = "linux"))]
 use enigo::{Button, Coordinate, Direction};
@@ -256,21 +255,6 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                 1
             };
 
-            #[cfg(target_os = "windows")]
-            let total_target_cps = {
-                let requested = if cps == 0 {
-                    1000u32.saturating_mul(threads)
-                } else {
-                    cps.saturating_mul(threads)
-                };
-                if multithread_active {
-                    requested.max(1)
-                } else {
-                    requested.clamp(1, WINDOWS_MAX_TOTAL_CPS)
-                }
-            };
-
-            #[cfg(not(target_os = "windows"))]
             let total_target_cps = if cps == 0 {
                 1000u32.saturating_mul(threads)
             } else {
@@ -278,7 +262,7 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
             }
             .max(1);
 
-            let interval_us = (1_000_000u32 / total_target_cps).max(200);
+            let interval_us = (1_000_000u32 / total_target_cps).max(MIN_INTERVAL_US);
 
             let variation_ms = state.variation_ms.load(Ordering::SeqCst);
             let final_interval_us = if variation_ms > 0 {
@@ -293,17 +277,8 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                 }
             } else {
                 interval_us
-            };
-
-            #[cfg(target_os = "windows")]
-            let final_interval_us = {
-                let mut final_interval_us = final_interval_us;
-                if !multithread_active {
-                    let min_interval_us = 1_000_000u32 / WINDOWS_MAX_TOTAL_CPS;
-                    final_interval_us = final_interval_us.max(min_interval_us);
-                }
-                final_interval_us
-            };
+            }
+            .max(MIN_INTERVAL_US);
 
             let ozone_active = state.is_jiggler_active.load(Ordering::SeqCst)
                 && *state.jiggler_pattern.lock().await == JigglerPattern::OZone;

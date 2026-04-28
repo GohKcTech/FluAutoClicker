@@ -1,10 +1,14 @@
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { save } from "@tauri-apps/plugin-dialog";
 import { formatInvokeError, safeInvoke } from "./invoke";
 import { notify } from "./notifications";
-import { applyPersistedConfig, persistCurrentSettings } from "./settings-persistence";
+import { applyPersistedConfig, persistCurrentSettings, type AppConfigFile } from "./settings-persistence";
 
-type AppConfigFile = {
-    active_profile: string;
+type ProfileFile = {
+    version: number;
+    name: string;
+    data: AppConfigFile;
 };
 
 let selectedProfile = "default";
@@ -16,6 +20,48 @@ function getList() {
 
 function getNameInput() {
     return document.getElementById("profile-name-input") as HTMLInputElement | null;
+}
+
+function timestampForFile() {
+    return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+function safeFilePart(value: string) {
+    return value.replace(/[^a-z0-9_-]+/gi, "_") || "profile";
+}
+
+async function saveJson(filename: string, payload: unknown) {
+    const path = await save({
+        defaultPath: filename,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!path) return false;
+
+    await invoke("save_export_file", {
+        path,
+        contents: JSON.stringify(payload, null, 2),
+    });
+    return true;
+}
+
+function readJsonFile(onRead: (payload: unknown) => void | Promise<void>) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json";
+    input.style.display = "none";
+    input.addEventListener("change", async () => {
+        const file = input.files?.[0];
+        input.remove();
+        if (!file) return;
+
+        try {
+            await onRead(JSON.parse(await file.text()));
+        } catch (error) {
+            notify(formatInvokeError(error), "error", 3200);
+        }
+    }, { once: true });
+    document.body.appendChild(input);
+    input.click();
 }
 
 async function refreshProfiles(preferredProfile?: string) {
@@ -30,7 +76,7 @@ async function refreshProfiles(preferredProfile?: string) {
             notifyOnError: true,
             errorMessage: "Could not load profiles",
         }),
-        safeInvoke<AppConfigFile>("load_app_config", undefined, {
+        safeInvoke<Pick<AppConfigFile, "active_profile">>("load_app_config", undefined, {
             fallback: { active_profile: "default" },
             notifyOnError: true,
             errorMessage: "Could not load active profile",
@@ -119,7 +165,7 @@ async function deleteProfile() {
         notifyOnError: true,
         errorMessage: "Could not delete profile",
     });
-    const config = await safeInvoke("load_app_config", undefined, {
+    const config = await safeInvoke<Pick<AppConfigFile, "active_profile">>("load_app_config", undefined, {
         fallback: { active_profile: "default" },
     });
     selectedProfile = "default";
@@ -127,6 +173,36 @@ async function deleteProfile() {
     applyPersistedConfig(config as any);
     await refreshProfiles("default");
     notify(`Profile "${profile}" deleted`, "info", 1800);
+}
+
+async function exportProfile() {
+    const profileName = getNameInput()?.value.trim() || selectedProfile || activeProfile || "default";
+    const profile = profileName === activeProfile
+        ? {
+            version: 1,
+            name: profileName,
+            data: {
+                ...(await persistCurrentSettings()),
+                active_profile: profileName,
+            },
+        } satisfies ProfileFile
+        : await invoke<ProfileFile>("export_profile_cmd", { name: profileName });
+    const saved = await saveJson(
+        `fluautoclicker-profile-${safeFilePart(profile.name)}-${timestampForFile()}.json`,
+        profile
+    );
+    if (saved) notify(`Profile "${profile.name}" exported`, "success", 1800);
+}
+
+function importProfile() {
+    readJsonFile(async (payload) => {
+        const updated = await invoke<AppConfigFile>("import_profile_cmd", { profile: payload });
+        selectedProfile = updated.active_profile || "default";
+        activeProfile = selectedProfile;
+        applyPersistedConfig(updated);
+        await refreshProfiles(selectedProfile);
+        notify(`Profile "${selectedProfile}" imported`, "success", 2200);
+    });
 }
 
 function syncProfileActionState() {
@@ -147,6 +223,8 @@ export function initProfiles() {
     const renameBtn = document.getElementById("profile-rename-btn");
     const deleteBtn = document.getElementById("profile-delete-btn");
     const reloadBtn = document.getElementById("profile-reload-btn");
+    const exportBtn = document.getElementById("profile-export-btn");
+    const importBtn = document.getElementById("profile-import-btn");
     const nameInput = getNameInput();
     if (!saveBtn || !renameBtn || !deleteBtn || !reloadBtn || !nameInput) return;
 
@@ -171,6 +249,14 @@ export function initProfiles() {
         void refreshProfiles().catch((error) => {
             notify(formatInvokeError(error), "error", 2800);
         });
+    });
+    exportBtn?.addEventListener("click", () => {
+        void exportProfile().catch((error) => {
+            notify(formatInvokeError(error), "error", 2800);
+        });
+    });
+    importBtn?.addEventListener("click", () => {
+        importProfile();
     });
     nameInput.addEventListener("input", () => {
         selectedProfile = nameInput.value.trim() || activeProfile;

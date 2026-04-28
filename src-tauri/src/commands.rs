@@ -160,6 +160,52 @@ pub async fn save_app_config(
 }
 
 #[tauri::command]
+pub async fn get_macro_settings(
+    state: State<'_, Arc<AppState>>,
+) -> Result<crate::engine::config_store::MacroSettings, String> {
+    let actions = state.macro_engine.actions.lock().await.clone();
+    let repeat_mode = state.macro_engine.repeat_mode.lock().await.clone();
+    let recording_options = state.macro_engine.recording_options.lock().await.clone();
+    let (repeat_mode, repeat_count, repeat_duration_ms) =
+        crate::engine::config_store::MacroSettings::from_repeat_mode(&repeat_mode);
+
+    Ok(crate::engine::config_store::MacroSettings {
+        repeat_mode,
+        repeat_count,
+        repeat_duration_ms,
+        recording_options,
+        actions,
+    })
+}
+
+#[tauri::command]
+pub async fn import_app_config(
+    state: State<'_, Arc<AppState>>,
+    app: AppHandle,
+    mut config: crate::engine::config_store::AppConfigFile,
+) -> Result<crate::engine::config_store::AppConfigFile, String> {
+    if !crate::system_startup_supported() {
+        config.general.autostart = false;
+    }
+
+    set_system_startup_impl(&app, config.general.autostart)?;
+    let normalized = config.normalized_for_save();
+    crate::persist_and_apply_config(&app, state.inner(), normalized.clone()).await?;
+    let _ = app.emit(
+        "profiles-updated",
+        serde_json::json!({ "active_profile": normalized.active_profile }),
+    );
+    Ok(normalized)
+}
+
+#[tauri::command]
+pub async fn save_export_file(path: String, contents: String) -> Result<(), String> {
+    tokio::fs::write(path, contents)
+        .await
+        .map_err(|e| format!("Failed to save export file: {e}"))
+}
+
+#[tauri::command]
 pub async fn list_profiles_cmd() -> Result<Vec<String>, String> {
     let config = crate::engine::config_store::load_config()
         .await
@@ -205,6 +251,42 @@ pub async fn load_profile_cmd(
         serde_json::json!({ "active_profile": normalized_name }),
     );
     Ok(profile)
+}
+
+#[tauri::command]
+pub async fn export_profile_cmd(
+    name: String,
+) -> Result<crate::engine::config_store::ProfileFile, String> {
+    let normalized_name = crate::validate_profile_name(&name)?;
+    if normalized_name == "default" {
+        let config = crate::engine::config_store::load_profile("default")
+            .await
+            .unwrap_or_else(|_| crate::engine::config_store::AppConfigFile::default());
+        return Ok(crate::engine::config_store::ProfileFile::new(
+            "default".to_string(),
+            config,
+        ));
+    }
+
+    crate::engine::config_store::load_profile_file(&normalized_name).await
+}
+
+#[tauri::command]
+pub async fn import_profile_cmd(
+    state: State<'_, Arc<AppState>>,
+    app: AppHandle,
+    profile: crate::engine::config_store::ProfileFile,
+) -> Result<crate::engine::config_store::AppConfigFile, String> {
+    let normalized_name = crate::validate_profile_name(&profile.name)?;
+    let mut config = profile.data.normalized_for_save();
+    config.active_profile = normalized_name.clone();
+    crate::engine::config_store::save_profile(&normalized_name, &config).await?;
+    crate::persist_and_apply_config(&app, state.inner(), config.clone()).await?;
+    let _ = app.emit(
+        "profiles-updated",
+        serde_json::json!({ "active_profile": normalized_name }),
+    );
+    Ok(config)
 }
 
 #[tauri::command]
@@ -1125,6 +1207,35 @@ pub async fn remove_macro_action(
 ) -> Result<(), String> {
     let mut actions = state.macro_engine.actions.lock().await;
     actions.retain(|a| a.id != action_id);
+    drop(actions);
+
+    let actions_clone = state.macro_engine.actions.lock().await.clone();
+    let repeat_mode = state.macro_engine.repeat_mode.lock().await.clone();
+    let recording_options = state.macro_engine.recording_options.lock().await.clone();
+    tokio::spawn(async move {
+        let _ = storage::save_macro(&actions_clone, &repeat_mode, &recording_options).await;
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn duplicate_macro_action(
+    state: State<'_, Arc<AppState>>,
+    action_id: u64,
+) -> Result<(), String> {
+    let mut actions = state.macro_engine.actions.lock().await;
+    let Some(index) = actions.iter().position(|action| action.id == action_id) else {
+        return Err("Macro action was not found.".to_string());
+    };
+
+    let id = state
+        .macro_engine
+        .action_id_counter
+        .fetch_add(1, Ordering::SeqCst);
+    let mut duplicated = actions[index].clone();
+    duplicated.id = id;
+    actions.insert(index + 1, duplicated);
     drop(actions);
 
     let actions_clone = state.macro_engine.actions.lock().await.clone();

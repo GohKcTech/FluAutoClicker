@@ -22,7 +22,15 @@ type Hotkeys = {
     toggle_macro_recording: string;
 };
 
-type AppConfigFile = {
+type MacroRecordingOptions = {
+    record_mouse_clicks: boolean;
+    record_mouse_moves: boolean;
+    record_keyboard: boolean;
+    record_delays: boolean;
+    record_click_position: boolean;
+};
+
+export type AppConfigFile = {
     version: number;
     active_profile: string;
     general: {
@@ -76,6 +84,7 @@ type AppConfigFile = {
         repeat_mode: string;
         repeat_count: number;
         repeat_duration_ms: number;
+        recording_options: MacroRecordingOptions;
         actions: unknown[];
     };
     hotkeys: Hotkeys;
@@ -155,6 +164,13 @@ function defaultConfig(): AppConfigFile {
             repeat_mode: "infinite",
             repeat_count: 10,
             repeat_duration_ms: 10000,
+            recording_options: {
+                record_mouse_clicks: true,
+                record_mouse_moves: true,
+                record_keyboard: true,
+                record_delays: true,
+                record_click_position: true,
+            },
             actions: [],
         },
         hotkeys: {
@@ -254,6 +270,23 @@ function setKeyboardSelection(key: string, modifiers: string) {
     if (comboDisplay) {
         setKeyBadgeContent(comboDisplay, [...Array.from(modifierSet), normalizedKey || ""].filter(Boolean));
     }
+}
+
+function applyMacroRepeatSettings(config: AppConfigFile) {
+    const repeatMode = config.macro_settings.repeat_mode;
+    const repeatToggleValue = repeatMode === "infinite" ? "infinite" : "finite";
+    const finiteModeValue = repeatMode === "finite_seconds" ? "seconds" : "times";
+    const countValue = repeatMode === "finite_seconds"
+        ? Math.max(1, Math.round(config.macro_settings.repeat_duration_ms / 1000))
+        : config.macro_settings.repeat_count;
+
+    setActiveButton("macro-repeat-toggle", repeatToggleValue);
+    setActiveButton("macro-finite-mode-toggle", finiteModeValue);
+    setInputValue("macro-repeat-count", countValue);
+    document.getElementById("macro-repeat-finite-section")?.classList.toggle(
+        "expanded",
+        repeatToggleValue === "finite"
+    );
 }
 
 function applyLocalStorageSnapshot(config: AppConfigFile) {
@@ -371,6 +404,7 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("acrylic-toggle", frontendState.acrylic_enabled === true);
     setToggleState("classic-window-icons-toggle", frontendState.window_control_icons === "classic");
     setToggleState("always-on-top-toggle", frontendState.always_on_top === true);
+    applyMacroRepeatSettings(config);
 
     const activeTabCandidate = String(frontendState.active_tab || "mouse");
     const activeTab: AppMode = APP_MODES.has(activeTabCandidate) ? activeTabCandidate as AppMode : "mouse";
@@ -397,6 +431,14 @@ async function fetchHotkeys(): Promise<Hotkeys> {
         };
     } catch {
         return (currentConfig || defaultConfig()).hotkeys;
+    }
+}
+
+async function fetchMacroSettings(fallback: AppConfigFile["macro_settings"]): Promise<AppConfigFile["macro_settings"]> {
+    try {
+        return await invoke<AppConfigFile["macro_settings"]>("get_macro_settings");
+    } catch {
+        return fallback;
     }
 }
 
@@ -445,6 +487,7 @@ function getKeyboardSnapshot() {
 async function captureConfigSnapshot(): Promise<AppConfigFile> {
     const base = currentConfig || defaultConfig();
     const hotkeys = await fetchHotkeys();
+    const macroSettings = await fetchMacroSettings(base.macro_settings);
     const keyboard = getKeyboardSnapshot();
     const activeTabCandidate =
         document.querySelector<HTMLElement>(".mode-tabs .tab.active")?.dataset.tab || "mouse";
@@ -518,6 +561,7 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
                     ? "extreme"
                     : "normal",
         },
+        macro_settings: macroSettings,
         hotkeys,
         updates: {
             ...base.updates,

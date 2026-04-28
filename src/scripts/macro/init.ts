@@ -168,6 +168,22 @@ async function loadMacroState(recordButton: HTMLElement | null) {
     setMacroRecordingState(recordButton, playerState === "recording");
 }
 
+function applyImportedMacroSettings(payload: unknown) {
+    const config = payload as { macro_settings?: { repeat_mode?: string; repeat_count?: number; repeat_duration_ms?: number } };
+    const settings = config.macro_settings;
+    if (!settings) {
+        return;
+    }
+
+    if (settings.repeat_mode === "finite_times") {
+        applyRepeatModeToUi(`finite_times_${settings.repeat_count || 1}`);
+    } else if (settings.repeat_mode === "finite_seconds") {
+        applyRepeatModeToUi(`finite_seconds_${settings.repeat_duration_ms || 1000}`);
+    } else {
+        applyRepeatModeToUi("infinite");
+    }
+}
+
 function initMacroEventListeners(recordButton: HTMLElement | null) {
     void listen<{ action_id?: unknown }>("macro-step-changed", (event) => {
         const rawId = event.payload?.action_id;
@@ -193,6 +209,16 @@ function initMacroEventListeners(recordButton: HTMLElement | null) {
     void listen("macro-actions-changed", () => {
         void loadActionsFromBackend({ animateNew: true }).catch((error) => {
             console.error("Failed to refresh macro actions", error);
+        });
+    });
+
+    window.addEventListener("flu:settings-applied", (event) => {
+        applyImportedMacroSettings((event as CustomEvent<unknown>).detail);
+        void Promise.all([
+            loadRecordingOptions(),
+            loadActionsFromBackend(),
+        ]).catch((error) => {
+            console.error("Failed to refresh imported macro settings", error);
         });
     });
 

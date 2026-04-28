@@ -305,6 +305,9 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
         <div class="action-info">
             <span class="action-details"></span>
         </div>
+        <button class="action-duplicate" type="button" data-id="${action.id}" aria-label="Duplicate action" title="Duplicate action">
+            <span class="icon">&#57502;</span>
+        </button>
         <button class="action-remove" type="button" data-id="${action.id}">
             <span class="icon">&#57742;</span>
         </button>
@@ -368,6 +371,16 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
         }, 300);
     });
 
+    item.querySelector(".action-duplicate")?.addEventListener("click", async () => {
+        try {
+            await invoke("duplicate_macro_action", { actionId: action.id, action_id: action.id });
+            await loadActionsFromBackend({ animateNew: true });
+        } catch (error) {
+            console.error("Failed to duplicate macro action", error);
+            await loadActionsFromBackend();
+        }
+    });
+
     if (animate) {
         item.addEventListener("animationend", () => item.classList.remove("adding"), { once: true });
     }
@@ -404,17 +417,18 @@ export function renderActions(options: { animateNew?: boolean } = {}) {
         }
     });
 
-    let addedNewItem = false;
+    let addedNewItemAtEnd = false;
     const lastActionId = macroState.actions[macroState.actions.length - 1]?.id ?? null;
     macroState.actions.forEach((action) => {
         const existing = listContainer.querySelector<HTMLElement>(`.macro-action-item[data-action-id="${action.id}"]`);
-        const shouldAnimate = Boolean(options.animateNew && !existingIds.has(String(action.id)) && action.id === lastActionId);
+        const isNewItem = !existingIds.has(String(action.id));
+        const shouldAnimate = Boolean(options.animateNew && isNewItem);
         const item = existing || createActionElement(action, shouldAnimate);
-        addedNewItem ||= !existing;
+        addedNewItemAtEnd ||= isNewItem && action.id === lastActionId;
         listContainer.appendChild(item);
     });
 
-    if (options.animateNew && addedNewItem) {
+    if (options.animateNew && addedNewItemAtEnd) {
         window.requestAnimationFrame(() => {
             listContainer.scrollTo({ top: listContainer.scrollHeight, behavior: "smooth" });
         });

@@ -389,6 +389,24 @@ pub(crate) async fn apply_config_to_state(state: &Arc<AppState>, config: &AppCon
         pick_position: config.hotkeys.pick_position.clone(),
         toggle_macro_recording: config.hotkeys.toggle_macro_recording.clone(),
     };
+
+    *state.macro_engine.actions.lock().await = config.macro_settings.actions.clone();
+    *state.macro_engine.repeat_mode.lock().await = config.macro_settings.to_repeat_mode();
+    *state.macro_engine.recording_options.lock().await =
+        config.macro_settings.recording_options.clone();
+
+    let next_action_id = config
+        .macro_settings
+        .actions
+        .iter()
+        .map(|action| action.id)
+        .max()
+        .unwrap_or(0)
+        + 1;
+    state
+        .macro_engine
+        .action_id_counter
+        .store(next_action_id, Ordering::SeqCst);
 }
 
 pub(crate) async fn persist_and_apply_config(
@@ -398,8 +416,15 @@ pub(crate) async fn persist_and_apply_config(
 ) -> Result<(), String> {
     crate::engine::config_store::save_config(&config).await?;
     apply_config_to_state(state, &config).await;
+    crate::engine::macro_engine::storage::save_macro(
+        &config.macro_settings.actions,
+        &config.macro_settings.to_repeat_mode(),
+        &config.macro_settings.recording_options,
+    )
+    .await?;
     register_runtime_hotkeys(app, &state.hotkeys.lock().await.clone())?;
     let _ = app.emit("settings-applied", &config);
+    let _ = app.emit("macro-actions-changed", serde_json::json!({}));
     Ok(())
 }
 
@@ -476,6 +501,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -618,9 +644,14 @@ pub fn run() {
             get_runtime_status,
             load_app_config,
             save_app_config,
+            get_macro_settings,
+            import_app_config,
+            save_export_file,
             list_profiles_cmd,
             save_profile_cmd,
             load_profile_cmd,
+            export_profile_cmd,
+            import_profile_cmd,
             rename_profile_cmd,
             delete_profile_cmd,
             set_cps,
@@ -663,6 +694,7 @@ pub fn run() {
             set_keyboard_variation_ms,
             add_macro_action,
             remove_macro_action,
+            duplicate_macro_action,
             reorder_macro_actions,
             clear_macros,
             toggle_macro_player,

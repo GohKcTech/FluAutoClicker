@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { createSlideIndicator, updateIndicator } from "../utils";
 
 export function applyRepeatModeToUi(repeatMode: string) {
     const repeatToggle = document.getElementById("macro-repeat-toggle");
@@ -8,12 +9,6 @@ export function applyRepeatModeToUi(repeatMode: string) {
     if (!repeatToggle || !finiteModeToggle || !countInput) {
         return;
     }
-
-    const setActiveButton = (container: HTMLElement, value: string) => {
-        container.querySelectorAll(".toggle-option, .multi-btn").forEach((button) => {
-            button.classList.toggle("active", button.getAttribute("data-value") === value);
-        });
-    };
 
     if (repeatMode === "infinite") {
         setActiveButton(repeatToggle, "infinite");
@@ -30,10 +25,8 @@ export function applyRepeatModeToUi(repeatMode: string) {
         setActiveButton(finiteModeToggle, "seconds");
     }
 
-    document.getElementById("macro-repeat-finite-section")?.classList.toggle(
-        "expanded",
-        repeatToggle.querySelector('.toggle-option.active')?.getAttribute("data-value") === "finite"
-    );
+    applyMacroRepeatExpandableState();
+    refreshMacroRepeatIndicators();
 }
 
 export function initRepeatSettingsListeners() {
@@ -64,10 +57,9 @@ export function initRepeatSettingsListeners() {
 
     repeatToggle?.querySelectorAll(".toggle-option").forEach((button) => {
         button.addEventListener("click", () => {
-            document.getElementById("macro-repeat-finite-section")?.classList.toggle(
-                "expanded",
-                (button as HTMLElement).dataset.value === "finite"
-            );
+            setActiveButton(repeatToggle, (button as HTMLElement).dataset.value || "infinite");
+            applyMacroRepeatExpandableState();
+            refreshMacroRepeatIndicators();
             void syncRepeatSettings().catch((error) => {
                 console.error("Failed to sync macro repeat mode", error);
             });
@@ -76,6 +68,8 @@ export function initRepeatSettingsListeners() {
 
     finiteModeToggle?.querySelectorAll(".toggle-option").forEach((button) => {
         button.addEventListener("click", () => {
+            setActiveButton(finiteModeToggle, (button as HTMLElement).dataset.value || "times");
+            refreshMacroRepeatIndicators();
             void syncRepeatSettings().catch((error) => {
                 console.error("Failed to sync macro finite mode", error);
             });
@@ -87,4 +81,59 @@ export function initRepeatSettingsListeners() {
             console.error("Failed to sync macro repeat count", error);
         });
     });
+}
+
+function setActiveButton(container: HTMLElement, value: string) {
+    let activeButton: HTMLElement | null = null;
+
+    container.querySelectorAll<HTMLElement>(".toggle-option, .multi-btn").forEach((button) => {
+        const isActive = button.dataset.value === value;
+        button.classList.toggle("active", isActive);
+        if (isActive) {
+            activeButton = button;
+        }
+    });
+
+    if (activeButton) {
+        updateToggleIndicator(container, activeButton);
+    }
+}
+
+function applyMacroRepeatExpandableState() {
+    const repeatToggle = document.getElementById("macro-repeat-toggle");
+    const activeValue = repeatToggle
+        ?.querySelector<HTMLElement>(".toggle-option.active")
+        ?.dataset.value;
+
+    document.getElementById("macro-repeat-finite-section")?.classList.toggle(
+        "expanded",
+        activeValue === "finite"
+    );
+}
+
+function refreshMacroRepeatIndicators() {
+    refreshToggleIndicator("macro-repeat-toggle");
+    refreshToggleIndicator("macro-finite-mode-toggle");
+
+    requestAnimationFrame(() => {
+        refreshToggleIndicator("macro-repeat-toggle");
+        refreshToggleIndicator("macro-finite-mode-toggle");
+    });
+}
+
+function refreshToggleIndicator(containerId: string) {
+    const container = document.getElementById(containerId);
+    const activeButton = container?.querySelector<HTMLElement>(".toggle-option.active, .multi-btn.active");
+    if (container && activeButton) {
+        updateToggleIndicator(container, activeButton);
+    }
+}
+
+function updateToggleIndicator(container: HTMLElement, activeButton: HTMLElement) {
+    if (container.querySelector(".slide-indicator")) {
+        updateIndicator(container, activeButton);
+        return;
+    }
+
+    createSlideIndicator(container, activeButton, true);
 }

@@ -67,5 +67,8 @@ export function initWindowFocusState() {
 
 export async function initWindowEffects() {
     initWindowFocusState();
+    window.addEventListener("flu:settings-applied", () => {
+        void applyWindowEffects(isAcrylicPreferred());
+    });
     return applyWindowEffects(isAcrylicPreferred());
 }

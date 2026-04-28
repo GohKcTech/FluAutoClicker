@@ -348,6 +348,8 @@ export function initTheme() {
         const noItalic = localStorage.getItem('flu-no-italic') === 'true';
         italicToggle?.classList.toggle('active', noItalic);
         document.body.classList.toggle('font-no-italic', noItalic);
-        acrylicToggle?.classList.toggle('active', acrylicSupported && isAcrylicPreferred());
+        const acrylicEnabled = acrylicSupported && isAcrylicPreferred();
+        acrylicToggle?.classList.toggle('active', acrylicEnabled);
+        document.documentElement.dataset.acrylicEnabled = acrylicEnabled ? '1' : '0';
     });
 }
