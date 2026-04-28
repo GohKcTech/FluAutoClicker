@@ -388,15 +388,19 @@ export function initTimingModal(onConfirm: () => void) {
         let startX = 0;
         let currentX = 0;
         let maxDelta = 0;
+        const handleTransition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease';
+        const handleDragTransition = 'transform 0s linear, background 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease';
+        const progressTransition = 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
+        const progressDragTransition = 'width 0s linear, background 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
 
         const resetHandle = () => {
             isDragging = false;
             currentX = 0;
             handle.style.transform = 'translateX(0)';
-            handle.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+            handle.style.transition = handleTransition;
             if (progress) {
                 progress.style.width = '0';
-                progress.style.transition = 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+                progress.style.transition = progressTransition;
             }
             if (text) text.textContent = 'Slide to confirm';
             track.classList.remove('unlocked');
@@ -406,8 +410,8 @@ export function initTimingModal(onConfirm: () => void) {
             isDragging = true;
             maxDelta = track.clientWidth - handle.clientWidth - 8;
             startX = clientX - currentX;
-            handle.style.transition = 'none';
-            if (progress) progress.style.transition = 'none';
+            handle.style.transition = handleDragTransition;
+            if (progress) progress.style.transition = progressDragTransition;
         };
 
         const moveDragging = (clientX: number) => {
@@ -420,7 +424,7 @@ export function initTimingModal(onConfirm: () => void) {
             currentX = delta;
             handle.style.transform = `translateX(${delta}px)`;
             if (progress) {
-                progress.style.width = `${delta + 20}px`; 
+                progress.style.width = `${delta + 21}px`; 
             }
 
             const iconEl = document.getElementById('timing-unlock-icon');

@@ -928,8 +928,8 @@
 
 .unlock-slider-handle {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   background: var(--accent);
   border-radius: 10px;
   display: flex;
@@ -949,8 +949,15 @@
 
 .unlock-slider-handle .icon {
   color: #000;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 900;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transform: translateY(-1px);
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
