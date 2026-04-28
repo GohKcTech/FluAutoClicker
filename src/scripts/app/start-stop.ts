@@ -16,6 +16,10 @@ type MacroStatusPayload = {
     error?: string;
 };
 
+type OzoneWaitingPayload = {
+    waiting?: boolean;
+};
+
 type SupportedTab = "mouse" | "keyboard" | "macro";
 
 type RuntimeStatusPayload = {
@@ -83,7 +87,7 @@ function showTimingWarningModal() {
 }
 
 async function toggleMouseClicker() {
-    return invoke<boolean>("toggle_clicker");
+    return invoke<boolean>("toggle_clicker", { source: "button" });
 }
 
 function rememberRunningMode(mode: AppMode, isRunning: boolean) {
@@ -204,6 +208,12 @@ export function initStartStopControls() {
 
         if (state === "error" && event.payload?.error) {
             notify(String(event.payload.error), "error", 3600);
+        }
+    });
+
+    void listen<OzoneWaitingPayload>("ozone-anchor-waiting", (event) => {
+        if (event.payload?.waiting) {
+            notify("O-Zone: click once to set the center point", "info", 3200);
         }
     });
 

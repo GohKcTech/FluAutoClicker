@@ -669,6 +669,19 @@
               <div class="drawer-toggle" id="classic-window-icons-toggle"></div>
             </div>
 
+            <div class="settings-list-item" id="always-on-top-trigger" style="cursor: pointer;">
+              <div class="settings-item-icon">
+                <svg class="settings-window-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 17v5"></path><path d="M5 17h14"></path><path d="M7 9V4h10v5"></path><path d="M8 9h8l2 8H6z"></path>
+                </svg>
+              </div>
+              <div class="settings-item-content">
+                <span class="settings-item-title">Always on Top</span>
+                <span class="settings-item-desc">Keep the main window above others</span>
+              </div>
+              <div class="drawer-toggle" id="always-on-top-toggle"></div>
+            </div>
+
             <div class="settings-group-title">Utils</div>
 
             <div class="settings-list-item" id="cps-test-btn" style="cursor: pointer;">
@@ -875,6 +888,10 @@
                 </button>
               </div>
             </div>
+            <div class="settings-list-item ozone-pattern-note" id="jiggler-ozone-help">
+              <span class="icon" style="font-size: 14px; color: #FFC107; margin-top: 1px;">&#58485;</span>
+              <span style="font-size: 10px; color: #FFC107; line-height: 1.5; opacity: 0.9;">O-Zone creates a radius around the start point and clicks random positions inside it. Hotkey start uses the current cursor; button start waits for the first click.</span>
+            </div>
 
             <div class="settings-group-title">Timing Configuration</div>
             <div class="settings-list-item" style="flex-direction: column; align-items: stretch; gap: 4px; padding-bottom: 14px;">
@@ -882,7 +899,7 @@
                 <span class="settings-item-title">Movement Interval</span>
                 <span class="visual-slider-value" style="font-size: 13px; font-weight: 700; color: var(--accent);">30s</span>
               </div>
-              <input type="range" class="interval-slider" id="jiggler-slider" min="5" max="300" value="30">
+              <input type="range" class="interval-slider" id="jiggler-slider" min="1" max="300" value="30">
             </div>
 
             <div class="settings-group-title">Movement Distance</div>

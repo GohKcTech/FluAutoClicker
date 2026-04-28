@@ -230,10 +230,17 @@ export function initJiggler() {
     const patternRow = document.getElementById('jiggler-pattern-row');
     if (patternRow) {
         const buttons = patternRow.querySelectorAll('.multi-btn');
+        const ozoneHelp = document.getElementById('jiggler-ozone-help');
+        const syncOzoneHelp = () => {
+            const activePattern = (patternRow.querySelector('.multi-btn.active') as HTMLElement | null)?.dataset.pattern;
+            ozoneHelp?.classList.toggle('visible', activePattern === 'ozn');
+        };
+        syncOzoneHelp();
         buttons.forEach(btn => {
             btn.addEventListener('click', async () => {
                 buttons.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
+                syncOzoneHelp();
                 
                 
                 const indicator = patternRow.querySelector('.slide-indicator') as HTMLElement;

@@ -1,7 +1,9 @@
 use crate::engine::state::{
-    AppState, ClickMode, HoldUnit, MouseButton, PositionMode, RepeatMode, RepeatUnit,
+    AppState, ClickMode, HoldUnit, JigglerPattern, MouseButton, PositionMode, RepeatMode,
+    RepeatUnit,
 };
 use enigo::{Enigo, Mouse, Settings};
+use rand::SeedableRng;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
@@ -147,6 +149,16 @@ fn current_cursor_position() -> Result<(i32, i32), String> {
         .map_err(|e| format!("Failed to read cursor position: {e}"))
 }
 
+fn random_point_in_circle(rng: &mut impl rand::Rng, radius: i32) -> (i32, i32) {
+    loop {
+        let x = rng.gen_range(-radius..=radius);
+        let y = rng.gen_range(-radius..=radius);
+        if x * x + y * y <= radius * radius {
+            return (x, y);
+        }
+    }
+}
+
 fn should_stop_on_custom_position_move(
     enabled: bool,
     primed: bool,
@@ -185,6 +197,9 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
     let mut start_time = std::time::Instant::now();
     let mut custom_position_primed = false;
     let mut last_custom_target: Option<(i32, i32)> = None;
+    let mut ozone_rng = rand::rngs::SmallRng::from_entropy();
+    let mut ozone_target: Option<(i32, i32)> = None;
+    let mut ozone_next_move_at = std::time::Instant::now();
 
     loop {
         if state.is_running.load(Ordering::SeqCst) {
@@ -204,6 +219,11 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                     RepeatUnit::Times => {
                         if click_count >= repeat_count {
                             state.is_running.store(false, Ordering::SeqCst);
+                            state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+                            state
+                                .ozone_wait_for_click_anchor
+                                .store(false, Ordering::SeqCst);
+                            ozone_target = None;
                             let _ =
                                 app.emit("status-changed", serde_json::json!({ "running": false }));
                             click_count = 0;
@@ -214,6 +234,11 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                         let elapsed = start_time.elapsed().as_secs();
                         if elapsed >= repeat_count as u64 {
                             state.is_running.store(false, Ordering::SeqCst);
+                            state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+                            state
+                                .ozone_wait_for_click_anchor
+                                .store(false, Ordering::SeqCst);
+                            ozone_target = None;
                             let _ =
                                 app.emit("status-changed", serde_json::json!({ "running": false }));
                             start_time = std::time::Instant::now();
@@ -280,40 +305,39 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                 final_interval_us
             };
 
-            let position_mode = *state.position_mode.lock().await;
-            if position_mode == PositionMode::Custom {
-                let x = state.coord_x.load(Ordering::SeqCst);
-                let y = state.coord_y.load(Ordering::SeqCst);
-                let target_position = (x, y);
+            let ozone_active = state.is_jiggler_active.load(Ordering::SeqCst)
+                && *state.jiggler_pattern.lock().await == JigglerPattern::OZone;
 
-                if last_custom_target != Some(target_position) {
-                    custom_position_primed = false;
-                    last_custom_target = Some(target_position);
-                }
-
-                let stop_on_move = state.stop_on_custom_position_move.load(Ordering::SeqCst);
-                let current_position = if stop_on_move && custom_position_primed {
-                    current_cursor_position().ok()
-                } else {
-                    None
-                };
-
-                if should_stop_on_custom_position_move(
-                    stop_on_move,
-                    custom_position_primed,
-                    current_position,
-                    target_position,
-                ) {
-                    state.is_running.store(false, Ordering::SeqCst);
-                    let _ = app.emit("status-changed", serde_json::json!({ "running": false }));
-                    custom_position_primed = false;
-                    click_count = 0;
-                    start_time = std::time::Instant::now();
+            if ozone_active {
+                if !state.ozone_anchor_ready.load(Ordering::SeqCst) {
+                    ozone_target = None;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
                     continue;
                 }
 
+                let should_move_ozone =
+                    ozone_target.is_none() || std::time::Instant::now() >= ozone_next_move_at;
+
+                if should_move_ozone {
+                    let radius = (state.jiggler_distance.load(Ordering::SeqCst) as i32).max(1);
+                    let center_x = state.ozone_center_x.load(Ordering::SeqCst);
+                    let center_y = state.ozone_center_y.load(Ordering::SeqCst);
+                    let (offset_x, offset_y) = random_point_in_circle(&mut ozone_rng, radius);
+                    let target = (center_x + offset_x, center_y + offset_y);
+                    ozone_target = Some(target);
+                    ozone_next_move_at = std::time::Instant::now()
+                        + std::time::Duration::from_millis(
+                            state.jiggler_interval.load(Ordering::SeqCst).max(100) as u64,
+                        );
+                }
+
+                let Some((x, y)) = ozone_target else {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                    continue;
+                };
+
                 #[cfg(target_os = "linux")]
-                {
+                if should_move_ozone {
                     let mut device_guard = state.uinput_device.lock().await;
                     if let Some(ref mut device) = *device_guard {
                         move_to_position(device, x, y).await;
@@ -328,14 +352,76 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                 }
 
                 #[cfg(not(target_os = "linux"))]
-                {
+                if should_move_ozone {
                     move_to_position(&mut enigo, x, y).await;
                 }
 
-                custom_position_primed = true;
-            } else {
                 custom_position_primed = false;
                 last_custom_target = None;
+            } else {
+                ozone_target = None;
+                let position_mode = *state.position_mode.lock().await;
+                if position_mode == PositionMode::Custom {
+                    let x = state.coord_x.load(Ordering::SeqCst);
+                    let y = state.coord_y.load(Ordering::SeqCst);
+                    let target_position = (x, y);
+
+                    if last_custom_target != Some(target_position) {
+                        custom_position_primed = false;
+                        last_custom_target = Some(target_position);
+                    }
+
+                    let stop_on_move = state.stop_on_custom_position_move.load(Ordering::SeqCst);
+                    let current_position = if stop_on_move && custom_position_primed {
+                        current_cursor_position().ok()
+                    } else {
+                        None
+                    };
+
+                    if should_stop_on_custom_position_move(
+                        stop_on_move,
+                        custom_position_primed,
+                        current_position,
+                        target_position,
+                    ) {
+                        state.is_running.store(false, Ordering::SeqCst);
+                        state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+                        state
+                            .ozone_wait_for_click_anchor
+                            .store(false, Ordering::SeqCst);
+                        ozone_target = None;
+                        let _ = app.emit("status-changed", serde_json::json!({ "running": false }));
+                        custom_position_primed = false;
+                        click_count = 0;
+                        start_time = std::time::Instant::now();
+                        continue;
+                    }
+
+                    #[cfg(target_os = "linux")]
+                    {
+                        let mut device_guard = state.uinput_device.lock().await;
+                        if let Some(ref mut device) = *device_guard {
+                            move_to_position(device, x, y).await;
+                        } else {
+                            drop(device_guard);
+                            let mut dg = state.uinput_device.lock().await;
+                            *dg = crate::engine::uinput::setup_uinput();
+                            if let Some(ref mut device) = *dg {
+                                move_to_position(device, x, y).await;
+                            }
+                        }
+                    }
+
+                    #[cfg(not(target_os = "linux"))]
+                    {
+                        move_to_position(&mut enigo, x, y).await;
+                    }
+
+                    custom_position_primed = true;
+                } else {
+                    custom_position_primed = false;
+                    last_custom_target = None;
+                }
             }
 
             #[cfg(target_os = "linux")]
@@ -375,6 +461,7 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
             start_time = std::time::Instant::now();
             custom_position_primed = false;
             last_custom_target = None;
+            ozone_target = None;
             tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         }
     }

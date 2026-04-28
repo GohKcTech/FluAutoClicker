@@ -19,13 +19,91 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 const MIN_MACRO_ACTION_DURATION_MS: u32 = 1;
 const MAX_MACRO_ACTION_DURATION_MS: u32 = 3_600_000;
-
 fn clamp_u32(value: u32, min: u32, max: u32) -> u32 {
     value.clamp(min, max)
 }
 
 fn clamp_u64(value: u64, min: u64, max: u64) -> u64 {
     value.clamp(min, max)
+}
+
+fn current_jiggler_pattern(state: &Arc<AppState>) -> JigglerPattern {
+    state
+        .jiggler_pattern
+        .try_lock()
+        .map(|pattern| *pattern)
+        .unwrap_or(JigglerPattern::Random)
+}
+
+fn ozone_is_selected(state: &Arc<AppState>) -> bool {
+    state.is_jiggler_active.load(Ordering::SeqCst)
+        && current_jiggler_pattern(state) == JigglerPattern::OZone
+}
+
+pub(crate) fn set_ozone_anchor(state: &Arc<AppState>, app: &AppHandle, x: i32, y: i32) {
+    state.ozone_center_x.store(x, Ordering::SeqCst);
+    state.ozone_center_y.store(y, Ordering::SeqCst);
+    state.ozone_anchor_ready.store(true, Ordering::SeqCst);
+    state
+        .ozone_wait_for_click_anchor
+        .store(false, Ordering::SeqCst);
+
+    let radius = state.jiggler_distance.load(Ordering::SeqCst);
+    let _ = app.emit(
+        "ozone-anchor-changed",
+        serde_json::json!({ "x": x, "y": y, "radius": radius }),
+    );
+}
+
+pub(crate) fn capture_pending_ozone_anchor(
+    state: &Arc<AppState>,
+    app: &AppHandle,
+    position: Option<(i32, i32)>,
+) {
+    if !state
+        .ozone_wait_for_click_anchor
+        .swap(false, Ordering::SeqCst)
+    {
+        return;
+    }
+
+    if !state.is_running.load(Ordering::SeqCst) || !ozone_is_selected(state) {
+        return;
+    }
+
+    if let Some((x, y)) = position.or_else(|| current_cursor_position().ok()) {
+        set_ozone_anchor(state, app, x, y);
+    }
+}
+
+pub(crate) fn prepare_ozone_for_clicker_start(
+    state: &Arc<AppState>,
+    app: &AppHandle,
+    wait_for_click_anchor: bool,
+) {
+    if !ozone_is_selected(state) {
+        state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+        state
+            .ozone_wait_for_click_anchor
+            .store(false, Ordering::SeqCst);
+        return;
+    }
+
+    if wait_for_click_anchor {
+        state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+        state
+            .ozone_wait_for_click_anchor
+            .store(true, Ordering::SeqCst);
+        let _ = app.emit(
+            "ozone-anchor-waiting",
+            serde_json::json!({ "waiting": true }),
+        );
+        return;
+    }
+
+    if let Ok((x, y)) = current_cursor_position() {
+        set_ozone_anchor(state, app, x, y);
+    }
 }
 
 fn hotkey_field_mut<'a>(hotkeys: &'a mut RuntimeHotkeys, action: &str) -> Option<&'a mut String> {
@@ -204,11 +282,23 @@ pub async fn delete_profile_cmd(
 }
 
 #[tauri::command]
-pub fn toggle_clicker(state: State<'_, Arc<AppState>>, app: AppHandle) -> bool {
+pub fn toggle_clicker(
+    state: State<'_, Arc<AppState>>,
+    app: AppHandle,
+    source: Option<String>,
+) -> bool {
     let current_running = state.is_running.load(Ordering::SeqCst);
     let new_state = !current_running;
 
     state.is_running.store(new_state, Ordering::SeqCst);
+    if new_state {
+        prepare_ozone_for_clicker_start(state.inner(), &app, source.as_deref() == Some("button"));
+    } else {
+        state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+        state
+            .ozone_wait_for_click_anchor
+            .store(false, Ordering::SeqCst);
+    }
     let _ = app.emit(
         "status-changed",
         serde_json::json!({ "running": new_state }),
@@ -271,9 +361,19 @@ pub fn set_cps(state: State<'_, Arc<AppState>>, cps: u32) {
 }
 
 #[tauri::command]
-pub fn toggle_jiggler(state: State<'_, Arc<AppState>>) -> bool {
+pub fn toggle_jiggler(state: State<'_, Arc<AppState>>, app: AppHandle) -> bool {
     let new_val = !state.is_jiggler_active.load(Ordering::SeqCst);
     state.is_jiggler_active.store(new_val, Ordering::SeqCst);
+    if !new_val {
+        state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+        state
+            .ozone_wait_for_click_anchor
+            .store(false, Ordering::SeqCst);
+    } else if state.is_running.load(Ordering::SeqCst)
+        && current_jiggler_pattern(state.inner()) == JigglerPattern::OZone
+    {
+        prepare_ozone_for_clicker_start(state.inner(), &app, false);
+    }
     new_val
 }
 
@@ -312,6 +412,7 @@ pub fn set_jiggler_interval(state: State<'_, Arc<AppState>>, interval: u32) {
 #[tauri::command]
 pub async fn set_jiggler_pattern(
     state: tauri::State<'_, Arc<AppState>>,
+    app: AppHandle,
     pattern: String,
 ) -> Result<(), String> {
     let jiggler_pattern = match pattern.as_str() {
@@ -322,6 +423,14 @@ pub async fn set_jiggler_pattern(
         _ => JigglerPattern::Random,
     };
     *state.jiggler_pattern.lock().await = jiggler_pattern;
+    if jiggler_pattern != JigglerPattern::OZone {
+        state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+        state
+            .ozone_wait_for_click_anchor
+            .store(false, Ordering::SeqCst);
+    } else if state.is_running.load(Ordering::SeqCst) {
+        prepare_ozone_for_clicker_start(state.inner(), &app, false);
+    }
     Ok(())
 }
 

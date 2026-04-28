@@ -128,6 +128,14 @@ fn hotkeys_from_state(state: &Arc<AppState>) -> RuntimeHotkeys {
 
 fn set_clicker_running(app: &AppHandle, state: &Arc<AppState>, running: bool) {
     state.is_running.store(running, Ordering::SeqCst);
+    if running {
+        crate::commands::prepare_ozone_for_clicker_start(state, app, false);
+    } else {
+        state.ozone_anchor_ready.store(false, Ordering::SeqCst);
+        state
+            .ozone_wait_for_click_anchor
+            .store(false, Ordering::SeqCst);
+    }
     let _ = app.emit("status-changed", serde_json::json!({ "running": running }));
 }
 
@@ -761,6 +769,7 @@ pub fn run() {
 
             crate::engine::macro_engine::recording::spawn_global_listener(
                 state.macro_engine.clone(),
+                state.clone(),
                 app.handle().clone(),
             );
 

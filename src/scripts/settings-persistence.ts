@@ -6,6 +6,11 @@ import { setSelectedMode } from "./ui";
 import type { AppMode } from "./ui";
 import { updateSliderFill } from "./utils";
 import {
+    ALWAYS_ON_TOP_CHANGED_EVENT,
+    ALWAYS_ON_TOP_STORAGE_KEY,
+    setAlwaysOnTopPreference,
+} from "./app/window-controls";
+import {
     setPreferredWindowControlIconStyle,
     WINDOW_CONTROL_ICONS_STORAGE_KEY,
     type WindowControlIconStyle,
@@ -208,6 +213,12 @@ function setActiveButton(groupId: string, value: string) {
         const fallback = group.querySelector<HTMLElement>('.multi-btn[data-value="left"]');
         fallback?.classList.add("active");
     }
+
+    if (groupId === "jiggler-pattern-row") {
+        document
+            .getElementById("jiggler-ozone-help")
+            ?.classList.toggle("visible", value === "ozn");
+    }
 }
 
 function setKeyboardSelection(key: string, modifiers: string) {
@@ -263,6 +274,7 @@ function applyLocalStorageSnapshot(config: AppConfigFile) {
         "flu-window-acrylic",
         frontendState.acrylic_enabled === true ? "true" : "false"
     );
+    localStorage.setItem(ALWAYS_ON_TOP_STORAGE_KEY, frontendState.always_on_top === true ? "true" : "false");
     localStorage.setItem("flu-frontend-state", JSON.stringify(notifications));
 }
 
@@ -358,6 +370,7 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("remove-italic-toggle", config.general.remove_italic);
     setToggleState("acrylic-toggle", frontendState.acrylic_enabled === true);
     setToggleState("classic-window-icons-toggle", frontendState.window_control_icons === "classic");
+    setToggleState("always-on-top-toggle", frontendState.always_on_top === true);
 
     const activeTabCandidate = String(frontendState.active_tab || "mouse");
     const activeTab: AppMode = APP_MODES.has(activeTabCandidate) ? activeTabCandidate as AppMode : "mouse";
@@ -514,6 +527,7 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
             ...base.frontend_state,
             active_tab: activeTab,
             acrylic_enabled: localStorage.getItem("flu-window-acrylic") === "true",
+            always_on_top: localStorage.getItem(ALWAYS_ON_TOP_STORAGE_KEY) === "true",
             window_control_icons: (
                 document.getElementById("classic-window-icons-toggle")?.classList.contains("active")
                     ? "classic"
@@ -623,8 +637,16 @@ export async function initSettingsPersistence() {
     initSimpleToggle("classic-window-icons-trigger", "classic-window-icons-toggle", (active) => {
         setPreferredWindowControlIconStyle(active ? "classic" : "fluent");
     });
+    initSimpleToggle("always-on-top-trigger", "always-on-top-toggle", async (active) => {
+        await setAlwaysOnTopPreference(active);
+    });
 
     window.addEventListener(SETTINGS_CHANGED_EVENT, scheduleSave);
+    window.addEventListener(ALWAYS_ON_TOP_CHANGED_EVENT, (event) => {
+        const active = Boolean((event as CustomEvent<boolean>).detail);
+        setToggleState("always-on-top-toggle", active);
+        scheduleSave();
+    });
     document.addEventListener("input", () => scheduleSave());
     document.addEventListener("change", () => scheduleSave());
     document.addEventListener("click", () => {

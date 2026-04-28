@@ -106,6 +106,10 @@ pub async fn jiggler_task(state: Arc<AppState>) {
             let dist = (state.jiggler_distance.load(Ordering::SeqCst) as i32).max(1);
             let interval = state.jiggler_interval.load(Ordering::SeqCst).max(100);
             let pattern = *state.jiggler_pattern.lock().await;
+            if pattern == JigglerPattern::OZone {
+                tokio::time::sleep(tokio::time::Duration::from_millis(interval as u64)).await;
+                continue;
+            }
             let moves = next_jiggle(pattern, dist, &mut circle_step, &mut rng);
 
             for (dx, dy) in moves {

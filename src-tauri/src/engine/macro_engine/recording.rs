@@ -1,10 +1,13 @@
 use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use enigo::{Enigo, Mouse, Settings};
 use rdev::{listen, Button as RdevButton, Event, EventType, Key as RdevKey};
 use tauri::{AppHandle, Emitter};
+
+use crate::engine::state::AppState;
 
 use super::state::MacroEngineState;
 use super::storage;
@@ -49,7 +52,7 @@ impl MacroRecordingContext {
     }
 }
 
-pub fn spawn_global_listener(state: MacroEngineState, app: AppHandle) {
+pub fn spawn_global_listener(state: MacroEngineState, app_state: Arc<AppState>, app: AppHandle) {
     #[cfg(target_os = "linux")]
     {
         let session_type = std::env::var("XDG_SESSION_TYPE")
@@ -75,10 +78,16 @@ pub fn spawn_global_listener(state: MacroEngineState, app: AppHandle) {
 
     std::thread::spawn(move || {
         let state_for_listener = state.clone();
+        let app_state_for_listener = app_state.clone();
         let app_for_listener = app.clone();
 
         if let Err(error) = listen(move |event| {
-            handle_recording_event(&state_for_listener, &app_for_listener, event);
+            handle_recording_event(
+                &state_for_listener,
+                &app_state_for_listener,
+                &app_for_listener,
+                event,
+            );
         }) {
             state.recording_supported.store(false, Ordering::SeqCst);
             if let Ok(mut guard) = state.recording_error.lock() {
@@ -152,7 +161,20 @@ pub async fn stop_recording(state: &MacroEngineState, app: AppHandle) -> Result<
     Ok(())
 }
 
-fn handle_recording_event(state: &MacroEngineState, app: &AppHandle, event: Event) {
+fn handle_recording_event(
+    state: &MacroEngineState,
+    app_state: &Arc<AppState>,
+    app: &AppHandle,
+    event: Event,
+) {
+    if matches!(event.event_type, EventType::ButtonPress(_)) {
+        crate::commands::capture_pending_ozone_anchor(
+            app_state,
+            app,
+            current_cursor_position().ok(),
+        );
+    }
+
     if !state.recording_active.load(Ordering::SeqCst) {
         return;
     }
