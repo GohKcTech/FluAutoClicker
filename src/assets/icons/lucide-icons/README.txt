@@ -1,2 +1,2 @@
-# Lucide icons v1.7.0
+# Lucide icons v1.11.0
 https://github.com/lucide-icons/lucide
