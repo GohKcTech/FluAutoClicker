@@ -316,14 +316,8 @@ pub(crate) async fn apply_config_to_state(state: &Arc<AppState>, config: &AppCon
         .store(config.jiggler.interval_ms.max(100), Ordering::SeqCst);
 
     state
-        .is_multithread_active
-        .store(config.multithread.active, Ordering::SeqCst);
-    state
         .minimize_to_tray
         .store(config.general.minimize_to_tray, Ordering::SeqCst);
-    state
-        .threads_count
-        .store(config.multithread.threads.max(1), Ordering::SeqCst);
     state.stop_on_custom_position_move.store(
         config.general.stop_on_custom_position_move,
         Ordering::SeqCst,
@@ -656,12 +650,9 @@ pub fn run() {
             delete_profile_cmd,
             set_cps,
             toggle_jiggler,
-            toggle_multithread,
             set_jiggler_distance,
             set_jiggler_interval,
             set_jiggler_pattern,
-            set_threads_count,
-            get_multithread_state,
             set_minimize_to_tray,
             minimize_main_window,
             show_main_window,

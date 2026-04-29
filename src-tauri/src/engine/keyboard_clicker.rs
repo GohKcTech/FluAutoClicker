@@ -503,19 +503,11 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
             }
 
             let interval_ms = state.kb_interval_ms.load(Ordering::SeqCst);
-            let multithread_active = state.is_multithread_active.load(Ordering::SeqCst);
-            let threads = if multithread_active {
-                state.threads_count.load(Ordering::SeqCst).max(1)
-            } else {
-                1
-            };
 
             let interval_us = if interval_ms == 0 {
                 200
             } else {
-                ((interval_ms as u64 * 1000) / threads as u64)
-                    .max(200)
-                    .min(u32::MAX as u64) as u32
+                (interval_ms as u64 * 1000).max(200).min(u32::MAX as u64) as u32
             };
 
             let variation_ms = state.kb_variation_ms.load(Ordering::SeqCst);
@@ -536,10 +528,8 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
             #[cfg(target_os = "windows")]
             let final_interval_us = {
                 let mut final_interval_us = final_interval_us;
-                if !multithread_active {
-                    let min_interval_us = 1_000_000u32 / WINDOWS_MAX_TOTAL_CPS;
-                    final_interval_us = final_interval_us.max(min_interval_us);
-                }
+                let min_interval_us = 1_000_000u32 / WINDOWS_MAX_TOTAL_CPS;
+                final_interval_us = final_interval_us.max(min_interval_us);
                 final_interval_us
             };
 

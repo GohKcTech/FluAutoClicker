@@ -8,6 +8,10 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
+#[cfg(target_os = "linux")]
+const MIN_INTERVAL_US: u32 = 50;
+
+#[cfg(not(target_os = "linux"))]
 const MIN_INTERVAL_US: u32 = 650;
 
 #[cfg(not(target_os = "linux"))]
@@ -181,6 +185,10 @@ fn wait_interval(interval_us: u64) {
 
 #[cfg(not(target_os = "windows"))]
 async fn wait_interval(interval_us: u64) {
+    if interval_us == 0 {
+        return;
+    }
+
     if interval_us < 1000 {
         std::thread::sleep(std::time::Duration::from_micros(interval_us));
     } else {
@@ -248,19 +256,12 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
             }
 
             let cps = state.cps.load(Ordering::SeqCst);
-            let multithread_active = state.is_multithread_active.load(Ordering::SeqCst);
-            let threads = if multithread_active {
-                state.threads_count.load(Ordering::SeqCst).max(1)
-            } else {
-                1
-            };
 
-            let total_target_cps = if cps == 0 {
-                1000u32.saturating_mul(threads)
-            } else {
-                cps.saturating_mul(threads)
-            }
-            .max(1);
+            #[cfg(target_os = "linux")]
+            let total_target_cps = if cps == 0 { u32::MAX } else { cps }.max(1);
+
+            #[cfg(not(target_os = "linux"))]
+            let total_target_cps = if cps == 0 { 1000 } else { cps }.max(1);
 
             let interval_us = (1_000_000u32 / total_target_cps).max(MIN_INTERVAL_US);
 

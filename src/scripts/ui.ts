@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getPlatformCapabilities } from "./platform-capabilities";
 import { updateSliderFill, updateIndicator } from "./utils";
 
 export type AppMode = "mouse" | "keyboard" | "macro";
@@ -63,12 +64,13 @@ export function setSelectedMode(mode: AppMode) {
     });
 }
 
-function formatThreadsLabel(raw: number | string): string {
-    const count = Number(raw) || 0;
-    return `${count} ${count === 1 ? 'Thread' : 'Threads'}`;
-}
-
 export function initInputs() {
+    let isLinux = false;
+    void getPlatformCapabilities().then((capabilities) => {
+        isLinux = capabilities.os === "linux";
+        updateCPS();
+    });
+
     let sliderResizeFrame = 0;
     const refreshVisibleSliderFills = () => {
         sliderResizeFrame = 0;
@@ -91,17 +93,17 @@ export function initInputs() {
         const ms = parseInt((document.getElementById('mouse-ms') as HTMLInputElement)?.value) || 0;
         const totalMs = h * 3600000 + m * 60000 + s * 1000 + ms;
         const isInfinite = totalMs < 3;
+        const runtimeCps = totalMs === 0
+            ? (isLinux ? 0 : 10000)
+            : Math.max(1, Math.round(1000 / totalMs));
         const cpsEl = document.querySelector('.start-cps');
         if (cpsEl) {
-            let cps = 0;
             if (!isInfinite) {
-                cps = 1000 / totalMs;
-                cpsEl.textContent = `~ ${cps.toFixed(1)} CPS`;
+                cpsEl.textContent = `~ ${(1000 / totalMs).toFixed(1)} CPS`;
             } else {
                 cpsEl.textContent = `~ \u221E CPS`;
-                cps = 10000;
             }
-            invoke("set_cps", { cps: Math.round(cps) });
+            invoke("set_cps", { cps: runtimeCps });
         }
     }
 
@@ -194,20 +196,6 @@ export function initInputs() {
         updateSliderFill(jigglerDistanceSlider);
     }
 
-    const multithreadSlider = document.getElementById('multithread-slider') as HTMLInputElement;
-    if (multithreadSlider) {
-        multithreadSlider.addEventListener('input', () => {
-            const valEl = multithreadSlider.parentElement?.querySelector('.visual-slider-value');
-            if (valEl) valEl.textContent = formatThreadsLabel(multithreadSlider.value);
-            updateSliderFill(multithreadSlider);
-            invoke("set_threads_count", { count: parseInt(multithreadSlider.value) });
-        });
-        const valEl = multithreadSlider.parentElement?.querySelector('.visual-slider-value');
-        if (valEl) valEl.textContent = formatThreadsLabel(multithreadSlider.value);
-        updateSliderFill(multithreadSlider);
-    }
-
-    
     const numInputs = document.querySelectorAll('input[type="number"]');
     numInputs.forEach(input => {
         const inputEl = input as HTMLInputElement;

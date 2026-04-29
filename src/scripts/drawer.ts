@@ -4,11 +4,6 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { notify } from "./notifications";
 import { updateSliderFill } from "./utils";
 
-function formatThreadsLabel(raw: number | string): string {
-    const count = Number(raw) || 0;
-    return `${count} ${count === 1 ? 'Thread' : 'Threads'}`;
-}
-
 const DRAWER_FOCUSABLE_SELECTOR = [
     'button:not([disabled])',
     'input:not([disabled])',
@@ -291,94 +286,6 @@ export function initJiggler() {
         const active = Boolean(payload?.active);
         jigglerToggle?.classList.toggle('active', active);
         document.getElementById('jiggler-btn')?.classList.toggle('active', active);
-    });
-}
-
-export async function initMultithreading() {
-    const toggle = document.getElementById('multithread-toggle');
-    const featureBtn = document.getElementById('multithread-btn');
-    const slider = document.getElementById('multithread-slider') as HTMLInputElement | null;
-    const modeRow = document.getElementById('multithread-mode-row') as HTMLElement | null;
-    const section = document.getElementById('section-multithread');
-
-    if (!toggle) return;
-
-    const syncUi = (active: boolean, threads: number) => {
-        toggle.classList.toggle('active', active);
-        featureBtn?.classList.toggle('active', active);
-
-        if (slider) {
-            const clamped = Math.max(1, Math.min(16, threads || 1));
-            slider.value = String(clamped);
-            const valueEl = slider.parentElement?.querySelector('.visual-slider-value');
-            if (valueEl) valueEl.textContent = formatThreadsLabel(clamped);
-        }
-    };
-
-    const setSupportedFlag = (supported: boolean) => {
-        document.documentElement.dataset.multithreadSupported = supported ? '1' : '0';
-    };
-
-    const applyUnsupportedUi = () => {
-        setSupportedFlag(false);
-        syncUi(false, 1);
-        toggle.style.opacity = '0.45';
-        toggle.style.cursor = 'not-allowed';
-        toggle.setAttribute('title', 'Linux-only feature');
-        featureBtn?.classList.remove('active');
-        featureBtn?.setAttribute('title', 'Multi-Instance is available only on Linux for now');
-
-        if (slider) {
-            slider.disabled = true;
-            slider.style.opacity = '0.45';
-        }
-        if (modeRow) {
-            modeRow.style.pointerEvents = 'none';
-            modeRow.style.opacity = '0.45';
-        }
-
-        if (section && !document.getElementById('multithread-platform-note')) {
-            const note = document.createElement('div');
-            note.id = 'multithread-platform-note';
-            note.className = 'settings-list-item';
-            note.style.pointerEvents = 'none';
-            note.style.background = 'rgba(255, 193, 7, 0.05)';
-            note.style.borderTopColor = 'rgba(255, 193, 7, 0.15)';
-            note.style.margin = '2px 0 8px';
-            note.style.padding = '8px 10px';
-            note.style.alignItems = 'flex-start';
-            note.style.gap = '8px';
-            note.innerHTML = `
-                <span class="icon" style="font-size: 14px; color: #FFC107; margin-top: 1px;">&#58485;</span>
-                <span style="font-size: 10px; color: #FFC107; line-height: 1.5; opacity: 0.9;">Multi-Instance is temporarily disabled on Windows and is available only on Linux.</span>
-            `;
-            section.querySelector('.settings-items-list')?.prepend(note);
-        }
-    };
-
-    try {
-        const state = await invoke("get_multithread_state") as { supported?: boolean; active?: boolean; threads?: number };
-        const supported = Boolean(state.supported);
-        if (!supported) {
-            applyUnsupportedUi();
-            return;
-        }
-        setSupportedFlag(true);
-        syncUi(Boolean(state.active), Number(state.threads || 1));
-    } catch (e) {
-        console.warn("Failed to load multithread state", e);
-        applyUnsupportedUi();
-        return;
-    }
-
-    toggle.addEventListener('click', async () => {
-        try {
-            const active = await invoke("toggle_multithread") as boolean;
-            const threads = slider ? (parseInt(slider.value, 10) || 1) : 1;
-            syncUi(active, threads);
-        } catch (e) {
-            console.error("Failed to toggle multithread", e);
-        }
     });
 }
 

@@ -1,8 +1,7 @@
 use crate::engine::config_store::{
     MAX_CPS, MAX_HOLD_DURATION, MAX_JIGGLER_DISTANCE, MAX_JIGGLER_INTERVAL_MS,
-    MAX_MACRO_REPEAT_DURATION_MS, MAX_REPEAT_COUNT, MAX_THREADS_COUNT, MAX_VARIATION_MS, MIN_CPS,
-    MIN_HOLD_DURATION, MIN_JIGGLER_DISTANCE, MIN_JIGGLER_INTERVAL_MS, MIN_MACRO_REPEAT_DURATION_MS,
-    MIN_REPEAT_COUNT, MIN_THREADS_COUNT,
+    MAX_MACRO_REPEAT_DURATION_MS, MAX_REPEAT_COUNT, MAX_VARIATION_MS, MIN_CPS, MIN_HOLD_DURATION,
+    MIN_JIGGLER_DISTANCE, MIN_JIGGLER_INTERVAL_MS, MIN_MACRO_REPEAT_DURATION_MS, MIN_REPEAT_COUNT,
 };
 use crate::engine::state::{
     AppState, ClickMode, HoldUnit, JigglerPattern, KeyboardModifier, MouseButton, PositionMode,
@@ -25,6 +24,16 @@ fn clamp_u32(value: u32, min: u32, max: u32) -> u32 {
 
 fn clamp_u64(value: u64, min: u64, max: u64) -> u64 {
     value.clamp(min, max)
+}
+
+#[cfg(target_os = "linux")]
+fn clamp_mouse_runtime_cps(cps: u32) -> u32 {
+    cps
+}
+
+#[cfg(not(target_os = "linux"))]
+fn clamp_mouse_runtime_cps(cps: u32) -> u32 {
+    clamp_u32(cps, MIN_CPS, MAX_CPS)
 }
 
 fn current_jiggler_pattern(state: &Arc<AppState>) -> JigglerPattern {
@@ -439,7 +448,7 @@ pub async fn get_runtime_status(
 pub fn set_cps(state: State<'_, Arc<AppState>>, cps: u32) {
     state
         .cps
-        .store(clamp_u32(cps, MIN_CPS, MAX_CPS), Ordering::SeqCst);
+        .store(clamp_mouse_runtime_cps(cps), Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -457,22 +466,6 @@ pub fn toggle_jiggler(state: State<'_, Arc<AppState>>, app: AppHandle) -> bool {
         prepare_ozone_for_clicker_start(state.inner(), &app, false);
     }
     new_val
-}
-
-#[tauri::command]
-pub fn toggle_multithread(state: State<'_, Arc<AppState>>) -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        let new_val = !state.is_multithread_active.load(Ordering::SeqCst);
-        state.is_multithread_active.store(new_val, Ordering::SeqCst);
-        new_val
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = state;
-        false
-    }
 }
 
 #[tauri::command]
@@ -514,45 +507,6 @@ pub async fn set_jiggler_pattern(
         prepare_ozone_for_clicker_start(state.inner(), &app, false);
     }
     Ok(())
-}
-
-#[tauri::command]
-pub fn set_threads_count(state: State<'_, Arc<AppState>>, count: u32) {
-    let count = clamp_u32(count, MIN_THREADS_COUNT, MAX_THREADS_COUNT);
-
-    #[cfg(target_os = "linux")]
-    {
-        state.threads_count.store(count, Ordering::SeqCst);
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = (state, count);
-    }
-}
-
-#[tauri::command]
-pub fn get_multithread_state(state: State<'_, Arc<AppState>>) -> serde_json::Value {
-    #[cfg(target_os = "linux")]
-    {
-        let active = state.is_multithread_active.load(Ordering::SeqCst);
-        let threads = state.threads_count.load(Ordering::SeqCst).max(1);
-        serde_json::json!({
-            "supported": true,
-            "active": active,
-            "threads": threads
-        })
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = state;
-        serde_json::json!({
-            "supported": false,
-            "active": false,
-            "threads": 1
-        })
-    }
 }
 
 #[tauri::command]
@@ -796,6 +750,7 @@ pub fn get_platform_capabilities() -> serde_json::Value {
         "system_startup": crate::system_startup_supported(),
         "global_hotkeys": crate::global_hotkeys_supported(),
         "wayland": crate::is_wayland_session(),
+        "os": std::env::consts::OS,
         "webview_devtools": env!("CARGO_PKG_VERSION").contains("beta")
             && (cfg!(debug_assertions) || cfg!(feature = "beta-devtools")),
     })

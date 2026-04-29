@@ -1,4 +1,4 @@
-import { initDrawer, initJiggler, initMultithreading, initTimingModal } from "../drawer";
+import { initDrawer, initJiggler, initTimingModal } from "../drawer";
 import { initHotkeysEditor } from "../hotkeys";
 import { initKeyboard } from "../keyboard";
 import { initMacro } from "../macro";
@@ -32,7 +32,6 @@ export async function bootstrapApp() {
     initMacro();
     initMouseSettings();
     initJiggler();
-    initMultithreading();
     void initHotkeysEditor();
     void initSettingsPersistence();
     void initProfiles();

@@ -75,11 +75,6 @@ export type AppConfigFile = {
         interval_ms: number;
         pattern: string;
     };
-    multithread: {
-        active: boolean;
-        threads: number;
-        mode: string;
-    };
     macro_settings: {
         repeat_mode: string;
         repeat_count: number;
@@ -154,11 +149,6 @@ function defaultConfig(): AppConfigFile {
             distance: 20,
             interval_ms: 30000,
             pattern: "rnd",
-        },
-        multithread: {
-            active: false,
-            threads: 4,
-            mode: "normal",
         },
         macro_settings: {
             repeat_mode: "infinite",
@@ -365,10 +355,8 @@ function applyConfigToUi(config: AppConfigFile) {
     const jigglerIntervalSeconds = Math.max(1, Math.round(config.jiggler.interval_ms / 1000));
     setInputValue("jiggler-slider", jigglerIntervalSeconds);
     setInputValue("jiggler-distance-slider", config.jiggler.distance);
-    setInputValue("multithread-slider", config.multithread.threads);
     setSliderValueText("jiggler-slider", `${jigglerIntervalSeconds}s`);
     setSliderValueText("jiggler-distance-slider", `${config.jiggler.distance}px`);
-    setSliderValueText("multithread-slider", `${config.multithread.threads} ${config.multithread.threads === 1 ? "Thread" : "Threads"}`);
 
     setActiveButton("mouse-button-toggle", config.mouse.button);
     setActiveButton("press-hold-toggle", config.mouse.click_mode);
@@ -386,10 +374,6 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("jiggler-toggle", config.jiggler.active);
     setToggleState("jiggler-btn", config.jiggler.active);
     setActiveButton("jiggler-pattern-row", config.jiggler.pattern);
-
-    setToggleState("multithread-toggle", config.multithread.active);
-    setToggleState("multithread-btn", config.multithread.active);
-    setActiveButton("multithread-mode-row", config.multithread.mode);
 
     setToggleState("autostart-toggle", isSystemStartupAvailable() && config.general.autostart);
     const autostartTrigger = document.getElementById("autostart-trigger");
@@ -492,7 +476,6 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
     const activeTabCandidate =
         document.querySelector<HTMLElement>(".mode-tabs .tab.active")?.dataset.tab || "mouse";
     const activeTab = APP_MODES.has(activeTabCandidate) ? activeTabCandidate : "mouse";
-    const multithreadMode = getActiveValue("#multithread-mode-row .multi-btn.active", "normal");
     return {
         ...base,
         general: {
@@ -550,16 +533,6 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
             distance: getNumericValue("jiggler-distance-slider", base.jiggler.distance),
             interval_ms: getNumericValue("jiggler-slider", Math.round(base.jiggler.interval_ms / 1000)) * 1000,
             pattern: getActiveValue("#jiggler-pattern-row .multi-btn.active", base.jiggler.pattern),
-        },
-        multithread: {
-            ...base.multithread,
-            active: document.getElementById("multithread-toggle")?.classList.contains("active") ?? base.multithread.active,
-            threads: getNumericValue("multithread-slider", base.multithread.threads),
-            mode: multithreadMode.includes("eco")
-                ? "eco"
-                : multithreadMode.includes("extreme")
-                    ? "extreme"
-                    : "normal",
         },
         macro_settings: macroSettings,
         hotkeys,

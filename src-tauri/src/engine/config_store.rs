@@ -8,6 +8,11 @@ use super::macro_engine::types::{MacroAction, MacroRecordingOptions, MacroRepeat
 pub const CURRENT_CONFIG_VERSION: u32 = 2;
 pub const CURRENT_PROFILE_VERSION: u32 = 1;
 pub const MIN_CPS: u32 = 1;
+
+#[cfg(target_os = "linux")]
+pub const MAX_CPS: u32 = u32::MAX;
+
+#[cfg(not(target_os = "linux"))]
 pub const MAX_CPS: u32 = 10_000;
 pub const MAX_VARIATION_MS: u32 = 3_600_000;
 pub const MIN_HOLD_DURATION: u32 = 1;
@@ -18,8 +23,6 @@ pub const MIN_JIGGLER_DISTANCE: u32 = 1;
 pub const MAX_JIGGLER_DISTANCE: u32 = 500;
 pub const MIN_JIGGLER_INTERVAL_MS: u32 = 100;
 pub const MAX_JIGGLER_INTERVAL_MS: u32 = 300_000;
-pub const MIN_THREADS_COUNT: u32 = 1;
-pub const MAX_THREADS_COUNT: u32 = 16;
 pub const MIN_MACRO_REPEAT_DURATION_MS: u64 = 1_000;
 pub const MAX_MACRO_REPEAT_DURATION_MS: u64 = 86_400_000;
 
@@ -149,24 +152,6 @@ impl Default for JigglerSettings {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
-pub struct MultiThreadSettings {
-    pub active: bool,
-    pub threads: u32,
-    pub mode: String,
-}
-
-impl Default for MultiThreadSettings {
-    fn default() -> Self {
-        Self {
-            active: false,
-            threads: 4,
-            mode: "normal".to_string(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(default)]
 pub struct MacroSettings {
     pub repeat_mode: String,
     pub repeat_count: u32,
@@ -254,7 +239,6 @@ pub struct AppConfigFile {
     pub mouse: MouseSettings,
     pub keyboard: KeyboardSettings,
     pub jiggler: JigglerSettings,
-    pub multithread: MultiThreadSettings,
     pub macro_settings: MacroSettings,
     pub hotkeys: HotkeySettings,
     pub updates: UpdateSettings,
@@ -270,7 +254,6 @@ impl Default for AppConfigFile {
             mouse: MouseSettings::default(),
             keyboard: KeyboardSettings::default(),
             jiggler: JigglerSettings::default(),
-            multithread: MultiThreadSettings::default(),
             macro_settings: MacroSettings::default(),
             hotkeys: HotkeySettings::default(),
             updates: UpdateSettings::default(),
@@ -320,10 +303,6 @@ impl AppConfigFile {
             .interval_ms
             .clamp(MIN_JIGGLER_INTERVAL_MS, MAX_JIGGLER_INTERVAL_MS);
 
-        self.multithread.threads = self
-            .multithread
-            .threads
-            .clamp(MIN_THREADS_COUNT, MAX_THREADS_COUNT);
         self.macro_settings.repeat_count = self
             .macro_settings
             .repeat_count
@@ -570,7 +549,6 @@ mod tests {
         assert_eq!(migrated.active_profile, "default");
         assert_eq!(migrated.mouse.cps, 24);
         assert_eq!(migrated.keyboard.key, "z");
-        assert_eq!(migrated.multithread.mode, "normal");
         assert!(migrated.frontend_state.is_object());
     }
 
@@ -596,10 +574,6 @@ mod tests {
                 interval_ms: 0,
                 ..JigglerSettings::default()
             },
-            multithread: MultiThreadSettings {
-                threads: 0,
-                ..MultiThreadSettings::default()
-            },
             macro_settings: MacroSettings {
                 repeat_count: 0,
                 repeat_duration_ms: 0,
@@ -615,7 +589,6 @@ mod tests {
         assert_eq!(normalized.mouse.hold_duration, 1);
         assert_eq!(normalized.keyboard.repeat_count, 1);
         assert_eq!(normalized.jiggler.interval_ms, 100);
-        assert_eq!(normalized.multithread.threads, 1);
         assert_eq!(normalized.macro_settings.repeat_duration_ms, 1_000);
     }
 }

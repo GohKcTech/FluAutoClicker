@@ -1,9 +1,30 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getPlatformCapabilities } from "./platform-capabilities";
 import { notify } from "./notifications";
 
+function readMouseIntervalMs(): number {
+    const h = parseInt((document.getElementById('mouse-hours') as HTMLInputElement)?.value) || 0;
+    const m = parseInt((document.getElementById('mouse-minutes') as HTMLInputElement)?.value) || 0;
+    const s = parseInt((document.getElementById('mouse-seconds') as HTMLInputElement)?.value) || 0;
+    const ms = parseInt((document.getElementById('mouse-ms') as HTMLInputElement)?.value) || 0;
+    return h * 3600000 + m * 60000 + s * 1000 + ms;
+}
+
+function mouseRuntimeCps(totalMs: number, isLinux: boolean): number {
+    if (totalMs === 0) {
+        return isLinux ? 0 : 10000;
+    }
+
+    return Math.max(1, Math.round(1000 / totalMs));
+}
 
 export async function syncAllMouseSettings() {
+    const capabilities = await getPlatformCapabilities();
+    await invoke("set_cps", {
+        cps: mouseRuntimeCps(readMouseIntervalMs(), capabilities.os === "linux"),
+    });
+
     
     const activeBtn = document.querySelector('#mouse-button-toggle .multi-btn.active');
     if (activeBtn) {

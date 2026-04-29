@@ -5,6 +5,7 @@ export type PlatformCapabilities = {
     system_startup: boolean;
     global_hotkeys: boolean;
     wayland: boolean;
+    os?: string;
 };
 
 const fallbackCapabilities: PlatformCapabilities = {
@@ -12,6 +13,7 @@ const fallbackCapabilities: PlatformCapabilities = {
     system_startup: false,
     global_hotkeys: true,
     wayland: false,
+    os: undefined,
 };
 
 let cachedCapabilities: PlatformCapabilities | null = null;

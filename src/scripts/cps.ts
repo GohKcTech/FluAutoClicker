@@ -43,7 +43,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     let isHolding = false;
     let totalHoldTime = 0;
 
-    
+    function nowFromEvent(event?: Event) {
+        return typeof event?.timeStamp === 'number' ? event.timeStamp : performance.now();
+    }
+
     function calcStats() {
         if (intervals.length === 0) return { median: 0, min: 0, max: 0, accuracy: 0 };
 
@@ -86,8 +89,8 @@ window.addEventListener("DOMContentLoaded", async () => {
                 } else {
                     
                     if (isHolding) {
-                        const currentHold = Date.now() - holdStartTime;
-                        mainDisplay.textContent = `${currentHold}ms`;
+                        const currentHold = performance.now() - holdStartTime;
+                        mainDisplay.textContent = `${Math.round(currentHold)}ms`;
                     } else {
                         mainDisplay.textContent = totalHoldTime > 0 ? `${totalHoldTime}ms` : "HOLD!";
                     }
@@ -170,13 +173,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     
-    function startClickTest() {
+    function startClickTest(eventTime = performance.now()) {
         clickCount = 1;
         isRunning = true;
         isFinished = false;
-        startTime = Date.now();
-        lastClickTime = Date.now();
+        startTime = eventTime;
+        lastClickTime = eventTime;
         intervals = [];
+        document.body.classList.add('high-performance-mode');
         if (mainDisplay) mainDisplay.textContent = "1";
         if (maxDisplay) maxDisplay.textContent = '—';
         if (minDisplay) minDisplay.textContent = '—';
@@ -186,7 +190,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         requestAnimationFrame(updateDisplayLoop);
 
         timer = setInterval(() => {
-            const elapsed = (Date.now() - startTime) / 1000;
+            const elapsed = (performance.now() - startTime) / 1000;
             const remaining = Math.max(0, duration - elapsed);
             lastCps = clickCount / elapsed;
 
@@ -196,10 +200,6 @@ window.addEventListener("DOMContentLoaded", async () => {
                     ? `Accuracy: ~${stats.accuracy.toFixed(1)}%`
                     : `Time left: ${remaining.toFixed(1)}s`;
                 statusHint.textContent = `${accText} • ${lastCps.toFixed(1)} CPS`;
-            }
-
-            if (lastCps > 15) {
-                document.body.classList.add('high-performance-mode');
             }
 
             if (remaining <= 0) {
@@ -234,7 +234,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         isRunning = true;
         isFinished = false;
         totalHoldTime = 0;
-        startTime = Date.now();
+        startTime = performance.now();
         if (mainDisplay) mainDisplay.textContent = "HOLD!";
         if (statusHint) statusHint.textContent = `Hold the button • ${duration}s timer`;
         if (retryBtn) retryBtn.classList.remove('ready');
@@ -242,7 +242,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         requestAnimationFrame(updateDisplayLoop);
 
         timer = setInterval(() => {
-            const elapsed = (Date.now() - startTime) / 1000;
+            const elapsed = (performance.now() - startTime) / 1000;
             const remaining = Math.max(0, duration - elapsed);
             const holdFraction = totalHoldTime / 1000 / Math.max(elapsed, 0.001);
             lastCps = holdFraction;
@@ -260,7 +260,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     function endHoldTest() {
         if (isHolding) {
-            totalHoldTime += Date.now() - holdStartTime;
+            totalHoldTime += performance.now() - holdStartTime;
             isHolding = false;
         }
         isRunning = false;
@@ -300,62 +300,60 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
 
     
-    clickArea?.addEventListener('pointerdown', (e) => {
+    clickArea?.addEventListener('mousedown', (e) => {
+        if (isFinished) return;
+        if (e.button !== 0) return;
+
+        if (mode !== 'click') {
+            return;
+        }
+
+        e.preventDefault();
+        const eventTime = nowFromEvent(e);
+        if (!isRunning && clickCount === 0) {
+            startClickTest(eventTime);
+            return;
+        }
+
+        if (isRunning) {
+            const interval = eventTime - lastClickTime;
+            intervals.push(interval);
+            lastClickTime = eventTime;
+            clickCount++;
+        }
+    }, { capture: true });
+
+    clickArea?.addEventListener('pointerdown', () => {
         if (isFinished) return;
 
-        if (mode === 'click') {
-            if (!isRunning && clickCount === 0) {
-                startClickTest();
-            } else if (isRunning) {
-                const now = Date.now();
-                const interval = now - lastClickTime;
-                intervals.push(interval);
-                lastClickTime = now;
-                clickCount++;
-            }
-
-            if (lastCps <= 15) {
-                clickArea.classList.remove('clicking');
-                void clickArea.offsetWidth;
-                clickArea.classList.add('clicking');
-                setTimeout(() => clickArea.classList.remove('clicking'), 100);
-
-                const ripple = document.createElement('div');
-                ripple.className = 'cps-ripple';
-                const rect = clickArea.getBoundingClientRect();
-                ripple.style.left = `${e.clientX - rect.left - 60}px`;
-                ripple.style.top = `${e.clientY - rect.top - 60}px`;
-                clickArea.appendChild(ripple);
-                setTimeout(() => ripple.remove(), 500);
-            }
-        } else {
+        if (mode === 'hold') {
             if (!isRunning && !isFinished) {
                 startHoldTest();
             }
             if (isRunning) {
                 isHolding = true;
-                holdStartTime = Date.now();
+                holdStartTime = performance.now();
             }
         }
     });
 
     clickArea?.addEventListener('pointerup', () => {
         if (mode === 'hold' && isHolding && isRunning) {
-            totalHoldTime += Date.now() - holdStartTime;
+            totalHoldTime += performance.now() - holdStartTime;
             isHolding = false;
         }
     });
 
     clickArea?.addEventListener('pointercancel', () => {
         if (mode === 'hold' && isHolding && isRunning) {
-            totalHoldTime += Date.now() - holdStartTime;
+            totalHoldTime += performance.now() - holdStartTime;
             isHolding = false;
         }
     });
 
     clickArea?.addEventListener('pointerleave', () => {
         if (mode === 'hold' && isHolding && isRunning) {
-            totalHoldTime += Date.now() - holdStartTime;
+            totalHoldTime += performance.now() - holdStartTime;
             isHolding = false;
         }
     });

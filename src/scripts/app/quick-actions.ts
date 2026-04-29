@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { save } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { t } from "../i18n";
 import { notify } from "../notifications";
 import { applyPersistedConfig, persistCurrentSettings, type AppConfigFile } from "../settings-persistence";
@@ -131,9 +132,9 @@ export function initDrawerLaunchers() {
         openDrawer("section-jiggler", "Mouse Jiggler", "&#57987;");
     });
 
-    document.getElementById("multithread-btn")?.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        const { openDrawer } = await import("../drawer");
-        openDrawer("section-multithread", "Multi Threading", "&#58548;");
+    document.getElementById("github-btn")?.addEventListener("click", () => {
+        void openUrl("https://github.com/Agzes/FluAutoClicker").catch((error) => {
+            notify(error instanceof Error ? error.message : "Could not open GitHub", "error", 3200);
+        });
     });
 }

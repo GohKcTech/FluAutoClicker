@@ -4,6 +4,7 @@ import { syncAllKeyboardSettings } from "../keyboard";
 import { ensureMacroReady } from "../macro";
 import { syncAllMouseSettings } from "../mouse";
 import { notify } from "../notifications";
+import { getPlatformCapabilities } from "../platform-capabilities";
 import { getSelectedMode, setSelectedMode, updateTabStates } from "../ui";
 import type { AppMode } from "../ui";
 
@@ -90,6 +91,11 @@ async function toggleMouseClicker() {
     return invoke<boolean>("toggle_clicker", { source: "button" });
 }
 
+async function shouldShowTimingWarning() {
+    const capabilities = await getPlatformCapabilities();
+    return capabilities.os !== "linux";
+}
+
 function rememberRunningMode(mode: AppMode, isRunning: boolean) {
     if (isRunning) {
         runningMode = mode;
@@ -157,7 +163,7 @@ async function handleStartButtonClick() {
             return;
         }
 
-        if (!isAlreadyRunning && getMouseIntervalMs() <= 3) {
+        if (!isAlreadyRunning && getMouseIntervalMs() <= 3 && await shouldShowTimingWarning()) {
             showTimingWarningModal();
             return;
         }
