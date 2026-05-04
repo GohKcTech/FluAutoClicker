@@ -1,6 +1,6 @@
 <div align="center">
 
-> ⚠️ Warning: FluAutoClicker is an early beta. Expect bugs, errors, and instability. ⚠️ <br> 🛠️ We're working on a stable version and Linux support, stay tuned! ❤️
+> ⚠️ Warning: FluAutoClicker is an early beta. Expect bugs, errors, and instability. ⚠️ <br> 🛠️ We're working on a **stable version** and _Linux support_, stay tuned! ❤️
 
 <a href="https://agzes.github.io/go/to/discord">
   <img src="docs/readme/joincommunity.png" alt="Join the FluAutoClicker community" style="width:40%; min-width:150px; max-width:400px;">
