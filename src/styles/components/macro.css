@@ -389,3 +389,9 @@
     from { opacity: 0; }
     to { opacity: 1; }
 }
+
+.window-minimized .macro-action-item,
+.window-minimized .macro-action-item * {
+    transition: none !important;
+    animation: none !important;
+}

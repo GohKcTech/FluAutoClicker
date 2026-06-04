@@ -781,7 +781,13 @@ pub async fn start_playback(
         return Err("Add at least one macro action before starting playback.".to_string());
     }
 
-    *state.player_state.lock().await = MacroPlayerState::Playing;
+    let mut player_state_guard = state.player_state.lock().await;
+    if *player_state_guard == MacroPlayerState::Playing {
+        return Ok(());
+    }
+    *player_state_guard = MacroPlayerState::Playing;
+    drop(player_state_guard);
+
     state
         .cancel_playback
         .store(false, std::sync::atomic::Ordering::SeqCst);

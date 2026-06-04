@@ -440,8 +440,9 @@ export function renderActions(options: { animateNew?: boolean } = {}) {
     });
 
     if (options.animateNew && addedNewItemAtEnd) {
+        const isMinimized = document.body.classList.contains("window-minimized") || document.hidden;
         window.requestAnimationFrame(() => {
-            listContainer.scrollTo({ top: listContainer.scrollHeight, behavior: "smooth" });
+            listContainer.scrollTo({ top: listContainer.scrollHeight, behavior: isMinimized ? "auto" : "smooth" });
         });
     }
 }
@@ -449,6 +450,11 @@ export function renderActions(options: { animateNew?: boolean } = {}) {
 export function updateCurrentActionHighlight() {
     const listContainer = getListContainer();
     if (!listContainer) {
+        return;
+    }
+
+    const isMinimized = document.body.classList.contains("window-minimized") || document.hidden || (window as any).flu_window_hidden;
+    if (isMinimized) {
         return;
     }
 

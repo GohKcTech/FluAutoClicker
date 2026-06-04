@@ -541,21 +541,13 @@ pub fn run() {
                                     let held_long_enough =
                                         press_state.started_at.elapsed().as_millis() >= 250;
 
-                                    if held_long_enough {
-                                        if !press_state.was_running_before_press {
-                                            let app_handle = app.clone();
-                                            let state = state.clone();
-                                            tauri::async_runtime::spawn(async move {
-                                                set_mode_running(
-                                                    app_handle,
-                                                    state,
-                                                    press_state.mode,
-                                                    false,
-                                                )
-                                                .await;
-                                            });
-                                        }
+                                    let should_stop = if held_long_enough {
+                                        !press_state.was_running_before_press
                                     } else {
+                                        press_state.was_running_before_press
+                                    };
+
+                                    if should_stop {
                                         let app_handle = app.clone();
                                         let state = state.clone();
                                         tauri::async_runtime::spawn(async move {
@@ -563,7 +555,7 @@ pub fn run() {
                                                 app_handle,
                                                 state,
                                                 press_state.mode,
-                                                !press_state.was_running_before_press,
+                                                false,
                                             )
                                             .await;
                                         });

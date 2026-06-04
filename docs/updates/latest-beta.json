@@ -1,6 +1,6 @@
 {
-    "version": "0.1.0-beta.5",
-    "notes": "Linux improvements & QoL: editable macros, Down/Up actions for drag-and-drop, Linear & Smooth mouse move styles, optimized recording CPU usage, in-app /dev/uinput permission setup, and stability fixes.",
+    "version": "0.1.0-beta.6",
+    "notes": "Hotfix: Fixed a bug with double click in macro mode and disabled macro list animations/smooth scrolling when minimized.",
     "pub_date": "2026-06-04T00:00:00Z",
-    "github_url": "https://github.com/Agzes/FluAutoClicker/releases/tag/v.0.1.0-beta.5"
+    "github_url": "https://github.com/Agzes/FluAutoClicker/releases/tag/v.0.1.0-beta.6"
 }

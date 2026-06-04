@@ -44,8 +44,40 @@ async function refreshWindowControlIcons() {
 export function initWindowControls() {
     void refreshWindowControlIcons();
     void applyStoredAlwaysOnTop();
+
+    const updateMinimizedState = async () => {
+        try {
+            const minimized = await appWindow.isMinimized();
+            const visible = await appWindow.isVisible();
+            const isHidden = minimized || !visible;
+            (window as any).flu_window_hidden = isHidden;
+            const wasMinimized = document.body.classList.contains("window-minimized");
+            document.body.classList.toggle("window-minimized", isHidden);
+            if (wasMinimized && !isHidden) {
+                window.dispatchEvent(new CustomEvent("flu:window-restored"));
+            }
+        } catch (error) {
+            console.error("Failed to check minimized state", error);
+        }
+    };
+
+    void updateMinimizedState();
+
     window.addEventListener("resize", () => {
         void refreshWindowControlIcons();
+        void updateMinimizedState();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        void updateMinimizedState();
+    });
+
+    window.addEventListener("focus", () => {
+        void updateMinimizedState();
+    });
+
+    window.addEventListener("blur", () => {
+        void updateMinimizedState();
     });
     window.addEventListener(WINDOW_CONTROL_ICONS_CHANGED_EVENT, () => {
         void refreshWindowControlIcons();

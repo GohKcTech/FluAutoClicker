@@ -245,6 +245,10 @@ function initMacroEventListeners(recordButton: HTMLElement | null) {
             macroState.currentPlayingActionId = Number.isFinite(parsed) ? parsed : null;
         }
 
+        if ((window as any).flu_window_hidden) {
+            return;
+        }
+
         updateCurrentActionHighlight();
     });
 
@@ -271,6 +275,10 @@ function initMacroEventListeners(recordButton: HTMLElement | null) {
         ]).catch((error) => {
             console.error("Failed to refresh imported macro settings", error);
         });
+    });
+
+    window.addEventListener("flu:window-restored", () => {
+        updateCurrentActionHighlight();
     });
 
     void listen<{ supported?: boolean; reason?: string | null }>("macro-recording-availability", (event) => {
