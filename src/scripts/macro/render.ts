@@ -305,6 +305,9 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
         <div class="action-info">
             <span class="action-details"></span>
         </div>
+        <button class="action-edit" type="button" data-id="${action.id}" aria-label="Edit action" title="Edit action">
+            <span class="icon">&#57648;</span>
+        </button>
         <button class="action-duplicate" type="button" data-id="${action.id}" aria-label="Duplicate action" title="Duplicate action">
             <span class="icon">&#57502;</span>
         </button>
@@ -371,6 +374,10 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
         }, 300);
     });
 
+    item.querySelector(".action-edit")?.addEventListener("click", () => {
+        window.dispatchEvent(new CustomEvent("flu:edit-macro-action", { detail: { actionId: action.id } }));
+    });
+
     item.querySelector(".action-duplicate")?.addEventListener("click", async () => {
         try {
             await invoke("duplicate_macro_action", { actionId: action.id, action_id: action.id });
@@ -423,9 +430,13 @@ export function renderActions(options: { animateNew?: boolean } = {}) {
         const existing = listContainer.querySelector<HTMLElement>(`.macro-action-item[data-action-id="${action.id}"]`);
         const isNewItem = !existingIds.has(String(action.id));
         const shouldAnimate = Boolean(options.animateNew && isNewItem);
-        const item = existing || createActionElement(action, shouldAnimate);
+        const item = createActionElement(action, shouldAnimate);
         addedNewItemAtEnd ||= isNewItem && action.id === lastActionId;
-        listContainer.appendChild(item);
+        if (existing) {
+            existing.replaceWith(item);
+        } else {
+            listContainer.appendChild(item);
+        }
     });
 
     if (options.animateNew && addedNewItemAtEnd) {
@@ -454,6 +465,7 @@ export function updateCurrentActionHighlight() {
 
 export async function loadActionsFromBackend(options: { animateNew?: boolean } = {}) {
     const rawActions = await invoke<MacroBackendAction[]>("get_macro_actions");
+    macroState.rawActions = rawActions;
     macroState.actions = rawActions
         .map((item) => fromBackendAction(item))
         .filter((item): item is NonNullable<typeof item> => Boolean(item));

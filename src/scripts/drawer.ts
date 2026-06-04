@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { notify } from "./notifications";
+import { ensureUinputPermissionsForFeature } from "./uinput-permissions";
 import { updateSliderFill } from "./utils";
 
 const DRAWER_FOCUSABLE_SELECTOR = [
@@ -200,15 +201,7 @@ export function initJiggler() {
     if (jigglerToggle) {
         jigglerToggle.addEventListener('click', async () => {
             
-            try {
-                const hasPermission = await invoke("check_uinput_permissions") as boolean;
-                if (!hasPermission) {
-                    showUinputPermissionModal();
-                    return;
-                }
-            } catch (e) {
-                
-                showUinputPermissionModal();
+            if (!(await ensureUinputPermissionsForFeature())) {
                 return;
             }
 
@@ -401,92 +394,3 @@ export function initTimingModal(onConfirm: () => void) {
     }
 }
 
-
-function showUinputPermissionModal() {
-    const modal = document.getElementById('uinput-permission-modal');
-    const grantBtn = document.getElementById('uinput-grant-btn');
-    const cancelBtn = document.getElementById('uinput-modal-cancel-btn');
-    const closeBtn = document.getElementById('uinput-modal-close-btn');
-    const statusText = document.getElementById('uinput-status');
-
-    if (!modal) return;
-
-    modal.style.display = 'flex';
-    requestAnimationFrame(() => {
-        modal.classList.add('active');
-    });
-    document.getElementById('content')?.classList.add('blurred');
-
-    if (statusText) {
-        statusText.textContent = '';
-    }
-
-    
-    const handleGrantPermission = async () => {
-        if (grantBtn) {
-            (grantBtn as HTMLButtonElement).disabled = true;
-            grantBtn.style.opacity = '0.5';
-        }
-
-        if (statusText) {
-            statusText.textContent = 'Requesting permission...';
-            statusText.style.color = 'var(--text-dim)';
-        }
-
-        try {
-            const result = await invoke("request_uinput_permissions") as boolean;
-            
-            if (result && statusText) {
-                statusText.textContent = '✓ Permission granted! You can now use Mouse Jiggler.';
-                statusText.style.color = 'var(--accent)';
-                
-                
-                setTimeout(() => {
-                    hideUinputPermissionModal();
-                    
-                    const jigglerToggle = document.getElementById('jiggler-toggle');
-                    if (jigglerToggle) {
-                        jigglerToggle.click();
-                    }
-                }, 1500);
-            }
-        } catch (error) {
-            if (statusText) {
-                statusText.textContent = `✗ Failed: ${error}`;
-                statusText.style.color = '#ff4444';
-            }
-            if (grantBtn) {
-                (grantBtn as HTMLButtonElement).disabled = false;
-                grantBtn.style.opacity = '1';
-            }
-        }
-    };
-
-    
-    if (grantBtn) {
-        grantBtn.onclick = handleGrantPermission;
-    }
-
-    const closeModal = () => {
-        hideUinputPermissionModal();
-    };
-
-    if (cancelBtn) {
-        cancelBtn.onclick = closeModal;
-    }
-    if (closeBtn) {
-        closeBtn.onclick = closeModal;
-    }
-}
-
-
-function hideUinputPermissionModal() {
-    const modal = document.getElementById('uinput-permission-modal');
-    if (!modal) return;
-
-    modal.classList.remove('active');
-    setTimeout(() => {
-        modal.style.display = 'none';
-        document.getElementById('content')?.classList.remove('blurred');
-    }, 300);
-}

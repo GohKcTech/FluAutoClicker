@@ -412,10 +412,68 @@ async fn perform_keyboard_press(enigo: &mut Enigo, state: &AppState) {
 }
 
 #[cfg(test)]
-#[cfg(not(target_os = "linux"))]
 mod tests {
     use super::*;
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_key_mapping_covers_ui_keys() {
+        for key in [
+            "a",
+            "z",
+            "0",
+            "9",
+            "f1",
+            "f12",
+            "escape",
+            "space",
+            "enter",
+            "tab",
+            "backspace",
+            "delete",
+            "insert",
+            "home",
+            "end",
+            "pageup",
+            "pagedown",
+            "up",
+            "down",
+            "left",
+            "right",
+            "grave",
+            "minus",
+            "equal",
+            "leftbrace",
+            "rightbrace",
+            "backslash",
+            "semicolon",
+            "apostrophe",
+            "comma",
+            "dot",
+            "slash",
+            "kp0",
+            "kp9",
+            "kpenter",
+            "kpplus",
+            "kpminus",
+            "kpasterisk",
+            "kpdot",
+            "kpslash",
+            "numlock",
+            "capslock",
+            "ctrl",
+            "shift",
+            "alt",
+            "win",
+        ] {
+            assert!(
+                string_to_key(key).is_some(),
+                "{key} should map to an evdev key"
+            );
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
     #[test]
     fn modifier_keys_use_runtime_order() {
         assert_eq!(

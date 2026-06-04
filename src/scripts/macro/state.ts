@@ -1,7 +1,8 @@
-import type { MacroCapabilities, MacroRecordingOptions, MacroUiAction } from "./types";
+import type { MacroCapabilities, MacroRecordingOptions, MacroUiAction, MacroBackendAction } from "./types";
 
 type MacroState = {
     actions: MacroUiAction[];
+    rawActions: MacroBackendAction[];
     currentPlayingActionId: number | null;
     capabilities: MacroCapabilities;
     recordingOptions: MacroRecordingOptions;
@@ -9,6 +10,7 @@ type MacroState = {
 
 const defaultState: MacroState = {
     actions: [],
+    rawActions: [],
     currentPlayingActionId: null,
     capabilities: {
         supported_mouse_buttons: ["left", "middle", "right"],
@@ -18,10 +20,11 @@ const defaultState: MacroState = {
     },
     recordingOptions: {
         record_mouse_clicks: true,
-        record_mouse_moves: true,
+        record_mouse_moves: "instant",
         record_keyboard: true,
         record_delays: true,
         record_click_position: true,
+        record_live_preview: true,
     },
 };
 

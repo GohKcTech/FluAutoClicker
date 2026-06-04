@@ -1,3 +1,5 @@
+import { maybeShowStartupUinputPermissionModal } from "./uinput-permissions";
+
 const FRONTEND_STATE_KEY = "flu-frontend-state";
 const WELCOME_ACK_KEY = "first_welcome_v25_ack";
 const BETA_ACK_KEY = "beta_warning_v25_ack";
@@ -70,11 +72,15 @@ export function initStartupModals() {
     const showBetaIfNeeded = () => {
         if (!readFrontendState()[BETA_ACK_KEY]) {
             showModal(betaModal);
+        } else {
+            void maybeShowStartupUinputPermissionModal();
         }
     };
 
     bindDismiss("first-welcome-continue-btn", "first-welcome-modal", WELCOME_ACK_KEY, showBetaIfNeeded);
-    bindDismiss("beta-warning-confirm-btn", "beta-warning-modal", BETA_ACK_KEY);
+    bindDismiss("beta-warning-confirm-btn", "beta-warning-modal", BETA_ACK_KEY, () => {
+        void maybeShowStartupUinputPermissionModal();
+    });
 
     if (!state[WELCOME_ACK_KEY]) {
         window.setTimeout(() => showModal(welcomeModal), 350);
@@ -83,5 +89,8 @@ export function initStartupModals() {
 
     if (!state[BETA_ACK_KEY]) {
         window.setTimeout(() => showModal(betaModal), 350);
+        return;
     }
+
+    void maybeShowStartupUinputPermissionModal();
 }

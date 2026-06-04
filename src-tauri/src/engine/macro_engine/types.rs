@@ -15,13 +15,21 @@ pub enum MacroMouseButton {
 pub enum MacroMouseAction {
     Press,
     Hold { duration_ms: u32 },
+    Down,
+    Up,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum MacroMoveStyle {
     Instant,
-    Smooth { duration_ms: u32 },
+    Linear {
+        duration_ms: u32,
+    },
+    Smooth {
+        path: Vec<(i32, i32)>,
+        duration_ms: u32,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -54,6 +62,8 @@ pub enum MacroActionConfig {
 pub enum MacroKeyboardAction {
     Press,
     Hold { duration_ms: u32 },
+    Down,
+    Up,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -75,24 +85,83 @@ impl Default for MacroRepeatMode {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum MacroRecordMouseMovesMode {
+    Off,
+    Instant,
+    Linear,
+    Smooth,
+}
+
+impl Default for MacroRecordMouseMovesMode {
+    fn default() -> Self {
+        Self::Instant
+    }
+}
+
+fn deserialize_mouse_moves<'de, D>(deserializer: D) -> Result<MacroRecordMouseMovesMode, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct MouseMovesVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for MouseMovesVisitor {
+        type Value = MacroRecordMouseMovesMode;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a boolean or a string (off, instant, linear, smooth)")
+        }
+
+        fn visit_bool<E>(self, value: bool) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if value {
+                Ok(MacroRecordMouseMovesMode::Instant)
+            } else {
+                Ok(MacroRecordMouseMovesMode::Off)
+            }
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            match value.to_lowercase().as_str() {
+                "off" | "false" => Ok(MacroRecordMouseMovesMode::Off),
+                "instant" | "true" | "on" => Ok(MacroRecordMouseMovesMode::Instant),
+                "linear" => Ok(MacroRecordMouseMovesMode::Linear),
+                "smooth" => Ok(MacroRecordMouseMovesMode::Smooth),
+                _ => Ok(MacroRecordMouseMovesMode::Off),
+            }
+        }
+    }
+
+    deserializer.deserialize_any(MouseMovesVisitor)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct MacroRecordingOptions {
     pub record_mouse_clicks: bool,
-    pub record_mouse_moves: bool,
+    #[serde(deserialize_with = "deserialize_mouse_moves")]
+    pub record_mouse_moves: MacroRecordMouseMovesMode,
     pub record_keyboard: bool,
     pub record_delays: bool,
     pub record_click_position: bool,
+    pub record_live_preview: bool,
 }
 
 impl Default for MacroRecordingOptions {
     fn default() -> Self {
         Self {
             record_mouse_clicks: true,
-            record_mouse_moves: true,
+            record_mouse_moves: MacroRecordMouseMovesMode::Instant,
             record_keyboard: true,
             record_delays: true,
             record_click_position: true,
+            record_live_preview: true,
         }
     }
 }

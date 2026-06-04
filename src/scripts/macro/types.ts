@@ -15,14 +15,19 @@ export type MacroCapabilities = {
     recording_supported: boolean;
     recording_reason?: string | null;
     pick_delay_ms: number;
+    playback_backend?: string;
+    recording_backend?: string;
+    smooth_move_supported?: boolean;
+    cursor_pick_supported?: boolean;
 };
 
 export type MacroRecordingOptions = {
     record_mouse_clicks: boolean;
-    record_mouse_moves: boolean;
+    record_mouse_moves: "off" | "instant" | "linear" | "smooth";
     record_keyboard: boolean;
     record_delays: boolean;
     record_click_position: boolean;
+    record_live_preview: boolean;
 };
 
 export type MacroRepeatState = {
@@ -49,7 +54,7 @@ export type MacroBackendAction = {
 
 export type MacroMouseDraft = {
     button: string;
-    action: "press" | "hold";
+    action: "press" | "hold" | "down" | "up";
     positionMode: "current" | "custom";
     x: string;
     y: string;
@@ -59,11 +64,11 @@ export type MacroMouseDraft = {
 export type MacroMoveDraft = {
     x: string;
     y: string;
-    style: "instant" | "smooth";
+    style: "instant" | "linear" | "smooth";
 };
 
 export type MacroKeyboardDraft = {
-    action: "press" | "hold";
+    action: "press" | "hold" | "down" | "up";
     key: string;
     durationMs: number;
 };

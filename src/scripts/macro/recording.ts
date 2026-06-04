@@ -31,7 +31,14 @@ export function syncRecordingOptionsToUi() {
             return;
         }
 
-        const value = macroState.recordingOptions[key] ? "on" : "off";
+        let value: string;
+        const rawValue = macroState.recordingOptions[key];
+        if (typeof rawValue === "boolean") {
+            value = rawValue ? "on" : "off";
+        } else {
+            value = String(rawValue);
+        }
+
         const target = row.querySelector<HTMLElement>(`.toggle-option[data-value="${value}"]`);
         row.querySelectorAll(".toggle-option").forEach((button) => {
             button.classList.toggle("active", button.getAttribute("data-value") === value);
@@ -85,14 +92,21 @@ export function initRecordingSettingsUi() {
 
         row.querySelectorAll<HTMLElement>(".toggle-option").forEach((button) => {
             button.addEventListener("click", () => {
-                const nextValue = button.dataset.value === "on";
+                const dataVal = button.dataset.value;
+                let nextValue: boolean | string;
+                if (dataVal === "on" || dataVal === "off") {
+                    nextValue = dataVal === "on";
+                } else {
+                    nextValue = dataVal || "off";
+                }
+
                 if (macroState.recordingOptions[key] === nextValue) {
                     return;
                 }
 
                 macroState.recordingOptions = {
                     ...macroState.recordingOptions,
-                    [key]: nextValue,
+                    [key]: nextValue as any,
                 };
                 syncRecordingOptionsToUi();
                 void persistRecordingOptions();

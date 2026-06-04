@@ -28,6 +28,7 @@ type MacroRecordingOptions = {
     record_keyboard: boolean;
     record_delays: boolean;
     record_click_position: boolean;
+    record_live_preview: boolean;
 };
 
 export type AppConfigFile = {
@@ -160,6 +161,7 @@ function defaultConfig(): AppConfigFile {
                 record_keyboard: true,
                 record_delays: true,
                 record_click_position: true,
+                record_live_preview: true,
             },
             actions: [],
         },
@@ -388,6 +390,7 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("acrylic-toggle", frontendState.acrylic_enabled === true);
     setToggleState("classic-window-icons-toggle", frontendState.window_control_icons === "classic");
     setToggleState("always-on-top-toggle", frontendState.always_on_top === true);
+    setToggleState("macro-live-update-toggle", config.macro_settings.recording_options.record_live_preview !== false);
     applyMacroRepeatSettings(config);
 
     const activeTabCandidate = String(frontendState.active_tab || "mouse");
@@ -656,6 +659,15 @@ export async function initSettingsPersistence() {
     });
     initSimpleToggle("always-on-top-trigger", "always-on-top-toggle", async (active) => {
         await setAlwaysOnTopPreference(active);
+    });
+    initSimpleToggle("macro-live-update-trigger", "macro-live-update-toggle", async (active) => {
+        const currentOptions = await invoke<MacroRecordingOptions>("get_macro_recording_options");
+        currentOptions.record_live_preview = active;
+        const optionsJson = JSON.stringify(currentOptions);
+        await invoke("set_macro_recording_options", {
+            optionsJson,
+            options_json: optionsJson,
+        });
     });
 
     window.addEventListener(SETTINGS_CHANGED_EVENT, scheduleSave);

@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use enigo::{Enigo, Mouse, Settings};
 use rdev::{listen, Button as RdevButton, Event, EventType, Key as RdevKey};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, State};
 
 use crate::engine::state::AppState;
 
@@ -13,7 +13,7 @@ use super::state::MacroEngineState;
 use super::storage;
 use super::types::{
     MacroAction, MacroActionConfig, MacroKeyboardAction, MacroMouseAction, MacroMouseButton,
-    MacroMoveStyle, MacroPlayerState, MacroRecordingOptions,
+    MacroMoveStyle, MacroPlayerState, MacroRecordMouseMovesMode, MacroRecordingOptions,
 };
 
 const MIN_SLEEP_MS: u64 = 25;
@@ -32,9 +32,11 @@ struct PressSnapshot {
 #[derive(Default)]
 pub struct MacroRecordingContext {
     last_recorded_at: Option<SystemTime>,
+    last_persisted_at: Option<SystemTime>,
     last_pointer: Option<(i32, i32)>,
     last_move_action_id: Option<u64>,
     last_move_recorded_at: Option<SystemTime>,
+    last_move_start_time: Option<SystemTime>,
     active_modifiers: BTreeSet<String>,
     pressed_mouse: HashMap<MacroMouseButton, PressSnapshot>,
     pressed_keys: HashMap<String, PressSnapshot>,
@@ -43,9 +45,11 @@ pub struct MacroRecordingContext {
 impl MacroRecordingContext {
     pub fn reset(&mut self, cursor_position: Option<(i32, i32)>) {
         self.last_recorded_at = None;
+        self.last_persisted_at = None;
         self.last_pointer = cursor_position;
         self.last_move_action_id = None;
         self.last_move_recorded_at = None;
+        self.last_move_start_time = None;
         self.active_modifiers.clear();
         self.pressed_mouse.clear();
         self.pressed_keys.clear();
@@ -148,9 +152,22 @@ pub async fn stop_recording(state: &MacroEngineState, app: AppHandle) -> Result<
         context.active_modifiers.clear();
         context.last_move_action_id = None;
         context.last_move_recorded_at = None;
+        context.last_move_start_time = None;
     }
 
     *state.player_state.lock().await = MacroPlayerState::Stopped;
+
+    let actions = state.actions.lock().await.clone();
+    let repeat_mode = state.repeat_mode.lock().await.clone();
+    let recording_options = state.recording_options.lock().await.clone();
+    let _ = storage::save_macro(&actions, &repeat_mode, &recording_options).await;
+
+    let _ = app.emit(
+        "macro-actions-changed",
+        serde_json::json!({
+            "count": actions.len()
+        }),
+    );
 
     let _ = app.emit(
         "macro-status-changed",
@@ -159,6 +176,14 @@ pub async fn stop_recording(state: &MacroEngineState, app: AppHandle) -> Result<
         }),
     );
     Ok(())
+}
+
+fn get_event_key_name(key: &RdevKey) -> Option<String> {
+    if let Some(modifier) = rdev_modifier_name(*key) {
+        Some(modifier.to_string())
+    } else {
+        rdev_key_to_macro(key)
+    }
 }
 
 fn handle_recording_event(
@@ -192,7 +217,7 @@ fn handle_recording_event(
             let previous_pointer = context.last_pointer;
             context.last_pointer = Some((x, y));
 
-            if !recording_options.record_mouse_moves {
+            if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Off {
                 return;
             }
 
@@ -214,46 +239,115 @@ fn handle_recording_event(
                 if let Some(action_id) = context.last_move_action_id {
                     let mut actions = state.actions.blocking_lock();
                     if let Some(action) = actions.iter_mut().find(|action| action.id == action_id) {
-                        action.config = MacroActionConfig::Move {
-                            x,
-                            y,
-                            style: MacroMoveStyle::Instant,
+                        let style = match recording_options.record_mouse_moves {
+                            MacroRecordMouseMovesMode::Instant => MacroMoveStyle::Instant,
+                            MacroRecordMouseMovesMode::Linear => {
+                                let start_time = context.last_move_start_time.unwrap_or(event_time);
+                                let duration_ms = event_time
+                                    .duration_since(start_time)
+                                    .unwrap_or_default()
+                                    .as_millis()
+                                    .max(50)
+                                    .min(u32::MAX as u128)
+                                    as u32;
+                                MacroMoveStyle::Linear { duration_ms }
+                            }
+                            MacroRecordMouseMovesMode::Smooth => {
+                                let start_time = context.last_move_start_time.unwrap_or(event_time);
+                                let duration_ms = event_time
+                                    .duration_since(start_time)
+                                    .unwrap_or_default()
+                                    .as_millis()
+                                    .max(50)
+                                    .min(u32::MAX as u128)
+                                    as u32;
+                                let mut path = match &action.config {
+                                    MacroActionConfig::Move {
+                                        style: MacroMoveStyle::Smooth { path, .. },
+                                        ..
+                                    } => path.clone(),
+                                    _ => Vec::new(),
+                                };
+                                path.push((x, y));
+                                MacroMoveStyle::Smooth { path, duration_ms }
+                            }
+                            MacroRecordMouseMovesMode::Off => MacroMoveStyle::Instant,
                         };
+                        action.config = MacroActionConfig::Move { x, y, style };
                         context.last_pointer = Some((x, y));
                         context.last_recorded_at = Some(event_time);
                         context.last_move_recorded_at = Some(event_time);
                         drop(actions);
-                        persist_and_emit(state, app);
+                        persist_and_emit_if_needed(state, app, &mut context, event_time);
                         return;
                     }
                 }
             }
 
             push_sleep_if_needed(state, &recording_options, &mut context, event_time);
+
+            let style = match recording_options.record_mouse_moves {
+                MacroRecordMouseMovesMode::Instant => {
+                    context.last_move_start_time = None;
+                    MacroMoveStyle::Instant
+                }
+                MacroRecordMouseMovesMode::Linear => {
+                    context.last_move_start_time = Some(event_time);
+                    MacroMoveStyle::Linear { duration_ms: 100 }
+                }
+                MacroRecordMouseMovesMode::Smooth => {
+                    context.last_move_start_time = Some(event_time);
+                    MacroMoveStyle::Smooth {
+                        path: vec![(x, y)],
+                        duration_ms: 100,
+                    }
+                }
+                MacroRecordMouseMovesMode::Off => {
+                    context.last_move_start_time = None;
+                    MacroMoveStyle::Instant
+                }
+            };
+
             append_action(
                 state,
-                MacroActionConfig::Move {
-                    x,
-                    y,
-                    style: MacroMoveStyle::Instant,
-                },
+                MacroActionConfig::Move { x, y, style },
                 Some(&mut context),
                 event_time,
             );
-            persist_and_emit(state, app);
+            persist_and_emit_if_needed(state, app, &mut context, event_time);
         }
         EventType::ButtonPress(button) => {
             if !recording_options.record_mouse_clicks {
                 return;
             }
             if let Some(button) = rdev_button_to_macro(button) {
+                if context.pressed_mouse.contains_key(&button) {
+                    return;
+                }
                 let snapshot = PressSnapshot {
                     started_at: event_time,
                     position: context.last_pointer,
                     modifiers: Vec::new(),
                     text: None,
                 };
-                context.pressed_mouse.insert(button, snapshot);
+                context.pressed_mouse.insert(button.clone(), snapshot);
+
+                push_sleep_if_needed(state, &recording_options, &mut context, event_time);
+                append_action(
+                    state,
+                    MacroActionConfig::Mouse {
+                        button,
+                        action: MacroMouseAction::Down,
+                        position: if recording_options.record_click_position {
+                            context.last_pointer
+                        } else {
+                            None
+                        },
+                    },
+                    Some(&mut context),
+                    event_time,
+                );
+                persist_and_emit_if_needed(state, app, &mut context, event_time);
             }
         }
         EventType::ButtonRelease(button) => {
@@ -261,30 +355,15 @@ fn handle_recording_event(
                 return;
             }
             if let Some(button) = rdev_button_to_macro(button) {
-                if let Some(snapshot) = context.pressed_mouse.remove(&button) {
-                    push_sleep_if_needed(
-                        state,
-                        &recording_options,
-                        &mut context,
-                        snapshot.started_at,
-                    );
-                    let hold_ms = event_time
-                        .duration_since(snapshot.started_at)
-                        .unwrap_or_default()
-                        .as_millis() as u64;
+                if context.pressed_mouse.remove(&button).is_some() {
+                    push_sleep_if_needed(state, &recording_options, &mut context, event_time);
                     append_action(
                         state,
                         MacroActionConfig::Mouse {
                             button,
-                            action: if hold_ms >= HOLD_THRESHOLD_MS {
-                                MacroMouseAction::Hold {
-                                    duration_ms: hold_ms.min(u32::MAX as u64) as u32,
-                                }
-                            } else {
-                                MacroMouseAction::Press
-                            },
+                            action: MacroMouseAction::Up,
                             position: if recording_options.record_click_position {
-                                snapshot.position
+                                context.last_pointer
                             } else {
                                 None
                             },
@@ -292,7 +371,7 @@ fn handle_recording_event(
                         Some(&mut context),
                         event_time,
                     );
-                    persist_and_emit(state, app);
+                    persist_and_emit_if_needed(state, app, &mut context, event_time);
                 }
             }
         }
@@ -300,65 +379,52 @@ fn handle_recording_event(
             if !recording_options.record_keyboard {
                 return;
             }
-            if let Some(modifier) = rdev_modifier_name(key) {
-                context.active_modifiers.insert(modifier.to_string());
-                return;
-            }
+            if let Some(key_name) = get_event_key_name(&key) {
+                if context.pressed_keys.contains_key(&key_name) {
+                    return;
+                }
+                let snapshot = PressSnapshot {
+                    started_at: event_time,
+                    position: None,
+                    modifiers: Vec::new(),
+                    text: None,
+                };
+                context.pressed_keys.insert(key_name.clone(), snapshot);
 
-            if let Some(key_name) = rdev_key_to_macro(&key) {
-                let raw_modifiers = context.active_modifiers.iter().cloned().collect::<Vec<_>>();
-                let text = normalize_recorded_text(event.name.as_deref());
-                let modifiers = normalize_recorded_modifiers(&raw_modifiers, text.as_deref());
-                context
-                    .pressed_keys
-                    .entry(key_name.clone())
-                    .or_insert_with(|| PressSnapshot {
-                        started_at: event_time,
-                        position: None,
-                        modifiers,
-                        text,
-                    });
+                push_sleep_if_needed(state, &recording_options, &mut context, event_time);
+                append_action(
+                    state,
+                    MacroActionConfig::Keyboard {
+                        key: key_name,
+                        text: None,
+                        modifiers: Vec::new(),
+                        action: MacroKeyboardAction::Down,
+                    },
+                    Some(&mut context),
+                    event_time,
+                );
+                persist_and_emit_if_needed(state, app, &mut context, event_time);
             }
         }
         EventType::KeyRelease(key) => {
             if !recording_options.record_keyboard {
                 return;
             }
-            if let Some(modifier) = rdev_modifier_name(key) {
-                context.active_modifiers.remove(modifier);
-                return;
-            }
-
-            if let Some(key_name) = rdev_key_to_macro(&key) {
-                if let Some(snapshot) = context.pressed_keys.remove(&key_name) {
-                    push_sleep_if_needed(
-                        state,
-                        &recording_options,
-                        &mut context,
-                        snapshot.started_at,
-                    );
-                    let hold_ms = event_time
-                        .duration_since(snapshot.started_at)
-                        .unwrap_or_default()
-                        .as_millis() as u64;
+            if let Some(key_name) = get_event_key_name(&key) {
+                if context.pressed_keys.remove(&key_name).is_some() {
+                    push_sleep_if_needed(state, &recording_options, &mut context, event_time);
                     append_action(
                         state,
                         MacroActionConfig::Keyboard {
                             key: key_name,
-                            text: snapshot.text,
-                            modifiers: snapshot.modifiers,
-                            action: if hold_ms >= HOLD_THRESHOLD_MS {
-                                MacroKeyboardAction::Hold {
-                                    duration_ms: hold_ms.min(u32::MAX as u64) as u32,
-                                }
-                            } else {
-                                MacroKeyboardAction::Press
-                            },
+                            text: None,
+                            modifiers: Vec::new(),
+                            action: MacroKeyboardAction::Up,
                         },
                         Some(&mut context),
                         event_time,
                     );
-                    persist_and_emit(state, app);
+                    persist_and_emit_if_needed(state, app, &mut context, event_time);
                 }
             }
         }
@@ -388,21 +454,43 @@ fn append_action(
     }
 }
 
-fn persist_and_emit(state: &MacroEngineState, app: &AppHandle) {
-    let actions = state.actions.blocking_lock().clone();
-    let action_count = actions.len();
-    let repeat_mode = state.repeat_mode.blocking_lock().clone();
+fn persist_and_emit_if_needed(
+    state: &MacroEngineState,
+    app: &AppHandle,
+    context: &mut MacroRecordingContext,
+    event_time: SystemTime,
+) {
     let recording_options = state.recording_options.blocking_lock().clone();
-    tauri::async_runtime::spawn(async move {
-        let _ = storage::save_macro(&actions, &repeat_mode, &recording_options).await;
-    });
+    if !recording_options.record_live_preview {
+        return;
+    }
 
-    let _ = app.emit(
-        "macro-actions-changed",
-        serde_json::json!({
-            "count": action_count
-        }),
-    );
+    let should_persist = match context.last_persisted_at {
+        None => true,
+        Some(last) => event_time
+            .duration_since(last)
+            .map(|elapsed| elapsed >= Duration::from_secs(1))
+            .unwrap_or(true),
+    };
+
+    if should_persist {
+        context.last_persisted_at = Some(event_time);
+
+        let actions = state.actions.blocking_lock().clone();
+        let action_count = actions.len();
+        let repeat_mode = state.repeat_mode.blocking_lock().clone();
+
+        tauri::async_runtime::spawn(async move {
+            let _ = storage::save_macro(&actions, &repeat_mode, &recording_options).await;
+        });
+
+        let _ = app.emit(
+            "macro-actions-changed",
+            serde_json::json!({
+                "count": action_count
+            }),
+        );
+    }
 }
 
 fn current_cursor_position() -> Result<(i32, i32), String> {
@@ -575,4 +663,336 @@ fn push_sleep_if_needed(
         Some(context),
         event_time,
     );
+}
+
+fn string_to_macro_button(btn: &str) -> Option<MacroMouseButton> {
+    match btn.to_lowercase().as_str() {
+        "left" => Some(MacroMouseButton::Left),
+        "middle" => Some(MacroMouseButton::Middle),
+        "right" => Some(MacroMouseButton::Right),
+        "front" => Some(MacroMouseButton::Front),
+        "back" => Some(MacroMouseButton::Back),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+pub async fn record_local_macro_event(
+    state: State<'_, Arc<AppState>>,
+    _app: AppHandle,
+    event_type: String,
+    button: Option<String>,
+    key: Option<String>,
+    _x: Option<i32>,
+    _y: Option<i32>,
+) -> Result<(), String> {
+    let macro_state = &state.macro_engine;
+    if !macro_state.recording_active.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+
+    let recording_options = macro_state.recording_options.lock().await.clone();
+    let event_time = SystemTime::now();
+
+    let (cx, cy) = current_cursor_position().unwrap_or((0, 0));
+
+    let (should_merge_id, main_action, sleep_config) = {
+        let mut context = macro_state
+            .recording_context
+            .lock()
+            .map_err(|e| e.to_string())?;
+
+        let previous_pointer = context.last_pointer;
+        if event_type == "mouse_move" || event_type == "mouse_down" || event_type == "mouse_up" {
+            context.last_pointer = Some((cx, cy));
+        }
+        let last_pointer = context.last_pointer;
+
+        let mut sleep_config = None;
+        let mut main_action = None;
+        let mut should_merge_id = None;
+
+        match event_type.as_str() {
+            "mouse_move" => {
+                if recording_options.record_mouse_moves != MacroRecordMouseMovesMode::Off {
+                    let x = cx;
+                    let y = cy;
+
+                    let mut delta_ok = true;
+                    if let Some((prev_x, prev_y)) = previous_pointer {
+                        let delta_x = (prev_x - x).abs();
+                        let delta_y = (prev_y - y).abs();
+                        if delta_x < MOVE_THRESHOLD_PX && delta_y < MOVE_THRESHOLD_PX {
+                            delta_ok = false;
+                        }
+                    }
+
+                    if delta_ok {
+                        let should_merge = context
+                            .last_move_recorded_at
+                            .and_then(|last| event_time.duration_since(last).ok())
+                            .map(|elapsed| elapsed <= Duration::from_millis(MOVE_MERGE_WINDOW_MS))
+                            .unwrap_or(false);
+
+                        if should_merge {
+                            if let Some(action_id) = context.last_move_action_id {
+                                should_merge_id = Some(action_id);
+                            }
+                        }
+
+                        if should_merge_id.is_none() {
+                            let style = match recording_options.record_mouse_moves {
+                                MacroRecordMouseMovesMode::Instant => {
+                                    context.last_move_start_time = None;
+                                    MacroMoveStyle::Instant
+                                }
+                                MacroRecordMouseMovesMode::Linear => {
+                                    context.last_move_start_time = Some(event_time);
+                                    MacroMoveStyle::Linear { duration_ms: 100 }
+                                }
+                                MacroRecordMouseMovesMode::Smooth => {
+                                    context.last_move_start_time = Some(event_time);
+                                    MacroMoveStyle::Smooth {
+                                        path: vec![(x, y)],
+                                        duration_ms: 100,
+                                    }
+                                }
+                                MacroRecordMouseMovesMode::Off => {
+                                    context.last_move_start_time = None;
+                                    MacroMoveStyle::Instant
+                                }
+                            };
+                            main_action = Some(MacroActionConfig::Move { x, y, style });
+                        }
+                    }
+                }
+            }
+            "mouse_down" => {
+                if recording_options.record_mouse_clicks {
+                    if let Some(btn_str) = button {
+                        if let Some(button) = string_to_macro_button(&btn_str) {
+                            if !context.pressed_mouse.contains_key(&button) {
+                                let snapshot = PressSnapshot {
+                                    started_at: event_time,
+                                    position: last_pointer,
+                                    modifiers: Vec::new(),
+                                    text: None,
+                                };
+                                context.pressed_mouse.insert(button.clone(), snapshot);
+
+                                main_action = Some(MacroActionConfig::Mouse {
+                                    button,
+                                    action: MacroMouseAction::Down,
+                                    position: if recording_options.record_click_position {
+                                        last_pointer
+                                    } else {
+                                        None
+                                    },
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            "mouse_up" => {
+                if recording_options.record_mouse_clicks {
+                    if let Some(btn_str) = button {
+                        if let Some(button) = string_to_macro_button(&btn_str) {
+                            if context.pressed_mouse.remove(&button).is_some() {
+                                main_action = Some(MacroActionConfig::Mouse {
+                                    button,
+                                    action: MacroMouseAction::Up,
+                                    position: if recording_options.record_click_position {
+                                        last_pointer
+                                    } else {
+                                        None
+                                    },
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            "key_down" => {
+                if recording_options.record_keyboard {
+                    if let Some(key_name) = key {
+                        if !context.pressed_keys.contains_key(&key_name) {
+                            let snapshot = PressSnapshot {
+                                started_at: event_time,
+                                position: None,
+                                modifiers: Vec::new(),
+                                text: None,
+                            };
+                            context.pressed_keys.insert(key_name.clone(), snapshot);
+
+                            main_action = Some(MacroActionConfig::Keyboard {
+                                key: key_name,
+                                text: None,
+                                modifiers: Vec::new(),
+                                action: MacroKeyboardAction::Down,
+                            });
+                        }
+                    }
+                }
+            }
+            "key_up" => {
+                if recording_options.record_keyboard {
+                    if let Some(key_name) = key {
+                        if context.pressed_keys.remove(&key_name).is_some() {
+                            main_action = Some(MacroActionConfig::Keyboard {
+                                key: key_name,
+                                text: None,
+                                modifiers: Vec::new(),
+                                action: MacroKeyboardAction::Up,
+                            });
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        if main_action.is_some() || should_merge_id.is_some() {
+            if recording_options.record_delays {
+                if let Some(last_recorded_at) = context.last_recorded_at {
+                    let elapsed_ms = event_time
+                        .duration_since(last_recorded_at)
+                        .unwrap_or_default()
+                        .as_millis() as u64;
+
+                    if elapsed_ms >= MIN_SLEEP_MS {
+                        let duration_ms = elapsed_ms.min(u32::MAX as u64) as u32;
+                        sleep_config = Some(MacroActionConfig::Sleep { duration_ms });
+                    }
+                }
+            }
+        }
+
+        (should_merge_id, main_action, sleep_config)
+    };
+
+    if let Some(action_id) = should_merge_id {
+        let mut actions = macro_state.actions.lock().await;
+        if let Some(action) = actions.iter_mut().find(|action| action.id == action_id) {
+            {
+                let mut context = macro_state
+                    .recording_context
+                    .lock()
+                    .map_err(|e| e.to_string())?;
+
+                let style = match recording_options.record_mouse_moves {
+                    MacroRecordMouseMovesMode::Instant => MacroMoveStyle::Instant,
+                    MacroRecordMouseMovesMode::Linear => {
+                        let start_time = context.last_move_start_time.unwrap_or(event_time);
+                        let duration_ms = event_time
+                            .duration_since(start_time)
+                            .unwrap_or_default()
+                            .as_millis()
+                            .max(50)
+                            .min(u32::MAX as u128) as u32;
+                        MacroMoveStyle::Linear { duration_ms }
+                    }
+                    MacroRecordMouseMovesMode::Smooth => {
+                        let start_time = context.last_move_start_time.unwrap_or(event_time);
+                        let duration_ms = event_time
+                            .duration_since(start_time)
+                            .unwrap_or_default()
+                            .as_millis()
+                            .max(50)
+                            .min(u32::MAX as u128) as u32;
+                        let mut path = match &action.config {
+                            MacroActionConfig::Move {
+                                style: MacroMoveStyle::Smooth { path, .. },
+                                ..
+                            } => path.clone(),
+                            _ => Vec::new(),
+                        };
+                        path.push((cx, cy));
+                        MacroMoveStyle::Smooth { path, duration_ms }
+                    }
+                    MacroRecordMouseMovesMode::Off => MacroMoveStyle::Instant,
+                };
+
+                action.config = MacroActionConfig::Move {
+                    x: cx,
+                    y: cy,
+                    style,
+                };
+
+                context.last_pointer = Some((cx, cy));
+                context.last_recorded_at = Some(event_time);
+                context.last_move_recorded_at = Some(event_time);
+            }
+
+            drop(actions);
+        }
+    } else if let Some(main_config) = main_action {
+        let mut actions = macro_state.actions.lock().await;
+
+        if let Some(sleep_cfg) = sleep_config {
+            let sleep_id = macro_state.action_id_counter.fetch_add(1, Ordering::SeqCst);
+            actions.push(MacroAction {
+                id: sleep_id,
+                config: sleep_cfg,
+            });
+        }
+
+        let main_id = macro_state.action_id_counter.fetch_add(1, Ordering::SeqCst);
+        let main_is_move = matches!(main_config, MacroActionConfig::Move { .. });
+        actions.push(MacroAction {
+            id: main_id,
+            config: main_config,
+        });
+        let last_id = Some(main_id);
+        let last_is_move = main_is_move;
+
+        drop(actions);
+
+        let mut context = macro_state
+            .recording_context
+            .lock()
+            .map_err(|e| e.to_string())?;
+        context.last_recorded_at = Some(event_time);
+        if let Some(id) = last_id {
+            context.last_move_action_id = if last_is_move { Some(id) } else { None };
+            context.last_move_recorded_at = context.last_move_action_id.map(|_| event_time);
+        }
+    }
+
+    let should_persist = {
+        let mut context = macro_state
+            .recording_context
+            .lock()
+            .map_err(|e| e.to_string())?;
+
+        if !recording_options.record_live_preview {
+            false
+        } else {
+            let should = match context.last_persisted_at {
+                None => true,
+                Some(last) => event_time
+                    .duration_since(last)
+                    .map(|elapsed| elapsed >= Duration::from_secs(1))
+                    .unwrap_or(true),
+            };
+            if should {
+                context.last_persisted_at = Some(event_time);
+            }
+            should
+        }
+    };
+
+    if should_persist {
+        let actions = macro_state.actions.lock().await.clone();
+        let repeat_mode = macro_state.repeat_mode.lock().await.clone();
+        let _ = storage::save_macro(&actions, &repeat_mode, &recording_options).await;
+        let _ = _app.emit(
+            "macro-actions-changed",
+            serde_json::json!({
+                "count": actions.len()
+            }),
+        );
+    }
+
+    Ok(())
 }

@@ -751,9 +751,63 @@ pub fn get_platform_capabilities() -> serde_json::Value {
         "global_hotkeys": crate::global_hotkeys_supported(),
         "wayland": crate::is_wayland_session(),
         "os": std::env::consts::OS,
+        "uinput_available": linux_uinput_available(),
+        "macro_playback_backend": macro_playback_backend(),
+        "recording_backend": macro_recording_backend(),
+        "session_type": std::env::var("XDG_SESSION_TYPE").ok(),
+        "desktop_environment": std::env::var("XDG_CURRENT_DESKTOP")
+            .or_else(|_| std::env::var("DESKTOP_SESSION"))
+            .ok(),
+        "wayland_compositor": std::env::var("WAYLAND_DISPLAY").ok(),
+        "window_manager": linux_window_manager_hint(),
         "webview_devtools": env!("CARGO_PKG_VERSION").contains("beta")
             && (cfg!(debug_assertions) || cfg!(feature = "beta-devtools")),
     })
+}
+
+#[cfg(target_os = "linux")]
+fn linux_uinput_available() -> bool {
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open("/dev/uinput")
+        .is_ok()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn linux_uinput_available() -> bool {
+    true
+}
+
+fn macro_playback_backend() -> &'static str {
+    if cfg!(target_os = "linux") {
+        "uinput"
+    } else {
+        "enigo"
+    }
+}
+
+fn macro_recording_backend() -> &'static str {
+    if cfg!(target_os = "linux") && crate::is_wayland_session() {
+        "unsupported_wayland"
+    } else if cfg!(target_os = "linux") {
+        "rdev_x11"
+    } else {
+        "rdev"
+    }
+}
+
+fn linux_window_manager_hint() -> Option<&'static str> {
+    if std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok() {
+        Some("hyprland")
+    } else if std::env::var("SWAYSOCK").is_ok() {
+        Some("sway")
+    } else if std::env::var("KDE_FULL_SESSION").is_ok() {
+        Some("kde")
+    } else if std::env::var("GNOME_DESKTOP_SESSION_ID").is_ok() {
+        Some("gnome")
+    } else {
+        None
+    }
 }
 
 #[tauri::command]
@@ -878,12 +932,13 @@ pub async fn set_hotkey(
 pub fn check_uinput_permissions() -> Result<bool, String> {
     #[cfg(target_os = "linux")]
     {
-        use std::fs::metadata;
-        match metadata("/dev/uinput") {
+        match std::fs::OpenOptions::new().write(true).open("/dev/uinput") {
             Ok(_) => Ok(true),
             Err(e) => {
                 if e.kind() == std::io::ErrorKind::PermissionDenied {
                     Ok(false)
+                } else if e.kind() == std::io::ErrorKind::NotFound {
+                    Err("/dev/uinput is missing. Load the uinput kernel module or install a package that enables it.".to_string())
                 } else {
                     Err(format!("Cannot access /dev/uinput: {}", e))
                 }
@@ -903,9 +958,9 @@ pub async fn request_uinput_permissions(_app: tauri::AppHandle) -> Result<bool, 
         use std::process::Command;
 
         let output = Command::new("pkexec")
-            .arg("chmod")
-            .arg("666")
-            .arg("/dev/uinput")
+            .arg("sh")
+            .arg("-c")
+            .arg("modprobe uinput 2>/dev/null || true; chmod 666 /dev/uinput")
             .output();
 
         match output {
@@ -915,6 +970,61 @@ pub async fn request_uinput_permissions(_app: tauri::AppHandle) -> Result<bool, 
                 } else {
                     let stderr = String::from_utf8_lossy(&result.stderr);
                     Err(format!("pkexec failed: {}", stderr))
+                }
+            }
+            Err(e) => Err(format!("pkexec not available: {}", e)),
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(true)
+    }
+}
+
+#[tauri::command]
+pub async fn install_uinput_udev_rule() -> Result<bool, String> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+
+        let username = std::env::var("USER")
+            .or_else(|_| std::env::var("LOGNAME"))
+            .map_err(|_| "Could not detect the current Linux user.".to_string())?;
+
+        if username.trim().is_empty()
+            || !username
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+        {
+            return Err("Could not safely use the current Linux user name.".to_string());
+        }
+
+        let script = r#"set -eu
+groupadd -f uinput
+usermod -aG uinput "$1"
+printf '%s\n' 'KERNEL=="uinput", MODE="0660", GROUP="uinput", OPTIONS+="static_node=uinput"' > /etc/udev/rules.d/99-fluautoclicker-uinput.rules
+modprobe uinput 2>/dev/null || true
+udevadm control --reload-rules
+udevadm trigger --subsystem-match=misc --sysname-match=uinput 2>/dev/null || udevadm trigger
+chgrp uinput /dev/uinput 2>/dev/null || true
+chmod 660 /dev/uinput 2>/dev/null || true
+"#;
+
+        let output = Command::new("pkexec")
+            .arg("sh")
+            .arg("-c")
+            .arg(script)
+            .arg("fluautoclicker-uinput-setup")
+            .arg(username)
+            .output();
+
+        match output {
+            Ok(result) => {
+                if result.status.success() {
+                    Ok(true)
+                } else {
+                    let stderr = String::from_utf8_lossy(&result.stderr);
+                    Err(format!("uinput setup failed: {}", stderr.trim()))
                 }
             }
             Err(e) => Err(format!("pkexec not available: {}", e)),
@@ -1092,16 +1202,16 @@ fn sanitize_macro_action_config(config: &mut MacroActionConfig) {
                 MAX_MACRO_ACTION_DURATION_MS,
             );
         }
-        MacroActionConfig::Move {
-            style: MacroMoveStyle::Smooth { duration_ms },
-            ..
-        } => {
-            *duration_ms = clamp_u32(
-                *duration_ms,
-                MIN_MACRO_ACTION_DURATION_MS,
-                MAX_MACRO_ACTION_DURATION_MS,
-            );
-        }
+        MacroActionConfig::Move { style, .. } => match style {
+            MacroMoveStyle::Linear { duration_ms } | MacroMoveStyle::Smooth { duration_ms, .. } => {
+                *duration_ms = clamp_u32(
+                    *duration_ms,
+                    MIN_MACRO_ACTION_DURATION_MS,
+                    MAX_MACRO_ACTION_DURATION_MS,
+                );
+            }
+            _ => {}
+        },
         MacroActionConfig::Sleep { duration_ms } => {
             *duration_ms = clamp_u32(
                 *duration_ms,
@@ -1143,6 +1253,34 @@ pub async fn add_macro_action(
     let mut actions = state.macro_engine.actions.lock().await;
     actions.push(action);
 
+    drop(actions);
+
+    let actions_clone = state.macro_engine.actions.lock().await.clone();
+    let repeat_mode = state.macro_engine.repeat_mode.lock().await.clone();
+    let recording_options = state.macro_engine.recording_options.lock().await.clone();
+    tokio::spawn(async move {
+        let _ = storage::save_macro(&actions_clone, &repeat_mode, &recording_options).await;
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn update_macro_action(
+    state: State<'_, Arc<AppState>>,
+    action_id: u64,
+    action_json: String,
+) -> Result<(), String> {
+    let mut config: MacroActionConfig =
+        serde_json::from_str(&action_json).map_err(|e| format!("Failed to parse action: {}", e))?;
+    sanitize_macro_action_config(&mut config);
+
+    let mut actions = state.macro_engine.actions.lock().await;
+    if let Some(action) = actions.iter_mut().find(|a| a.id == action_id) {
+        action.config = config;
+    } else {
+        return Err("Action not found".to_string());
+    }
     drop(actions);
 
     let actions_clone = state.macro_engine.actions.lock().await.clone();
@@ -1445,6 +1583,8 @@ pub async fn get_macro_actions(
                         "action": match mouse_action {
                             MacroMouseAction::Press => "press".to_string(),
                             MacroMouseAction::Hold { duration_ms } => format!("hold_{}", duration_ms),
+                            MacroMouseAction::Down => "down".to_string(),
+                            MacroMouseAction::Up => "up".to_string(),
                         },
                         "position": position.map(|(x, y)| format!("{},{}", x, y)),
                     })
@@ -1456,7 +1596,10 @@ pub async fn get_macro_actions(
                         "y": y,
                         "style": match style {
                             MacroMoveStyle::Instant => "instant".to_string(),
-                            MacroMoveStyle::Smooth { duration_ms } => format!("smooth_{}", duration_ms),
+                            MacroMoveStyle::Linear { duration_ms } => format!("linear_{}", duration_ms),
+                            MacroMoveStyle::Smooth { path, duration_ms } => {
+                                format!("smooth_{}_{}", duration_ms, path.len())
+                            }
                         },
                     })
                 }
@@ -1469,6 +1612,8 @@ pub async fn get_macro_actions(
                         "action": match action {
                             MacroKeyboardAction::Press => "press".to_string(),
                             MacroKeyboardAction::Hold { duration_ms } => format!("hold_{}", duration_ms),
+                            MacroKeyboardAction::Down => "down".to_string(),
+                            MacroKeyboardAction::Up => "up".to_string(),
                         },
                     })
                 }
@@ -1504,6 +1649,8 @@ pub async fn get_macro_capabilities(
         "supported_mouse_buttons": macro_supported_mouse_buttons(),
         "recording_supported": supported,
         "recording_reason": recording_error,
+        "playback_backend": macro_playback_backend(),
+        "recording_backend": macro_recording_backend(),
         "pick_delay_ms": 5000u64,
         "smooth_move_supported": true,
         "cursor_pick_supported": true

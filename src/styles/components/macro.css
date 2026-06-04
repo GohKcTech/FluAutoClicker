@@ -190,25 +190,16 @@
 }
 
 .macro-action-item.adding {
-    overflow: hidden;
-    animation: actionRowReveal 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: actionRowReveal 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes actionRowReveal {
     from {
         opacity: 0;
-        min-height: 0;
-        max-height: 0;
-        padding-top: 0;
-        padding-bottom: 0;
-        transform: translateY(10px);
+        transform: translateY(8px);
     }
     to {
         opacity: 1;
-        min-height: 34px;
-        max-height: 34px;
-        padding-top: 4px;
-        padding-bottom: 4px;
         transform: translateY(0);
     }
 }
@@ -363,6 +354,7 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+.action-edit,
 .action-duplicate,
 .action-remove {
     background: var(--control-bg);
@@ -381,6 +373,7 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+.action-edit:hover,
 .action-duplicate:hover {
     background: color-mix(in srgb, var(--accent) 12%, var(--control-bg));
     color: var(--accent);

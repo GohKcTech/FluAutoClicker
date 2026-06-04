@@ -1,5 +1,5 @@
 import { updateIndicator } from "../utils";
-import { captureCursorPosition, normalizeKey } from "./backend";
+import { captureCursorPosition, normalizeKey, getHoldMs } from "./backend";
 import { setKeyBadgeContent } from "../key-badges";
 import { macroState } from "./state";
 import type {
@@ -7,6 +7,7 @@ import type {
     MacroActionType,
     MacroKeyboardDraft,
     MacroMouseDraft,
+    MacroBackendAction,
 } from "./types";
 
 const MODIFIER_LABELS = ["ctrl", "alt", "win", "shift"];
@@ -125,7 +126,7 @@ function initToggleRows(container: HTMLElement) {
     });
 }
 
-function initKeyboardConfigUi() {
+function initKeyboardConfigUi(existingConfig?: MacroBackendAction["config"]) {
     const recordButton = document.getElementById("cfg-kb-record-btn");
     const keyInput = document.getElementById("cfg-kb-key") as HTMLInputElement | null;
     const modifiersDisplay = document.getElementById("cfg-kb-modifiers-display");
@@ -140,9 +141,45 @@ function initKeyboardConfigUi() {
     let activeMainElement: HTMLElement | null = null;
     let isLocalRecording = false;
 
+    if (existingConfig && existingConfig.type === "keyboard") {
+        if (existingConfig.modifiers) {
+            const mods = typeof existingConfig.modifiers === "string"
+                ? existingConfig.modifiers.split("+").filter(Boolean)
+                : (Array.isArray(existingConfig.modifiers) ? existingConfig.modifiers : []);
+            activeModifiers = mods.map(m => m.toLowerCase().trim());
+        }
+        if (existingConfig.key) {
+            activeMainKey = existingConfig.key.toLowerCase().trim();
+        }
+    }
+
     keyboardContainer?.querySelectorAll<HTMLElement>(".kb-tsu").forEach((key) => {
         key.textContent = ":)";
     });
+
+    if (existingConfig && existingConfig.type === "keyboard") {
+        keyboardContainer?.querySelectorAll(".kb-key").forEach((button) => {
+            const key = button as HTMLElement;
+            const label = key.textContent?.trim().toLowerCase() || "";
+            const value = normalizeKeyboardLabel(label);
+
+            if (key.classList.contains("kb-tsu") || key.classList.contains("kb-menu") || key.id === "cfg-kb-numpad-back") {
+                return;
+            }
+
+            if (isModifierLabel(label)) {
+                if (activeModifiers.includes(label)) {
+                    key.classList.add("active");
+                }
+                return;
+            }
+
+            if (value === activeMainKey) {
+                key.classList.add("active");
+                activeMainElement = key;
+            }
+        });
+    }
 
     const updateKeyDisplay = (mainKey = "") => {
         if (mainKey) {
@@ -161,6 +198,8 @@ function initKeyboardConfigUi() {
             );
         }
     };
+
+    updateKeyDisplay();
 
     numpadBack?.addEventListener("click", () => {
         slidingContainer?.classList.remove("numpad-active");
@@ -283,7 +322,7 @@ function initSleepConfigUi() {
     });
 }
 
-export function setupConfigListeners(type: MacroActionType, container: HTMLElement) {
+export function setupConfigListeners(type: MacroActionType, container: HTMLElement, existingConfig?: MacroBackendAction["config"]) {
     initToggleRows(container);
     initNumericInputs(container);
 
@@ -291,6 +330,51 @@ export function setupConfigListeners(type: MacroActionType, container: HTMLEleme
         document.getElementById("cfg-mouse-pick-btn")?.addEventListener("click", async (event) => {
             await captureCursorPosition(event.currentTarget as HTMLElement, "cfg-mouse-x", "cfg-mouse-y");
         });
+
+        if (existingConfig && existingConfig.type === "mouse") {
+            const btnVal = existingConfig.button || "left";
+            const btnRow = container.querySelector("#cfg-mouse-btn");
+            if (btnRow) {
+                btnRow.querySelectorAll(".multi-btn").forEach(b => b.classList.remove("active"));
+                const btnEl = btnRow.querySelector(`.multi-btn[data-value="${btnVal}"]`);
+                if (btnEl) btnEl.classList.add("active");
+            }
+
+            let actVal = "press";
+            const holdMs = getHoldMs(existingConfig.action);
+            if (holdMs !== null) {
+                actVal = "hold";
+                const durationInput = container.querySelector("#cfg-mouse-duration") as HTMLInputElement | null;
+                if (durationInput) {
+                    durationInput.value = String(holdMs);
+                }
+            } else {
+                actVal = String(existingConfig.action || "press");
+            }
+
+            const actRow = container.querySelector("#cfg-mouse-action");
+            if (actRow) {
+                actRow.querySelectorAll(".toggle-option").forEach(b => b.classList.remove("active"));
+                const actEl = actRow.querySelector(`.toggle-option[data-value="${actVal}"]`);
+                if (actEl) actEl.classList.add("active");
+            }
+
+            const posVal = existingConfig.position;
+            const posRow = container.querySelector("#cfg-mouse-pos-toggle");
+            if (posRow) {
+                posRow.querySelectorAll(".toggle-option").forEach(b => b.classList.remove("active"));
+                const targetVal = posVal ? "custom" : "current";
+                const posEl = posRow.querySelector(`.toggle-option[data-value="${targetVal}"]`);
+                if (posEl) posEl.classList.add("active");
+            }
+            if (posVal) {
+                const parts = String(posVal).split(",");
+                const xInput = container.querySelector("#cfg-mouse-x") as HTMLInputElement | null;
+                const yInput = container.querySelector("#cfg-mouse-y") as HTMLInputElement | null;
+                if (xInput && parts[0]) xInput.value = parts[0];
+                if (yInput && parts[1]) yInput.value = parts[1];
+            }
+        }
         return;
     }
 
@@ -298,16 +382,66 @@ export function setupConfigListeners(type: MacroActionType, container: HTMLEleme
         document.getElementById("cfg-move-pick-btn")?.addEventListener("click", async (event) => {
             await captureCursorPosition(event.currentTarget as HTMLElement, "cfg-move-x", "cfg-move-y");
         });
+
+        if (existingConfig && existingConfig.type === "move") {
+            const xInput = container.querySelector("#cfg-move-x") as HTMLInputElement | null;
+            const yInput = container.querySelector("#cfg-move-y") as HTMLInputElement | null;
+            if (xInput && existingConfig.x !== undefined) xInput.value = String(existingConfig.x);
+            if (yInput && existingConfig.y !== undefined) yInput.value = String(existingConfig.y);
+
+            let styleVal = "instant";
+            const rawStyle = String(existingConfig.style || "instant");
+            if (rawStyle.startsWith("linear")) {
+                styleVal = "linear";
+            } else if (rawStyle.startsWith("smooth")) {
+                styleVal = "smooth";
+            }
+            const styleRow = container.querySelector("#cfg-move-style");
+            if (styleRow) {
+                styleRow.querySelectorAll(".toggle-option").forEach(b => b.classList.remove("active"));
+                const styleEl = styleRow.querySelector(`.toggle-option[data-value="${styleVal}"]`);
+                if (styleEl) styleEl.classList.add("active");
+            }
+        }
         return;
     }
 
     if (type === "keyboard") {
-        initKeyboardConfigUi();
+        initKeyboardConfigUi(existingConfig);
+
+        if (existingConfig && existingConfig.type === "keyboard") {
+            let actVal = "press";
+            const holdMs = getHoldMs(existingConfig.action);
+            if (holdMs !== null) {
+                actVal = "hold";
+                const durationInput = container.querySelector("#cfg-kb-duration") as HTMLInputElement | null;
+                if (durationInput) {
+                    durationInput.value = String(holdMs);
+                }
+            } else {
+                actVal = String(existingConfig.action || "press");
+            }
+
+            const actRow = container.querySelector("#cfg-kb-action");
+            if (actRow) {
+                actRow.querySelectorAll(".toggle-option").forEach(b => b.classList.remove("active"));
+                const actEl = actRow.querySelector(`.toggle-option[data-value="${actVal}"]`);
+                if (actEl) actEl.classList.add("active");
+            }
+        }
         return;
     }
 
     if (type === "sleep") {
         initSleepConfigUi();
+
+        if (existingConfig && existingConfig.type === "sleep") {
+            const sleepInput = container.querySelector("#cfg-sleep-ms") as HTMLInputElement | null;
+            if (sleepInput && existingConfig.duration_ms !== undefined) {
+                sleepInput.value = String(existingConfig.duration_ms);
+                sleepInput.dispatchEvent(new Event("input"));
+            }
+        }
     }
 }
 
@@ -326,9 +460,11 @@ export function generateConfigUi(type: MacroActionType): string {
 
                 <div class="section-row">
                     <div class="toggle-row" id="cfg-mouse-action" style="margin: 0;">
-                        <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
+                        <div class="slide-indicator" style="width: 25%; left: 0%;"></div>
                         <button class="toggle-option active" data-value="press">Press</button>
                         <button class="toggle-option" data-value="hold">Hold</button>
+                        <button class="toggle-option" data-value="down">Down</button>
+                        <button class="toggle-option" data-value="up">Up</button>
                     </div>
 
                     <div class="expandable-content" id="cfg-mouse-duration-container">
@@ -391,19 +527,23 @@ export function generateConfigUi(type: MacroActionType): string {
 
                 <div class="section-row">
                     <div class="toggle-row" id="cfg-move-style" style="margin: 0;">
-                        <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
+                        <div class="slide-indicator" style="width: 33.333%; left: 0%;"></div>
                         <button class="toggle-option active" data-value="instant">Instant</button>
-                        <button class="toggle-option" data-value="smooth">Smooth (WIP)</button>
+                        <button class="toggle-option" data-value="linear">Linear</button>
+                        <button class="toggle-option" data-value="smooth">Smooth*</button>
                     </div>
+                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center; opacity: 0.8;">* Smooth mode is in Beta / WIP</div>
                 </div>
             `;
         case "keyboard":
             return `
                 <div class="section-row">
                     <div class="toggle-row" id="cfg-kb-action" style="margin: 0;">
-                        <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
+                        <div class="slide-indicator" style="width: 25%; left: 0%;"></div>
                         <button class="toggle-option active" data-value="press">Press</button>
                         <button class="toggle-option" data-value="hold">Hold</button>
+                        <button class="toggle-option" data-value="down">Down</button>
+                        <button class="toggle-option" data-value="up">Up</button>
                     </div>
 
                     <div class="expandable-content" id="cfg-kb-duration-container">
@@ -500,7 +640,7 @@ export function gatherConfig(type: MacroActionType): MacroActionDraft {
             button:
                 document.getElementById("cfg-mouse-btn")?.querySelector(".active")?.getAttribute("data-value") || "left",
             action:
-                (document.getElementById("cfg-mouse-action")?.querySelector(".active")?.getAttribute("data-value") as "press" | "hold") || "press",
+                (document.getElementById("cfg-mouse-action")?.querySelector(".active")?.getAttribute("data-value") as "press" | "hold" | "down" | "up") || "press",
             positionMode:
                 (document.getElementById("cfg-mouse-pos-toggle")?.querySelector(".active")?.getAttribute("data-value") as "current" | "custom") || "current",
             x: (document.getElementById("cfg-mouse-x") as HTMLInputElement | null)?.value || "0",
@@ -516,7 +656,7 @@ export function gatherConfig(type: MacroActionType): MacroActionDraft {
             x: (document.getElementById("cfg-move-x") as HTMLInputElement | null)?.value || "0",
             y: (document.getElementById("cfg-move-y") as HTMLInputElement | null)?.value || "0",
             style:
-                (document.getElementById("cfg-move-style")?.querySelector(".active")?.getAttribute("data-value") as "instant" | "smooth") || "instant",
+                (document.getElementById("cfg-move-style")?.querySelector(".active")?.getAttribute("data-value") as "instant" | "linear" | "smooth") || "instant",
         };
     }
 
@@ -530,7 +670,7 @@ export function gatherConfig(type: MacroActionType): MacroActionDraft {
 
         const draft: MacroKeyboardDraft = {
             action:
-                (document.getElementById("cfg-kb-action")?.querySelector(".active")?.getAttribute("data-value") as "press" | "hold") || "press",
+                (document.getElementById("cfg-kb-action")?.querySelector(".active")?.getAttribute("data-value") as "press" | "hold" | "down" | "up") || "press",
             key: (document.getElementById("cfg-kb-key") as HTMLInputElement | null)?.value || "A",
             durationMs: durationUnit === "s" ? durationValue * 1000 : durationValue,
         };

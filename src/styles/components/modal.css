@@ -107,6 +107,36 @@
   border-top-color: color-mix(in srgb, var(--accent) 62%, rgba(255, 255, 255, 0.08));
 }
 
+.startup-modal.uinput .modal-content {
+  max-width: 352px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 48%),
+    #0b0b0b;
+}
+
+.startup-close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition), transform var(--transition);
+}
+
+.startup-close-button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+.startup-close-button:active {
+  transform: scale(0.96);
+}
+
 .startup-focus {
   display: flex;
   flex-direction: column;
@@ -204,6 +234,15 @@
   color: var(--text-label);
   font-size: 11px;
   line-height: 1.5;
+}
+
+.startup-copy-block code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent);
+  font-family: "Consolas", "SFMono-Regular", monospace;
+  font-size: 10px;
 }
 
 .startup-info-list {
@@ -376,6 +415,45 @@
 .update-modal-actions .startup-modal-button {
   font-size: 14px;
   font-style: normal;
+}
+
+.uinput-status {
+  min-height: 30px;
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-dim);
+  font-size: 10.5px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.uinput-status:empty {
+  display: none;
+}
+
+.uinput-status.success {
+  color: var(--accent);
+}
+
+.uinput-status.error {
+  color: #ff8d8d;
+}
+
+.uinput-modal-actions {
+  margin-top: 8px;
+}
+
+.uinput-modal-actions .startup-modal-button {
+  font-size: 12px;
+  font-style: normal;
+}
+
+.startup-modal-button:disabled {
+  cursor: wait;
+  filter: saturate(0.5);
+  opacity: 0.55;
 }
 
 @keyframes startupModalIn {

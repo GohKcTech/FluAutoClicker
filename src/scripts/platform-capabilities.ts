@@ -6,6 +6,14 @@ export type PlatformCapabilities = {
     global_hotkeys: boolean;
     wayland: boolean;
     os?: string;
+    uinput_available?: boolean;
+    macro_playback_backend?: "uinput" | "enigo" | string;
+    recording_backend?: "rdev" | "rdev_x11" | "unsupported_wayland" | string;
+    session_type?: string | null;
+    desktop_environment?: string | null;
+    wayland_compositor?: string | null;
+    window_manager?: string | null;
+    webview_devtools?: boolean;
 };
 
 const fallbackCapabilities: PlatformCapabilities = {
@@ -14,6 +22,9 @@ const fallbackCapabilities: PlatformCapabilities = {
     global_hotkeys: true,
     wayland: false,
     os: undefined,
+    uinput_available: true,
+    macro_playback_backend: "enigo",
+    recording_backend: "rdev",
 };
 
 let cachedCapabilities: PlatformCapabilities | null = null;

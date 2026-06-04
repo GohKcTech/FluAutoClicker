@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use crate::commands::*;
 use crate::engine::config_store::AppConfigFile;
+use crate::engine::macro_engine::recording::record_local_macro_event;
 use crate::engine::macro_engine::types::MacroPlayerState;
 use crate::engine::state::{
     AppState, ClickMode, HoldUnit, JigglerPattern, KeyboardModifier, MouseButton, PositionMode,
@@ -671,6 +672,7 @@ pub fn run() {
             set_variation_ms,
             check_uinput_permissions,
             request_uinput_permissions,
+            install_uinput_udev_rule,
             toggle_keyboard_clicker,
             set_keyboard_key,
             set_keyboard_modifiers,
@@ -684,6 +686,7 @@ pub fn run() {
             set_keyboard_interval_ms,
             set_keyboard_variation_ms,
             add_macro_action,
+            update_macro_action,
             remove_macro_action,
             duplicate_macro_action,
             reorder_macro_actions,
@@ -702,6 +705,7 @@ pub fn run() {
             pick_cursor_position,
             start_macro_recording,
             stop_macro_recording,
+            record_local_macro_event,
             get_hotkeys,
             get_platform_capabilities,
             suspend_hotkeys,

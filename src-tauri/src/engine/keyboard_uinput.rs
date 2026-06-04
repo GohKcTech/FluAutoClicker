@@ -109,6 +109,7 @@ pub fn setup_keyboard_uinput() -> Option<VirtualDevice> {
     keys.insert(Key::KEY_KPDOT);
     keys.insert(Key::KEY_KPSLASH);
     keys.insert(Key::KEY_NUMLOCK);
+    keys.insert(Key::KEY_CAPSLOCK);
 
     keys.insert(Key::KEY_GRAVE);
     keys.insert(Key::KEY_MINUS);

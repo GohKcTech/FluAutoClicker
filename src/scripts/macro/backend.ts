@@ -67,7 +67,7 @@ function parseModifierList(value: unknown): string[] {
         .filter((part) => part && part !== "none");
 }
 
-function getHoldMs(action: unknown): number | null {
+export function getHoldMs(action: unknown): number | null {
     if (typeof action === "string" && action.startsWith("hold_")) {
         return Number.parseInt(action.replace("hold_", ""), 10);
     }
@@ -159,10 +159,19 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         const holdMs = getHoldMs(action);
         const position = typeof config.position === "string" ? config.position : null;
 
+        let name = `${capitalize(button)} Click`;
+        if (holdMs) {
+            name = `${capitalize(button)} Hold`;
+        } else if (action === "down") {
+            name = `${capitalize(button)} Down`;
+        } else if (action === "up") {
+            name = `${capitalize(button)} Up`;
+        }
+
         return {
             id,
             type,
-            name: `${capitalize(button)} ${holdMs ? "Hold" : "Click"}`,
+            name,
             details: `${position ? `At ${position}` : "At current position"}${holdMs ? ` for ${holdMs}ms` : ""}`,
             icon: "&#58633;",
         };
@@ -189,10 +198,19 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         const detailKeys = [...parseModifierList(config.modifiers), key].filter(Boolean);
         const combo = detailKeys.join(" + ");
 
+        let name = `Key Press`;
+        if (holdMs) {
+            name = `Key Hold`;
+        } else if (action === "down") {
+            name = `Key Down`;
+        } else if (action === "up") {
+            name = `Key Up`;
+        }
+
         return {
             id,
             type,
-            name: `Key ${holdMs ? "Hold" : "Press"}`,
+            name,
             details: `${combo}${holdMs ? ` for ${holdMs}ms` : ""}`,
             detailKeys,
             detailSuffix: holdMs ? `for ${holdMs}ms` : "",
@@ -220,7 +238,9 @@ export function toBackendConfig(type: MacroActionType, draft: MacroActionDraft):
         return {
             type: "mouse",
             button: String(mouseDraft.button || "left").toLowerCase(),
-            action: mouseDraft.action === "hold" ? { hold: { duration_ms: Math.max(1, Number(mouseDraft.durationMs || 100)) } } : "press",
+            action: mouseDraft.action === "hold"
+                ? { hold: { duration_ms: Math.max(1, Number(mouseDraft.durationMs || 100)) } }
+                : (mouseDraft.action === "down" || mouseDraft.action === "up" ? mouseDraft.action : "press"),
             position: mouseDraft.positionMode === "current" ? null : [Number(mouseDraft.x || 0), Number(mouseDraft.y || 0)],
         };
     }
@@ -231,7 +251,11 @@ export function toBackendConfig(type: MacroActionType, draft: MacroActionDraft):
             type: "move",
             x: Number(moveDraft.x || 0),
             y: Number(moveDraft.y || 0),
-            style: moveDraft.style === "smooth" ? { smooth: { duration_ms: 300 } } : "instant",
+            style: moveDraft.style === "linear"
+                ? { linear: { duration_ms: 300 } }
+                : (moveDraft.style === "smooth"
+                    ? { smooth: { path: [], duration_ms: 300 } }
+                    : "instant"),
         };
     }
 
@@ -244,7 +268,7 @@ export function toBackendConfig(type: MacroActionType, draft: MacroActionDraft):
             modifiers: parsed.modifiers,
             action: keyboardDraft.action === "hold"
                 ? { hold: { duration_ms: Math.max(1, Number(keyboardDraft.durationMs || 50)) } }
-                : "press",
+                : (keyboardDraft.action === "down" || keyboardDraft.action === "up" ? keyboardDraft.action : "press"),
         };
     }
 

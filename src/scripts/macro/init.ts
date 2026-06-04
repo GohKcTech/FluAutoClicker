@@ -57,6 +57,7 @@ function initAddActionDrawer() {
     }
 
     let currentType: MacroActionType | null = null;
+    let editingActionId: number | null = null;
 
     const showSelectionView = () => {
         selectionView.style.display = "flex";
@@ -67,6 +68,7 @@ function initAddActionDrawer() {
     };
 
     addButton.addEventListener("click", () => {
+        editingActionId = null;
         showSelectionView();
         openDrawer("section-macro-add", "Add Macro Action", "&#58490;");
     });
@@ -109,6 +111,49 @@ function initAddActionDrawer() {
         });
     });
 
+    window.addEventListener("flu:edit-macro-action", (event: Event) => {
+        const detail = (event as CustomEvent<{ actionId: number }>).detail;
+        const actionId = detail.actionId;
+
+        const rawAction = macroState.rawActions?.find((a) => Number(a.id) === actionId);
+        if (!rawAction || !rawAction.config?.type) {
+            return;
+        }
+
+        editingActionId = actionId;
+        currentType = rawAction.config.type;
+
+        selectionView.style.display = "none";
+        configView.style.display = "flex";
+        configView.classList.remove("view-fade-in");
+        void configView.offsetWidth;
+        configView.classList.add("view-fade-in");
+
+        configTitle.textContent = `Configure ${currentType.charAt(0).toUpperCase() + currentType.slice(1)} Action`;
+        configContent.innerHTML = generateConfigUi(currentType);
+        applyMouseButtonSupport(configContent);
+        setupConfigListeners(currentType, configContent, rawAction.config);
+
+        openDrawer("section-macro-add", "Edit Macro Action", "&#58490;");
+
+        window.setTimeout(() => {
+            configContent.querySelectorAll(".toggle-row, .multi-button-row").forEach((row) => {
+                const activeButton = row.querySelector<HTMLElement>(".active");
+                if (!activeButton) {
+                    return;
+                }
+
+                createSlideIndicator(row, activeButton, true);
+                if (activeButton.dataset.value === "hold") {
+                    row.parentElement?.querySelector(".expandable-content")?.classList.add("expanded");
+                }
+                if (activeButton.dataset.value === "custom") {
+                    document.getElementById("cfg-mouse-coord-section")?.classList.add("expanded");
+                }
+            });
+        }, 50);
+    });
+
     backButton?.addEventListener("click", showSelectionView);
 
     saveButton?.addEventListener("click", async () => {
@@ -124,13 +169,19 @@ function initAddActionDrawer() {
 
         try {
             const actionJson = JSON.stringify(payload);
-            await invoke("add_macro_action", { actionJson, action_json: actionJson });
-            await loadActionsFromBackend({ animateNew: true });
+            if (editingActionId !== null) {
+                await invoke("update_macro_action", { actionId: editingActionId, action_id: editingActionId, actionJson, action_json: actionJson });
+                await loadActionsFromBackend({ animateNew: false });
+                notify("Macro action updated", "success", 1800);
+            } else {
+                await invoke("add_macro_action", { actionJson, action_json: actionJson });
+                await loadActionsFromBackend({ animateNew: true });
+                notify("Macro action added", "success", 1800);
+            }
             closeDrawer();
-            notify("Macro action added", "success", 1800);
         } catch (error) {
-            console.error("Failed to add macro action", error);
-            notify("Could not add this macro action. Check the values and try again.", "error", 2600);
+            console.error("Failed to save macro action", error);
+            notify("Could not save this macro action. Check the values and try again.", "error", 2600);
         }
     });
 }
