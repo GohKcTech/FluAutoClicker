@@ -194,7 +194,8 @@ pub async fn stop_recording(state: &MacroEngineState, app: AppHandle) -> Result<
                     let should_remove = match &actions[last_idx].config {
                         MacroActionConfig::Sleep { .. } => true,
                         MacroActionConfig::Keyboard { key, action, .. } => {
-                            (matches!(action, MacroKeyboardAction::Down) || matches!(action, MacroKeyboardAction::Up))
+                            (matches!(action, MacroKeyboardAction::Down)
+                                || matches!(action, MacroKeyboardAction::Up))
                                 && hotkey_keys.contains(key)
                         }
                         _ => false,
