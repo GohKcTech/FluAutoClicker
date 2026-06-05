@@ -1,9 +1,9 @@
 #[cfg(not(target_os = "linux"))]
-use enigo::{Button, Coordinate, Enigo, Key, Keyboard, Mouse, Settings};
+use enigo::{Axis, Button, Coordinate, Enigo, Key, Keyboard, Mouse, Settings};
 #[cfg(target_os = "linux")]
 use enigo::{Enigo, Mouse, Settings};
 #[cfg(target_os = "linux")]
-use evdev::{EventType, InputEvent, Key};
+use evdev::{EventType, InputEvent, Key, RelativeAxisType};
 use std::time::{Duration, Instant};
 use tauri::Emitter;
 use tokio::time::sleep;
@@ -145,6 +145,11 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
         MacroActionConfig::Sleep { duration_ms } => {
             sleep(Duration::from_millis(*duration_ms as u64)).await;
         }
+        MacroActionConfig::Scroll { clicks } => {
+            enigo
+                .scroll(-*clicks, Axis::Vertical)
+                .map_err(|e| format!("Could not scroll mouse wheel. Details: {}", e))?;
+        }
     }
 
     Ok(())
@@ -214,6 +219,15 @@ impl LinuxPlaybackBackend {
     fn press_keyboard_key(&mut self, key: Key) -> Result<(), String> {
         Self::emit_key(&mut self.keyboard, key, true)?;
         Self::emit_key(&mut self.keyboard, key, false)
+    }
+
+    fn scroll_mouse(&mut self, clicks: i32) -> Result<(), String> {
+        self.mouse
+            .emit(&[
+                InputEvent::new(EventType::RELATIVE, RelativeAxisType::REL_WHEEL.0, -clicks),
+                InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
+            ])
+            .map_err(|e| format!("Could not scroll mouse. Details: {e}"))
     }
 }
 
@@ -294,6 +308,9 @@ async fn execute_action(
         }
         MacroActionConfig::Sleep { duration_ms } => {
             sleep(Duration::from_millis(*duration_ms as u64)).await;
+        }
+        MacroActionConfig::Scroll { clicks } => {
+            backend.scroll_mouse(*clicks)?;
         }
     }
 
@@ -435,6 +452,10 @@ fn str_to_key(key: &str) -> Key {
         "numpad7" => return Key::Num7,
         "numpad8" => return Key::Num8,
         "numpad9" => return Key::Num9,
+        "ctrl" | "control" => return Key::Control,
+        "shift" => return Key::Shift,
+        "alt" => return Key::Alt,
+        "win" | "meta" | "super" => return Key::Meta,
         _ => {}
     }
 
@@ -1010,6 +1031,9 @@ fn estimate_actions_duration(actions: &[MacroAction]) -> u64 {
             }
             MacroActionConfig::Sleep { duration_ms } => {
                 total += *duration_ms as u64;
+            }
+            MacroActionConfig::Scroll { .. } => {
+                total += 50;
             }
         }
     }

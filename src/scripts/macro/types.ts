@@ -1,4 +1,4 @@
-export type MacroActionType = "mouse" | "move" | "keyboard" | "sleep";
+export type MacroActionType = "mouse" | "move" | "keyboard" | "sleep" | "scroll";
 
 export type MacroUiAction = {
     id: number;
@@ -49,6 +49,7 @@ export type MacroBackendAction = {
         text?: string;
         modifiers?: unknown;
         duration_ms?: number;
+        clicks?: number;
     };
 };
 
@@ -77,4 +78,8 @@ export type MacroSleepDraft = {
     durationMs: string;
 };
 
-export type MacroActionDraft = MacroMouseDraft | MacroMoveDraft | MacroKeyboardDraft | MacroSleepDraft;
+export type MacroScrollDraft = {
+    clicks: string;
+};
+
+export type MacroActionDraft = MacroMouseDraft | MacroMoveDraft | MacroKeyboardDraft | MacroSleepDraft | MacroScrollDraft;

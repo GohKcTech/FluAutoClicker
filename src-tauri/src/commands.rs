@@ -1623,6 +1623,12 @@ pub async fn get_macro_actions(
                         "duration_ms": duration_ms,
                     })
                 }
+                MacroActionConfig::Scroll { clicks } => {
+                    serde_json::json!({
+                        "type": "scroll",
+                        "clicks": clicks,
+                    })
+                }
             }
         })
     }).collect();

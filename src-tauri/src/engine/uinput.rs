@@ -15,6 +15,7 @@ pub fn setup_uinput() -> Option<VirtualDevice> {
     let mut rels = AttributeSet::<RelativeAxisType>::new();
     rels.insert(RelativeAxisType::REL_X);
     rels.insert(RelativeAxisType::REL_Y);
+    rels.insert(RelativeAxisType::REL_WHEEL);
 
     let abs_info = AbsInfo::new(0, 0, 32767, 0, 0, 0);
     let abs_x = UinputAbsSetup::new(AbsoluteAxisType::ABS_X, abs_info);

@@ -9,6 +9,7 @@ import type {
     MacroMoveDraft,
     MacroMouseDraft,
     MacroSleepDraft,
+    MacroScrollDraft,
     MacroUiAction,
 } from "./types";
 
@@ -229,6 +230,18 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         };
     }
 
+    if (type === "scroll") {
+        const clicks = Number(config.clicks || 0);
+        const direction = clicks < 0 ? "Down" : "Up";
+        return {
+            id,
+            type,
+            name: "Mouse Scroll",
+            details: `Scroll ${direction} (${Math.abs(clicks)} step${Math.abs(clicks) !== 1 ? "s" : ""})`,
+            icon: "&#59030;",
+        };
+    }
+
     return null;
 }
 
@@ -277,6 +290,14 @@ export function toBackendConfig(type: MacroActionType, draft: MacroActionDraft):
         return {
             type: "sleep",
             duration_ms: Math.max(1, Number(sleepDraft.durationMs || 500)),
+        };
+    }
+
+    if (type === "scroll") {
+        const scrollDraft = draft as MacroScrollDraft;
+        return {
+            type: "scroll",
+            clicks: Number(scrollDraft.clicks || 0),
         };
     }
 

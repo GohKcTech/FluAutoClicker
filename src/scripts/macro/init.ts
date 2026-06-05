@@ -76,7 +76,7 @@ function initAddActionDrawer() {
     document.querySelectorAll(".macro-add-item-trigger").forEach((trigger) => {
         trigger.addEventListener("click", () => {
             const actionType = trigger.getAttribute("data-action");
-            if (!actionType || !["mouse", "move", "keyboard", "sleep"].includes(actionType)) {
+            if (!actionType || !["mouse", "move", "keyboard", "sleep", "scroll"].includes(actionType)) {
                 return;
             }
 
@@ -134,7 +134,7 @@ function initAddActionDrawer() {
         applyMouseButtonSupport(configContent);
         setupConfigListeners(currentType, configContent, rawAction.config);
 
-        openDrawer("section-macro-add", "Edit Macro Action", "&#58490;");
+        openDrawer("section-macro-add", "Edit Macro Action", "&#57714;");
 
         window.setTimeout(() => {
             configContent.querySelectorAll(".toggle-row, .multi-button-row").forEach((row) => {

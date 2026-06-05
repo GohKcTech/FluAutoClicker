@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use enigo::{Enigo, Mouse, Settings};
 use rdev::{listen, Button as RdevButton, Event, EventType, Key as RdevKey};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::engine::state::AppState;
 
@@ -157,15 +157,69 @@ pub async fn stop_recording(state: &MacroEngineState, app: AppHandle) -> Result<
 
     *state.player_state.lock().await = MacroPlayerState::Stopped;
 
-    let actions = state.actions.lock().await.clone();
+    let mut actions = state.actions.lock().await;
+
+    let hotkey_string = if let Some(app_state) = app.try_state::<Arc<AppState>>() {
+        let hotkeys = app_state.hotkeys.lock().await;
+        Some(hotkeys.toggle_macro_recording.clone())
+    } else {
+        None
+    };
+
+    if let Some(hotkey_str) = hotkey_string {
+        if !hotkey_str.trim().is_empty() {
+            let hotkey_keys = parse_hotkey_to_keys(&hotkey_str);
+            if !hotkey_keys.is_empty() {
+                let mut start_idx = 0;
+                while start_idx < actions.len() {
+                    let should_remove = match &actions[start_idx].config {
+                        MacroActionConfig::Sleep { .. } => true,
+                        MacroActionConfig::Keyboard { key, action, .. } => {
+                            matches!(action, MacroKeyboardAction::Up) && hotkey_keys.contains(key)
+                        }
+                        _ => false,
+                    };
+                    if should_remove {
+                        start_idx += 1;
+                    } else {
+                        break;
+                    }
+                }
+                if start_idx > 0 {
+                    actions.drain(0..start_idx);
+                }
+
+                while !actions.is_empty() {
+                    let last_idx = actions.len() - 1;
+                    let should_remove = match &actions[last_idx].config {
+                        MacroActionConfig::Sleep { .. } => true,
+                        MacroActionConfig::Keyboard { key, action, .. } => {
+                            (matches!(action, MacroKeyboardAction::Down) || matches!(action, MacroKeyboardAction::Up))
+                                && hotkey_keys.contains(key)
+                        }
+                        _ => false,
+                    };
+                    if should_remove {
+                        actions.pop();
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    let actions_clone = actions.clone();
+    drop(actions);
+
     let repeat_mode = state.repeat_mode.lock().await.clone();
     let recording_options = state.recording_options.lock().await.clone();
-    let _ = storage::save_macro(&actions, &repeat_mode, &recording_options).await;
+    let _ = storage::save_macro(&actions_clone, &repeat_mode, &recording_options).await;
 
     let _ = app.emit(
         "macro-actions-changed",
         serde_json::json!({
-            "count": actions.len()
+            "count": actions_clone.len()
         }),
     );
 
@@ -176,6 +230,33 @@ pub async fn stop_recording(state: &MacroEngineState, app: AppHandle) -> Result<
         }),
     );
     Ok(())
+}
+
+fn parse_hotkey_to_keys(hotkey: &str) -> std::collections::BTreeSet<String> {
+    let mut keys = std::collections::BTreeSet::new();
+    for part in hotkey.split('+') {
+        let part_lower = part.trim().to_lowercase();
+        match part_lower.as_str() {
+            "ctrl" | "control" | "ctl" | "commandorcontrol" | "cmdorctrl" => {
+                keys.insert("ctrl".to_string());
+            }
+            "shift" | "shft" => {
+                keys.insert("shift".to_string());
+            }
+            "alt" | "option" | "opt" => {
+                keys.insert("alt".to_string());
+            }
+            "command" | "cmd" | "win" | "meta" | "super" => {
+                keys.insert("win".to_string());
+            }
+            other => {
+                if !other.is_empty() {
+                    keys.insert(other.to_string());
+                }
+            }
+        }
+    }
+    keys
 }
 
 fn get_event_key_name(key: &RdevKey) -> Option<String> {
@@ -428,7 +509,20 @@ fn handle_recording_event(
                 }
             }
         }
-        _ => {}
+        EventType::Wheel { delta_y, .. } => {
+            if delta_y != 0 {
+                push_sleep_if_needed(state, &recording_options, &mut context, event_time);
+                append_action(
+                    state,
+                    MacroActionConfig::Scroll {
+                        clicks: delta_y as i32,
+                    },
+                    Some(&mut context),
+                    event_time,
+                );
+                persist_and_emit_if_needed(state, app, &mut context, event_time);
+            }
+        }
     }
 }
 

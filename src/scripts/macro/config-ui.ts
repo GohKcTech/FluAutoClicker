@@ -318,7 +318,27 @@ function initSleepConfigUi() {
         }
 
         const seconds = (Number.parseInt(sleepInput.value, 10) || 0) / 1000;
-        sleepHint.textContent = `${seconds.toFixed(3)} seconds pause`;
+        sleepHint.textContent = `${seconds.toFixed(3)}s pause`;
+    });
+}
+
+function initScrollConfigUi() {
+    const amountInput = document.getElementById("cfg-scroll-amount") as HTMLInputElement | null;
+    const dirRow = document.getElementById("cfg-scroll-dir");
+    const hint = document.getElementById("cfg-scroll-hint");
+
+    const updateHint = () => {
+        if (!hint || !amountInput) return;
+        const amount = Number.parseInt(amountInput.value, 10) || 1;
+        const dir = dirRow?.querySelector(".active")?.getAttribute("data-value") || "up";
+        const dirWord = dir === "up" ? "Up" : "Down";
+        const stepWord = amount === 1 ? "step" : "steps";
+        hint.textContent = `Scroll ${dirWord} (${amount} ${stepWord})`;
+    };
+
+    amountInput?.addEventListener("input", updateHint);
+    dirRow?.addEventListener("click", () => {
+        setTimeout(updateHint, 0);
     });
 }
 
@@ -442,6 +462,34 @@ export function setupConfigListeners(type: MacroActionType, container: HTMLEleme
                 sleepInput.dispatchEvent(new Event("input"));
             }
         }
+        return;
+    }
+
+    if (type === "scroll") {
+        initScrollConfigUi();
+
+        if (existingConfig && existingConfig.type === "scroll") {
+            const clicks = existingConfig.clicks !== undefined ? Number(existingConfig.clicks) : 1;
+            const dirVal = clicks < 0 ? "down" : "up";
+            const amountVal = Math.abs(clicks);
+
+            const dirRow = container.querySelector("#cfg-scroll-dir") as HTMLElement | null;
+            if (dirRow) {
+                dirRow.querySelectorAll(".toggle-option").forEach(b => b.classList.remove("active"));
+                const dirEl = dirRow.querySelector(`.toggle-option[data-value="${dirVal}"]`) as HTMLElement | null;
+                if (dirEl) {
+                    dirEl.classList.add("active");
+                    updateIndicator(dirRow, dirEl);
+                }
+            }
+
+            const amountInput = container.querySelector("#cfg-scroll-amount") as HTMLInputElement | null;
+            if (amountInput) {
+                amountInput.value = String(amountVal);
+            }
+        }
+
+        document.getElementById("cfg-scroll-amount")?.dispatchEvent(new Event("input"));
     }
 }
 
@@ -614,13 +662,27 @@ export function generateConfigUi(type: MacroActionType): string {
         case "sleep":
             return `
                 <div class="section-row">
-                    <div class="time-inputs-row">
-                        <div class="time-input-box" style="flex: 1;">
-                            <input type="number" value="500" id="cfg-sleep-ms" min="1">
-                        </div>
+                    <div class="coord-input-box" style="width: 100%;">
+                        <input type="number" value="500" id="cfg-sleep-ms" min="1">
                     </div>
-                    <div class="time-labels-row">
-                        <span class="time-label" id="cfg-sleep-hint">0.500 seconds pause</span>
+                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center; opacity: 0.8;" id="cfg-sleep-hint">
+                        0.500s pause
+                    </div>
+                </div>
+            `;
+        case "scroll":
+            return `
+                <div class="section-row">
+                    <div class="toggle-row" id="cfg-scroll-dir" style="margin: 0 0 5px;">
+                        <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
+                        <button class="toggle-option active" data-value="up">Up</button>
+                        <button class="toggle-option" data-value="down">Down</button>
+                    </div>
+                    <div class="coord-input-box" style="width: 100%;">
+                        <input type="number" value="1" id="cfg-scroll-amount" min="1" max="1000">
+                    </div>
+                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center; opacity: 0.8;" id="cfg-scroll-hint">
+                        Scroll Up (1 step)
                     </div>
                 </div>
             `;
@@ -678,7 +740,16 @@ export function gatherConfig(type: MacroActionType): MacroActionDraft {
         return draft;
     }
 
+    if (type === "sleep") {
+        return {
+            durationMs: (document.getElementById("cfg-sleep-ms") as HTMLInputElement | null)?.value || "500",
+        };
+    }
+
+    const amountVal = Number((document.getElementById("cfg-scroll-amount") as HTMLInputElement | null)?.value || "1");
+    const dirVal = document.getElementById("cfg-scroll-dir")?.querySelector(".active")?.getAttribute("data-value") || "up";
+    const clicks = dirVal === "down" ? -amountVal : amountVal;
     return {
-        durationMs: (document.getElementById("cfg-sleep-ms") as HTMLInputElement | null)?.value || "500",
+        clicks: String(clicks),
     };
 }

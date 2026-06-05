@@ -268,6 +268,10 @@ function getActionSummary(action: (typeof macroState.actions)[number]) {
         return action.details;
     }
 
+    if (action.type === "scroll") {
+        return action.details;
+    }
+
     if (action.type === "move") {
         return `Move ${action.details.charAt(0).toLowerCase()}${action.details.slice(1).replace(" (instant)", "")}`;
     }
@@ -306,7 +310,7 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
             <span class="action-details"></span>
         </div>
         <button class="action-edit" type="button" data-id="${action.id}" aria-label="Edit action" title="Edit action">
-            <span class="icon">&#57648;</span>
+            <span class="icon">&#57714;</span>
         </button>
         <button class="action-duplicate" type="button" data-id="${action.id}" aria-label="Duplicate action" title="Duplicate action">
             <span class="icon">&#57502;</span>

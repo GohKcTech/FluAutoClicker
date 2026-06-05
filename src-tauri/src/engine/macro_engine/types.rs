@@ -55,6 +55,9 @@ pub enum MacroActionConfig {
     Sleep {
         duration_ms: u32,
     },
+    Scroll {
+        clicks: i32,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
