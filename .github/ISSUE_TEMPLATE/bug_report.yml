@@ -5,7 +5,7 @@ labels: ["bug"]
 body:
     - type: markdown
       attributes:
-          value: Thank you for taking the time to report this bug! Please fill out this short form.
+          value: "## Thank you for taking the time to report this bug! Please fill out this short form."
     - type: input
       id: version
       attributes:
@@ -52,5 +52,5 @@ body:
     - type: textarea
       id: context
       attributes:
-          label: Extra Context / Screenshots
+          label: Extra Context / Screenshots (optional)
           placeholder: Any logs, images, or details.
