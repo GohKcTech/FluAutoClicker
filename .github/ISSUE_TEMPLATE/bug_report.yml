@@ -2,6 +2,8 @@ name: 🐞 Bug Report
 description: Report a bug in FluAutoClicker
 title: "[Bug]: "
 labels: ["bug"]
+assignees:
+    - agzes
 body:
     - type: markdown
       attributes:
