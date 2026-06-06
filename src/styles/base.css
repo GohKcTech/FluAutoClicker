@@ -186,3 +186,60 @@ body.window-acrylic .section-container {
 }
 
 ::-webkit-scrollbar { width: 0; }
+
+html[data-reduce-motion="reduce"] {
+  --transition: 0.05s linear !important;
+  --slide-transition: 0.05s linear !important;
+}
+html[data-reduce-motion="reduce"] *,
+html[data-reduce-motion="reduce"] *::before,
+html[data-reduce-motion="reduce"] *::after {
+  animation: none !important;
+  transition-duration: 0.05s !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-reduce-motion="remove"] {
+  --transition: none !important;
+  --slide-transition: none !important;
+}
+html[data-reduce-motion="remove"] *,
+html[data-reduce-motion="remove"] *::before,
+html[data-reduce-motion="remove"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-reduce-motion="reduce"] .footer-left,
+html[data-reduce-motion="reduce"] .footer-right,
+html[data-reduce-motion="remove"] .footer-left,
+html[data-reduce-motion="remove"] .footer-right {
+  flex: 0 0 74px !important;
+  opacity: 1 !important;
+}
+
+html[data-reduce-motion="reduce"] .footer-btn,
+html[data-reduce-motion="remove"] .footer-btn {
+  flex: 1 !important;
+  opacity: 1 !important;
+}
+
+html[data-reduce-motion="reduce"] .footer-btn .footer-label,
+html[data-reduce-motion="remove"] .footer-btn .footer-label {
+  display: none !important;
+}
+
+html[data-reduce-motion="reduce"] .main-action-btn,
+html[data-reduce-motion="remove"] .main-action-btn {
+  flex: 1 !important;
+  transform: none !important;
+}
+
+html[data-reduce-motion="reduce"] .main-footer:has(.main-action-btn:hover) .footer-left,
+html[data-reduce-motion="reduce"] .main-footer:has(.main-action-btn:hover) .footer-right,
+html[data-reduce-motion="remove"] .main-footer:has(.main-action-btn:hover) .footer-left,
+html[data-reduce-motion="remove"] .main-footer:has(.main-action-btn:hover) .footer-right {
+  flex: 0 0 74px !important;
+  opacity: 1 !important;
+}

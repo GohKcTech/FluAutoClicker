@@ -41,6 +41,7 @@ pub struct GeneralSettings {
     pub welcome_ack: bool,
     pub hyprland_warn_ack: bool,
     pub pre_alpha_ack: bool,
+    pub reduce_motion: String,
 }
 
 impl Default for GeneralSettings {
@@ -58,6 +59,7 @@ impl Default for GeneralSettings {
             welcome_ack: false,
             hyprland_warn_ack: false,
             pre_alpha_ack: false,
+            reduce_motion: "none".to_string(),
         }
     }
 }

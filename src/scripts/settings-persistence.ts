@@ -43,6 +43,7 @@ export type AppConfigFile = {
         autostart: boolean;
         minimize_to_tray: boolean;
         stop_on_custom_position_move: boolean;
+        reduce_motion: string;
     };
     mouse: {
         cps: number;
@@ -118,6 +119,7 @@ function defaultConfig(): AppConfigFile {
             autostart: false,
             minimize_to_tray: false,
             stop_on_custom_position_move: true,
+            reduce_motion: "none",
         },
         mouse: {
             cps: 10,
@@ -287,6 +289,7 @@ function applyLocalStorageSnapshot(config: AppConfigFile) {
     localStorage.setItem("flu-theme-name", config.general.theme_name);
     localStorage.setItem("flu-no-italic", String(config.general.remove_italic));
     localStorage.setItem("flu-language", "en");
+    localStorage.setItem("flu-reduce-motion", config.general.reduce_motion || "none");
 
     const frontendState = config.frontend_state || {};
     const windowControlIcons = frontendState.window_control_icons === "classic" ? "classic" : "fluent";
@@ -391,6 +394,8 @@ function applyConfigToUi(config: AppConfigFile) {
     setToggleState("classic-window-icons-toggle", frontendState.window_control_icons === "classic");
     setToggleState("always-on-top-toggle", frontendState.always_on_top === true);
     setToggleState("macro-live-update-toggle", config.macro_settings.recording_options.record_live_preview !== false);
+    setActiveButton("reduce-motion-row", config.general.reduce_motion || "none");
+    applyReduceMotionClasses(config.general.reduce_motion || "none");
     applyMacroRepeatSettings(config);
 
     const activeTabCandidate = String(frontendState.active_tab || "mouse");
@@ -491,6 +496,7 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
             autostart: isSystemStartupAvailable()
                 && (document.getElementById("autostart-toggle")?.classList.contains("active") ?? base.general.autostart),
             minimize_to_tray: document.getElementById("tray-toggle")?.classList.contains("active") ?? base.general.minimize_to_tray,
+            reduce_motion: getActiveValue("#reduce-motion-row .multi-btn.active", base.general.reduce_motion || "none"),
         },
         mouse: {
             ...base.mouse,
@@ -640,6 +646,17 @@ export async function persistCurrentSettings(): Promise<AppConfigFile> {
     return currentConfig || defaultConfig();
 }
 
+export function applyReduceMotionClasses(value: string) {
+    const root = document.documentElement;
+    if (value === "reduce") {
+        root.setAttribute("data-reduce-motion", "reduce");
+    } else if (value === "remove") {
+        root.setAttribute("data-reduce-motion", "remove");
+    } else {
+        root.removeAttribute("data-reduce-motion");
+    }
+}
+
 export async function initSettingsPersistence() {
     platformCapabilities = platformCapabilities || await getPlatformCapabilities();
 
@@ -660,6 +677,28 @@ export async function initSettingsPersistence() {
     initSimpleToggle("always-on-top-trigger", "always-on-top-toggle", async (active) => {
         await setAlwaysOnTopPreference(active);
     });
+    
+    const reduceMotionRow = document.getElementById("reduce-motion-row");
+    if (reduceMotionRow) {
+        const buttons = reduceMotionRow.querySelectorAll(".multi-btn");
+        buttons.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                buttons.forEach((b) => b.classList.remove("active"));
+                btn.classList.add("active");
+                
+                const indicator = reduceMotionRow.querySelector(".slide-indicator") as HTMLElement;
+                if (indicator) {
+                    indicator.style.width = `${(btn as HTMLElement).offsetWidth}px`;
+                    indicator.style.left = `${(btn as HTMLElement).offsetLeft}px`;
+                }
+
+                const val = (btn as HTMLElement).dataset.value || "none";
+                applyReduceMotionClasses(val);
+                emitSettingsChanged();
+            });
+        });
+    }
+
     initSimpleToggle("macro-live-update-trigger", "macro-live-update-toggle", async (active) => {
         const currentOptions = await invoke<MacroRecordingOptions>("get_macro_recording_options");
         currentOptions.record_live_preview = active;

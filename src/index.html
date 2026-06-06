@@ -722,6 +722,25 @@
               <div class="drawer-toggle" id="always-on-top-toggle"></div>
             </div>
 
+            <div class="settings-list-item" style="flex-direction: column; align-items: stretch; gap: 8px; cursor: default;">
+              <div style="display: flex; align-items: center; gap: 14px; width: 100%;">
+                <div class="settings-item-icon">
+                  <span class="icon">&#57767;</span>
+                </div>
+                <div class="settings-item-content">
+                  <span class="settings-item-title">Reduce Motion</span>
+                  <span class="settings-item-desc">Simplify or disable UI transitions and animations</span>
+                </div>
+              </div>
+              
+              <div class="multi-button-row" id="reduce-motion-row" style="margin: 0; width: 100%;">
+                <div class="slide-indicator" style="width: 33.33%; left: 0%;"></div>
+                <button class="multi-btn active" data-value="none">None</button>
+                <button class="multi-btn" data-value="reduce">Reduce</button>
+                <button class="multi-btn" data-value="remove">Remove</button>
+              </div>
+            </div>
+
             <div class="settings-group-title">Utils</div>
 
             <div class="settings-list-item" id="cps-test-btn" style="cursor: pointer;">
