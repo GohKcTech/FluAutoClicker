@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getPlatformCapabilities } from "./platform-capabilities";
-import { updateSliderFill, updateIndicator } from "./utils";
+import { updateSliderFill, updateIndicator, formatDuration } from "./utils";
 
 export type AppMode = "mouse" | "keyboard" | "macro";
 
@@ -62,6 +62,11 @@ export function setSelectedMode(mode: AppMode) {
     void invoke("set_active_app_mode", { mode }).catch((error) => {
         console.error("Failed to sync active app mode", error);
     });
+
+    const updateCPSFn = (window as any).flu_update_cps;
+    if (typeof updateCPSFn === "function") {
+        updateCPSFn();
+    }
 }
 
 export function initInputs() {
@@ -87,6 +92,16 @@ export function initInputs() {
     window.addEventListener('resize', scheduleSliderResizeRefresh);
 
     function updateCPS() {
+        const mode = getSelectedMode();
+        const cpsEl = document.querySelector('.start-cps');
+        if (!cpsEl) return;
+
+        if (mode === "macro") {
+            const totalMs = (window as any).flu_macro_duration || 0;
+            cpsEl.textContent = `~ ${formatDuration(totalMs)}`;
+            return;
+        }
+
         const h = parseInt((document.getElementById('mouse-hours') as HTMLInputElement)?.value) || 0;
         const m = parseInt((document.getElementById('mouse-minutes') as HTMLInputElement)?.value) || 0;
         const s = parseInt((document.getElementById('mouse-seconds') as HTMLInputElement)?.value) || 0;
@@ -96,16 +111,15 @@ export function initInputs() {
         const runtimeCps = totalMs === 0
             ? (isLinux ? 0 : 10000)
             : Math.max(1, Math.round(1000 / totalMs));
-        const cpsEl = document.querySelector('.start-cps');
-        if (cpsEl) {
-            if (!isInfinite) {
-                cpsEl.textContent = `~ ${(1000 / totalMs).toFixed(1)} CPS`;
-            } else {
-                cpsEl.textContent = `~ \u221E CPS`;
-            }
-            invoke("set_cps", { cps: runtimeCps });
+        if (!isInfinite) {
+            cpsEl.textContent = `~ ${(1000 / totalMs).toFixed(1)} CPS`;
+        } else {
+            cpsEl.textContent = `~ \u221E CPS`;
         }
+        invoke("set_cps", { cps: runtimeCps });
     }
+
+    (window as any).flu_update_cps = updateCPS;
 
     ['mouse-hours', 'mouse-minutes', 'mouse-seconds', 'mouse-ms', 'mouse-variation'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', updateCPS);

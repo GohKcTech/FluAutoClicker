@@ -705,7 +705,9 @@ pub fn run() {
             set_hotkey,
             check_hyprland,
             get_system_accent_color,
-            set_window_acrylic
+            set_window_acrylic,
+            set_macro_speed_multiplier,
+            get_macro_speed_multiplier
         ])
         .setup(move |app| {
             let state = app.state::<Arc<AppState>>().inner().clone();

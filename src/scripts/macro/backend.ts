@@ -181,12 +181,22 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
     if (type === "move") {
         const x = Number(config.x || 0);
         const y = Number(config.y || 0);
-        const style = String(config.style || "instant");
+        let styleStr = "instant";
+        const style = config.style;
+        if (typeof style === "string") {
+            styleStr = style;
+        } else if (style && typeof style === "object") {
+            if ("linear" in style) {
+                styleStr = "linear";
+            } else if ("smooth" in style) {
+                styleStr = "smooth";
+            }
+        }
         return {
             id,
             type,
             name: "Move Cursor",
-            details: `To ${x}, ${y} (${style})`,
+            details: `To ${x}, ${y} (${styleStr})`,
             icon: "&#57987;",
         };
     }

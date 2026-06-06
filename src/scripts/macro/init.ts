@@ -191,6 +191,7 @@ function initClearButton(recordButton: HTMLElement | null) {
         try {
             await invoke("clear_macros");
             macroState.actions = [];
+            macroState.rawActions = [];
             renderActions();
             setMacroRecordingState(recordButton, false);
             notify("Macro cleared", "info", 1800);
@@ -295,6 +296,89 @@ function initMacroEventListeners(recordButton: HTMLElement | null) {
     });
 }
 
+function initSpeedMultiplierUi() {
+    const speedToggle = document.getElementById("macro-speed-toggle");
+    const customWrapper = document.getElementById("macro-custom-speed-wrapper");
+    const customValueInput = document.getElementById("macro-custom-speed-value") as HTMLInputElement | null;
+
+    if (!speedToggle) return;
+
+    const updateSpeed = async (presetVal: string) => {
+        let multiplier = 1.0;
+        if (presetVal === "custom") {
+            if (customWrapper) {
+                customWrapper.classList.remove("disabled");
+                if (customValueInput) customValueInput.disabled = false;
+            }
+            multiplier = parseFloat(customValueInput?.value || "2.0") || 1.0;
+        } else {
+            if (customWrapper) {
+                customWrapper.classList.add("disabled");
+                if (customValueInput) customValueInput.disabled = true;
+            }
+            multiplier = parseFloat(presetVal) || 1.0;
+        }
+
+        try {
+            await invoke("set_macro_speed_multiplier", { multiplier });
+            (window as any).flu_macro_speed_multiplier = multiplier;
+            renderActions();
+        } catch (error) {
+            console.error("Failed to set speed multiplier", error);
+        }
+    };
+
+    speedToggle.addEventListener("click", (event) => {
+        const button = (event.target as HTMLElement).closest(".toggle-option") as HTMLElement | null;
+        if (!button) return;
+
+        speedToggle.querySelectorAll(".toggle-option").forEach((entry) => entry.classList.remove("active"));
+        button.classList.add("active");
+        createSlideIndicator(speedToggle, button);
+
+        const val = button.dataset.value || "1";
+        void updateSpeed(val);
+    });
+
+    customValueInput?.addEventListener("input", () => {
+        const val = speedToggle.querySelector(".toggle-option.active")?.getAttribute("data-value");
+        if (val === "custom") {
+            void updateSpeed("custom");
+        }
+    });
+
+    void invoke<number>("get_macro_speed_multiplier").then((multiplier) => {
+        (window as any).flu_macro_speed_multiplier = multiplier;
+        const presets = ["1", "2", "5", "10", "100"];
+        const presetStr = String(multiplier);
+        let activeBtn: HTMLElement | null = null;
+        if (presets.includes(presetStr)) {
+            activeBtn = speedToggle.querySelector(`.toggle-option[data-value="${presetStr}"]`);
+            if (customWrapper) {
+                customWrapper.classList.add("disabled");
+                if (customValueInput) customValueInput.disabled = true;
+            }
+        } else {
+            activeBtn = speedToggle.querySelector('.toggle-option[data-value="custom"]');
+            if (customValueInput) {
+                customValueInput.value = presetStr;
+                customValueInput.disabled = false;
+            }
+            if (customWrapper) {
+                customWrapper.classList.remove("disabled");
+            }
+        }
+
+        if (activeBtn) {
+            speedToggle.querySelectorAll(".toggle-option").forEach((entry) => entry.classList.remove("active"));
+            activeBtn.classList.add("active");
+            createSlideIndicator(speedToggle, activeBtn, true);
+        }
+    }).catch((error) => {
+        console.error("Failed to load speed multiplier", error);
+    });
+}
+
 export function initMacro() {
     const recordButton = document.getElementById("macro-record-btn");
 
@@ -309,6 +393,7 @@ export function initMacro() {
     initAddActionDrawer();
     initClearButton(recordButton);
     initRepeatSettingsListeners();
+    initSpeedMultiplierUi();
 
     macroReadyPromise = Promise.all([
         loadCapabilities(recordButton),

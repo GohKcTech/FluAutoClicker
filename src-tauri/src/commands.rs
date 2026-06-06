@@ -1768,6 +1768,25 @@ pub fn get_system_accent_color() -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+pub async fn set_macro_speed_multiplier(
+    state: State<'_, Arc<AppState>>,
+    multiplier: f64,
+) -> Result<(), String> {
+    if multiplier <= 0.0 {
+        return Err("Multiplier must be greater than zero".to_string());
+    }
+    *state.macro_engine.speed_multiplier.lock().await = multiplier;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_macro_speed_multiplier(
+    state: State<'_, Arc<AppState>>,
+) -> Result<f64, String> {
+    Ok(*state.macro_engine.speed_multiplier.lock().await)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

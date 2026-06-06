@@ -28,6 +28,8 @@ pub struct MacroEngineState {
     pub recording_context: Arc<StdMutex<MacroRecordingContext>>,
 
     pub recording_options: Arc<Mutex<MacroRecordingOptions>>,
+
+    pub speed_multiplier: Arc<Mutex<f64>>,
 }
 
 impl Default for MacroEngineState {
@@ -43,6 +45,7 @@ impl Default for MacroEngineState {
             recording_error: Arc::new(StdMutex::new(None)),
             recording_context: Arc::new(StdMutex::new(MacroRecordingContext::default())),
             recording_options: Arc::new(Mutex::new(MacroRecordingOptions::default())),
+            speed_multiplier: Arc::new(Mutex::new(1.0)),
         }
     }
 }

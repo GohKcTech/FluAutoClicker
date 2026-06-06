@@ -410,11 +410,19 @@ export function setupConfigListeners(type: MacroActionType, container: HTMLEleme
             if (yInput && existingConfig.y !== undefined) yInput.value = String(existingConfig.y);
 
             let styleVal = "instant";
-            const rawStyle = String(existingConfig.style || "instant");
-            if (rawStyle.startsWith("linear")) {
-                styleVal = "linear";
-            } else if (rawStyle.startsWith("smooth")) {
-                styleVal = "smooth";
+            const rawStyle = existingConfig.style;
+            if (typeof rawStyle === "string") {
+                if (rawStyle.startsWith("linear")) {
+                    styleVal = "linear";
+                } else if (rawStyle.startsWith("smooth")) {
+                    styleVal = "smooth";
+                }
+            } else if (rawStyle && typeof rawStyle === "object") {
+                if ("linear" in rawStyle) {
+                    styleVal = "linear";
+                } else if ("smooth" in rawStyle) {
+                    styleVal = "smooth";
+                }
             }
             const styleRow = container.querySelector("#cfg-move-style");
             if (styleRow) {

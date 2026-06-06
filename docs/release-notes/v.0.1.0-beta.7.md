@@ -10,6 +10,9 @@ unreleased
 
 - Added mouse wheel scrolling support. You can now record mouse scrolls, add them manually, configure scroll amounts, and play them back.
 - Redesigned the Macro Action configuration UI for Scroll and Sleep actions.
+- Redesigned the Macro tab controls panel.
+- Added a Time Multiplier speed selector (1x, 2x, 5x, 10x, Custom) to speed up macro action playbacks (sleeps, holds, moves).
+- Added a macro execution time indicator that scales automatically based on the selected playback speed.
 
 ## Bug Fixes
 

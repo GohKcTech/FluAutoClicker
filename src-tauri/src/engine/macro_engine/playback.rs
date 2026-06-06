@@ -14,8 +14,7 @@ use super::types::{
     MacroPlayerState,
 };
 
-#[cfg(not(target_os = "linux"))]
-async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), String> {
+async fn execute_action(enigo: &mut Enigo, action: &MacroAction, multiplier: f64) -> Result<(), String> {
     match &action.config {
         MacroActionConfig::Mouse {
             button,
@@ -27,7 +26,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                     .move_mouse(*x, *y, Coordinate::Abs)
                     .map_err(|e| format!("Could not move the mouse. Details: {}", e))?;
 
-                sleep(Duration::from_millis(10)).await;
+                sleep(Duration::from_millis((10.0 / multiplier).round().max(1.0) as u64)).await;
             }
 
             match mouse_action {
@@ -36,7 +35,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                     enigo
                         .button(btn, enigo::Direction::Press)
                         .map_err(|e| format!("Could not press the mouse button. Details: {}", e))?;
-                    sleep(Duration::from_millis(50)).await;
+                    sleep(Duration::from_millis((50.0 / multiplier).round().max(1.0) as u64)).await;
                     enigo.button(btn, enigo::Direction::Release).map_err(|e| {
                         format!("Could not release the mouse button. Details: {}", e)
                     })?;
@@ -46,7 +45,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                     enigo
                         .button(btn, enigo::Direction::Press)
                         .map_err(|e| format!("Could not press the mouse button. Details: {}", e))?;
-                    sleep(Duration::from_millis(*duration_ms as u64)).await;
+                    sleep(Duration::from_millis((*duration_ms as f64 / multiplier).round() as u64)).await;
                     enigo.button(btn, enigo::Direction::Release).map_err(|e| {
                         format!("Could not release the mouse button. Details: {}", e)
                     })?;
@@ -72,10 +71,10 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                     .map_err(|e| format!("Could not move the mouse. Details: {}", e))?;
             }
             MacroMoveStyle::Linear { duration_ms } => {
-                linear_move_to(enigo, *x, *y, *duration_ms).await?;
+                linear_move_to(enigo, *x, *y, (*duration_ms as f64 / multiplier).round() as u32).await?;
             }
             MacroMoveStyle::Smooth { path, duration_ms } => {
-                play_smooth_path(enigo, path, *duration_ms).await?;
+                play_smooth_path(enigo, path, (*duration_ms as f64 / multiplier).round() as u32).await?;
             }
         },
         MacroActionConfig::Keyboard {
@@ -117,7 +116,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
                     enigo
                         .key(key_code, enigo::Direction::Press)
                         .map_err(|e| format!("Could not press the key. Details: {}", e))?;
-                    sleep(Duration::from_millis(*duration_ms as u64)).await;
+                    sleep(Duration::from_millis((*duration_ms as f64 / multiplier).round() as u64)).await;
                     enigo
                         .key(key_code, enigo::Direction::Release)
                         .map_err(|e| format!("Could not release the key. Details: {}", e))?;
@@ -143,7 +142,7 @@ async fn execute_action(enigo: &mut Enigo, action: &MacroAction) -> Result<(), S
             }
         }
         MacroActionConfig::Sleep { duration_ms } => {
-            sleep(Duration::from_millis(*duration_ms as u64)).await;
+            sleep(Duration::from_millis((*duration_ms as f64 / multiplier).round() as u64)).await;
         }
         MacroActionConfig::Scroll { clicks } => {
             enigo
@@ -198,17 +197,18 @@ impl LinuxPlaybackBackend {
         &mut self,
         button: &crate::engine::macro_engine::types::MacroMouseButton,
         action: &MacroMouseAction,
+        multiplier: f64,
     ) -> Result<(), String> {
         let key = macro_button_to_evdev(button);
         match action {
             MacroMouseAction::Press => {
                 Self::emit_key(&mut self.mouse, key, true)?;
-                sleep(Duration::from_millis(50)).await;
+                sleep(Duration::from_millis((50.0 / multiplier).round().max(1.0) as u64)).await;
                 Self::emit_key(&mut self.mouse, key, false)
             }
             MacroMouseAction::Hold { duration_ms } => {
                 Self::emit_key(&mut self.mouse, key, true)?;
-                sleep(Duration::from_millis(*duration_ms as u64)).await;
+                sleep(Duration::from_millis((*duration_ms as f64 / multiplier).round() as u64)).await;
                 Self::emit_key(&mut self.mouse, key, false)
             }
             MacroMouseAction::Down => Self::emit_key(&mut self.mouse, key, true),
@@ -240,6 +240,7 @@ fn uinput_error() -> String {
 async fn execute_action(
     backend: &mut LinuxPlaybackBackend,
     action: &MacroAction,
+    multiplier: f64,
 ) -> Result<(), String> {
     match &action.config {
         MacroActionConfig::Mouse {
@@ -249,18 +250,18 @@ async fn execute_action(
         } => {
             if let Some((x, y)) = position {
                 backend.move_mouse(*x, *y)?;
-                sleep(Duration::from_millis(10)).await;
+                sleep(Duration::from_millis((10.0 / multiplier).round().max(1.0) as u64)).await;
             }
 
-            backend.click_mouse(button, mouse_action).await?;
+            backend.click_mouse(button, mouse_action, multiplier).await?;
         }
         MacroActionConfig::Move { x, y, style } => match style {
             MacroMoveStyle::Instant => backend.move_mouse(*x, *y)?,
             MacroMoveStyle::Linear { duration_ms } => {
-                linear_move_to(backend, *x, *y, *duration_ms).await?;
+                linear_move_to(backend, *x, *y, (*duration_ms as f64 / multiplier).round() as u32).await?;
             }
             MacroMoveStyle::Smooth { path, duration_ms } => {
-                play_smooth_path(backend, path, *duration_ms).await?;
+                play_smooth_path(backend, path, (*duration_ms as f64 / multiplier).round() as u32).await?;
             }
         },
         MacroActionConfig::Keyboard {
@@ -291,7 +292,7 @@ async fn execute_action(
                 }
                 MacroKeyboardAction::Hold { duration_ms } => {
                     LinuxPlaybackBackend::emit_key(&mut backend.keyboard, key_code, true)?;
-                    sleep(Duration::from_millis(*duration_ms as u64)).await;
+                    sleep(Duration::from_millis((*duration_ms as f64 / multiplier).round() as u64)).await;
                     LinuxPlaybackBackend::emit_key(&mut backend.keyboard, key_code, false)?;
                 }
                 MacroKeyboardAction::Down => {
@@ -307,7 +308,7 @@ async fn execute_action(
             }
         }
         MacroActionConfig::Sleep { duration_ms } => {
-            sleep(Duration::from_millis(*duration_ms as u64)).await;
+            sleep(Duration::from_millis((*duration_ms as f64 / multiplier).round() as u64)).await;
         }
         MacroActionConfig::Scroll { clicks } => {
             backend.scroll_mouse(*clicks)?;
@@ -884,6 +885,7 @@ async fn playback_loop(
         }
     };
     let start_time = Instant::now();
+    let speed_multiplier = *state.speed_multiplier.lock().await;
 
     let max_iterations = match repeat_mode {
         crate::engine::macro_engine::types::MacroRepeatMode::Infinite => None,
@@ -893,7 +895,8 @@ async fn playback_loop(
         crate::engine::macro_engine::types::MacroRepeatMode::FiniteSeconds { duration_ms } => {
             let total_action_time = estimate_actions_duration(actions);
             if total_action_time > 0 {
-                Some((duration_ms / total_action_time).max(1))
+                let scaled_time = (total_action_time as f64 / speed_multiplier).round() as u64;
+                Some((duration_ms / scaled_time.max(1)).max(1))
             } else {
                 Some(1)
             }
@@ -937,10 +940,10 @@ async fn playback_loop(
             );
 
             #[cfg(not(target_os = "linux"))]
-            let action_result = execute_action(&mut enigo, action).await;
+            let action_result = execute_action(&mut enigo, action, speed_multiplier).await;
 
             #[cfg(target_os = "linux")]
-            let action_result = execute_action(&mut linux_backend, action).await;
+            let action_result = execute_action(&mut linux_backend, action, speed_multiplier).await;
 
             if let Err(e) = action_result {
                 eprintln!("Macro playback error: {}", e);
@@ -955,7 +958,7 @@ async fn playback_loop(
                 break;
             }
 
-            sleep(Duration::from_millis(5)).await;
+            sleep(Duration::from_millis(((5.0 / speed_multiplier).round() as u64).max(1))).await;
         }
 
         iteration += 1;

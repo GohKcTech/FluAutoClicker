@@ -3,6 +3,47 @@ import { setKeyBadgeContent } from "../key-badges";
 import { fromBackendAction } from "./backend";
 import { macroState } from "./state";
 import type { MacroBackendAction, MacroUiAction } from "./types";
+import { formatDuration } from "../utils";
+
+export function getMacroDurationMs(actions: MacroBackendAction[]): number {
+    let totalMs = 0;
+    for (const action of actions) {
+        const config = action.config;
+        if (!config || !config.type) continue;
+
+        if (config.type === "sleep") {
+            totalMs += Number(config.duration_ms) || 0;
+        } else if (config.type === "mouse" || config.type === "keyboard") {
+            const act = config.action;
+            if (act && typeof act === "object" && "hold" in act) {
+                const hold = (act as { hold?: { duration_ms?: unknown } }).hold;
+                const duration = Number(hold?.duration_ms);
+                if (Number.isFinite(duration)) {
+                    totalMs += duration;
+                }
+            }
+        } else if (config.type === "move") {
+            const style = config.style;
+            if (style && typeof style === "object") {
+                if ("linear" in style) {
+                    const linear = (style as { linear?: { duration_ms?: unknown } }).linear;
+                    const duration = Number(linear?.duration_ms);
+                    if (Number.isFinite(duration)) {
+                        totalMs += duration;
+                    }
+                } else if ("smooth" in style) {
+                    const smooth = (style as { smooth?: { duration_ms?: unknown } }).smooth;
+                    const duration = Number(smooth?.duration_ms);
+                    if (Number.isFinite(duration)) {
+                        totalMs += duration;
+                    }
+                }
+            }
+        }
+    }
+    return totalMs;
+}
+
 
 type DropPosition = "before" | "after";
 
@@ -247,6 +288,11 @@ function applyVisibleActionOrder(previousActions: MacroUiAction[]) {
     }
 
     macroState.actions = nextActions;
+    const rawActionsById = new Map(macroState.rawActions.map((action) => [Number(action.id), action]));
+    macroState.rawActions = visibleOrder
+        .map((id) => rawActionsById.get(id))
+        .filter((action): action is MacroBackendAction => Boolean(action));
+
     renderActions();
     void persistActionOrder(visibleOrder, previousActions);
 }
@@ -370,6 +416,7 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
             try {
                 await invoke("remove_macro_action", { actionId: action.id, action_id: action.id });
                 macroState.actions = macroState.actions.filter((entry) => entry.id !== action.id);
+                macroState.rawActions = macroState.rawActions.filter((entry) => Number(entry.id) !== action.id);
                 renderActions();
             } catch (error) {
                 console.error("Failed to remove macro action", error);
@@ -400,6 +447,19 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
 }
 
 export function renderActions(options: { animateNew?: boolean } = {}) {
+    const rawTotalMs = getMacroDurationMs(macroState.rawActions);
+    const speedMultiplier = (window as any).flu_macro_speed_multiplier || 1.0;
+    const totalMs = Math.round(rawTotalMs / speedMultiplier);
+    (window as any).flu_macro_duration = totalMs;
+    const durationValEl = document.getElementById("macro-duration-val");
+    if (durationValEl) {
+        durationValEl.textContent = formatDuration(totalMs);
+    }
+    const updateCPSFn = (window as any).flu_update_cps;
+    if (typeof updateCPSFn === "function") {
+        updateCPSFn();
+    }
+
     const listContainer = getListContainer();
     if (!listContainer) {
         return;
