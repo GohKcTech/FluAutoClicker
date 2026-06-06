@@ -1,6 +1,6 @@
 {
-    "version": "0.1.0-beta.6",
-    "notes": "Hotfix: Fixed a bug with double click in macro mode and disabled macro list animations/smooth scrolling when minimized.",
-    "pub_date": "2026-06-04T00:00:00Z",
-    "github_url": "https://github.com/Agzes/FluAutoClicker/releases/tag/v.0.1.0-beta.6"
+    "version": "0.1.0-beta.7",
+    "notes": "Mouse wheel scrolling support in macros, export/import of all configuration data at once, a \"Reduce Motion\" accessibility setting, a \"Time Multiplier\" playback speed selector.",
+    "pub_date": "2026-06-06T00:00:00Z",
+    "github_url": "https://github.com/Agzes/FluAutoClicker/releases/tag/v.0.1.0-beta.7"
 }

@@ -1,10 +1,10 @@
 # FluAutoClicker v0.1.0-beta.7
 
-Release date: unreleased
+Release date: 06.06.2026
 
 ## Overview
 
-unreleased
+Mouse wheel scrolling support in macros, export/import of all configuration data at once, a "Reduce Motion" accessibility setting, a "Time Multiplier" playback speed selector, and several important bug fixes in keyboard shortcut settings and profile management.
 
 ## Enhancements
 
@@ -26,7 +26,7 @@ unreleased
 
 ## Notes
 
-- ⚠️ This version has not been fully tested on Linux, so there may be errors in some of the new changes!
+- ⚠️ This version has not been tested on Linux, so there may be errors in some of the new changes!
 - ⚠️ [v0.1.0-beta.5] Config migration: the `record_mouse_moves` option in macro settings changed from a boolean (true/false) to a string mode ("off"|"instant"|"linear"|"smooth"). Existing configs are auto-migrated: true → instant, false → off. Re-saving the config will store the new string form.
 - Wayland macro recording and global hotkeys remain intentionally unavailable for now; the app reports those limitations through capabilities/UX instead of failing silently.
 - Linux input automation requires writable `/dev/uinput`. Use the in-app permission prompt or configure a persistent udev rule.
