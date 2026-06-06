@@ -1781,9 +1781,7 @@ pub async fn set_macro_speed_multiplier(
 }
 
 #[tauri::command]
-pub async fn get_macro_speed_multiplier(
-    state: State<'_, Arc<AppState>>,
-) -> Result<f64, String> {
+pub async fn get_macro_speed_multiplier(state: State<'_, Arc<AppState>>) -> Result<f64, String> {
     Ok(*state.macro_engine.speed_multiplier.lock().await)
 }
 
