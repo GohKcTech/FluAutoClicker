@@ -79,6 +79,25 @@
     100% { opacity: 1; }
 }
 
+#macro-add-btn {
+    background: var(--accent-dim);
+    color: var(--text);
+    font-weight: 700;
+}
+
+#macro-add-btn .icon {
+    color: var(--text) !important;
+}
+
+#macro-add-btn:hover {
+    background: var(--accent) !important;
+    color: #000 !important;
+}
+
+#macro-add-btn:hover .icon {
+    color: #000 !important;
+}
+
 .macro-btn.add-btn {
     background: var(--accent-dim);
     color: var(--text);

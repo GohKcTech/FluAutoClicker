@@ -506,10 +506,15 @@
 	font-size: 15px;
 	margin-right: 7px;
 	color: var(--text-dim);
+	transition: color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .feature-btn:hover {
 	background: var(--control-dark);
+	color: var(--text);
+}
+
+.feature-btn:hover .icon {
 	color: var(--text);
 }
 
