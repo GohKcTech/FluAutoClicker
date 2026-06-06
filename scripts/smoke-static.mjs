@@ -24,6 +24,8 @@ const requiredIds = [
   "jiggler-toggle",
   "config-export-btn",
   "config-import-btn",
+  "backup-export-btn",
+  "backup-import-btn",
   "profile-export-btn",
   "profile-import-btn",
 ];

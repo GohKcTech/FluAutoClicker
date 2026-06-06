@@ -61,6 +61,20 @@ function importConfig() {
     });
 }
 
+async function exportBackup() {
+    const backup = await invoke("export_backup_cmd");
+    const saved = await saveJson(`fluautoclicker-backup-${timestampForFile()}.json`, backup);
+    if (saved) notify("All settings and profiles exported", "success", 1800);
+}
+
+function importBackup() {
+    readJsonFile(async (payload) => {
+        const updated = await invoke<AppConfigFile>("import_backup_cmd", { backup: payload });
+        applyPersistedConfig(updated);
+        notify("All settings and profiles imported", "success", 2200);
+    });
+}
+
 export function initCpsTestWindow() {
     document.getElementById("cps-test-btn")?.addEventListener("click", () => {
         const cpsWindow = new WebviewWindow("cps-test", {
@@ -124,6 +138,16 @@ export function initDrawerLaunchers() {
 
     document.getElementById("config-import-btn")?.addEventListener("click", () => {
         importConfig();
+    });
+
+    document.getElementById("backup-export-btn")?.addEventListener("click", () => {
+        void exportBackup().catch((error) => {
+            notify(error instanceof Error ? error.message : "Could not export backup", "error", 3200);
+        });
+    });
+
+    document.getElementById("backup-import-btn")?.addEventListener("click", () => {
+        importBackup();
     });
 
     document.getElementById("jiggler-btn")?.addEventListener("click", async (event) => {

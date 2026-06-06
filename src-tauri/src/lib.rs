@@ -639,6 +639,8 @@ pub fn run() {
             load_profile_cmd,
             export_profile_cmd,
             import_profile_cmd,
+            export_backup_cmd,
+            import_backup_cmd,
             rename_profile_cmd,
             delete_profile_cmd,
             set_cps,

@@ -8,7 +8,8 @@ unreleased
 
 ## Enhancements
 
-- Added a "Reduce Motion" setting parameter with two options (Reduce / Remove)
+- Added options to export and import all configurations and all profiles as a single JSON file.
+- Added a "Reduce Motion" setting parameter with two options (Reduce / Remove).
 - Added mouse wheel scrolling support. You can now record mouse scrolls, add them manually, configure scroll amounts, and play them back.
 - Redesigned the Macro Action configuration UI for Scroll and Sleep actions.
 - Redesigned the Macro tab controls panel.

@@ -299,6 +299,67 @@ pub async fn import_profile_cmd(
 }
 
 #[tauri::command]
+pub async fn export_backup_cmd() -> Result<crate::engine::config_store::BackupFile, String> {
+    let app_config = crate::engine::config_store::load_config()
+        .await
+        .unwrap_or_default();
+    
+    let profile_names = crate::engine::config_store::list_profiles()
+        .await
+        .unwrap_or_default();
+    
+    let mut profiles = Vec::new();
+    for name in profile_names {
+        if let Ok(profile_file) = crate::engine::config_store::load_profile_file(&name).await {
+            profiles.push(profile_file);
+        }
+    }
+    
+    if !profiles.iter().any(|p| p.name == "default") {
+        if let Ok(default_profile) = crate::engine::config_store::load_profile_file("default").await {
+            profiles.push(default_profile);
+        } else {
+            profiles.push(crate::engine::config_store::ProfileFile::new(
+                "default".to_string(),
+                crate::engine::config_store::load_profile("default")
+                    .await
+                    .unwrap_or_else(|_| crate::engine::config_store::AppConfigFile::default()),
+            ));
+        }
+    }
+
+    Ok(crate::engine::config_store::BackupFile::new(app_config, profiles))
+}
+
+#[tauri::command]
+pub async fn import_backup_cmd(
+    state: State<'_, Arc<AppState>>,
+    app: AppHandle,
+    backup: crate::engine::config_store::BackupFile,
+) -> Result<crate::engine::config_store::AppConfigFile, String> {
+    for profile in backup.profiles {
+        if let Ok(normalized_name) = crate::validate_profile_name(&profile.name) {
+            let config = profile.data.normalized_for_save();
+            let _ = crate::engine::config_store::save_profile(&normalized_name, &config).await;
+        }
+    }
+
+    let mut config = backup.app_config;
+    if !crate::system_startup_supported() {
+        config.general.autostart = false;
+    }
+
+    set_system_startup_impl(&app, config.general.autostart)?;
+    let normalized = config.normalized_for_save();
+    crate::persist_and_apply_config(&app, state.inner(), normalized.clone()).await?;
+    let _ = app.emit(
+        "profiles-updated",
+        serde_json::json!({ "active_profile": normalized.active_profile }),
+    );
+    Ok(normalized)
+}
+
+#[tauri::command]
 pub async fn rename_profile_cmd(
     state: State<'_, Arc<AppState>>,
     app: AppHandle,

@@ -341,6 +341,23 @@ impl ProfileFile {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BackupFile {
+    pub version: u32,
+    pub app_config: AppConfigFile,
+    pub profiles: Vec<ProfileFile>,
+}
+
+impl BackupFile {
+    pub fn new(app_config: AppConfigFile, profiles: Vec<ProfileFile>) -> Self {
+        Self {
+            version: 1,
+            app_config,
+            profiles,
+        }
+    }
+}
+
 fn app_config_root() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
