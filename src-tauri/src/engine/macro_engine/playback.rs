@@ -14,6 +14,7 @@ use super::types::{
     MacroPlayerState,
 };
 
+#[cfg(not(target_os = "linux"))]
 async fn execute_action(
     enigo: &mut Enigo,
     action: &MacroAction,
