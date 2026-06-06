@@ -303,20 +303,21 @@ pub async fn export_backup_cmd() -> Result<crate::engine::config_store::BackupFi
     let app_config = crate::engine::config_store::load_config()
         .await
         .unwrap_or_default();
-    
+
     let profile_names = crate::engine::config_store::list_profiles()
         .await
         .unwrap_or_default();
-    
+
     let mut profiles = Vec::new();
     for name in profile_names {
         if let Ok(profile_file) = crate::engine::config_store::load_profile_file(&name).await {
             profiles.push(profile_file);
         }
     }
-    
+
     if !profiles.iter().any(|p| p.name == "default") {
-        if let Ok(default_profile) = crate::engine::config_store::load_profile_file("default").await {
+        if let Ok(default_profile) = crate::engine::config_store::load_profile_file("default").await
+        {
             profiles.push(default_profile);
         } else {
             profiles.push(crate::engine::config_store::ProfileFile::new(
@@ -328,7 +329,9 @@ pub async fn export_backup_cmd() -> Result<crate::engine::config_store::BackupFi
         }
     }
 
-    Ok(crate::engine::config_store::BackupFile::new(app_config, profiles))
+    Ok(crate::engine::config_store::BackupFile::new(
+        app_config, profiles,
+    ))
 }
 
 #[tauri::command]
