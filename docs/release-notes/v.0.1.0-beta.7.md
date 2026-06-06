@@ -13,12 +13,14 @@ unreleased
 - Redesigned the Macro tab controls panel.
 - Added a Time Multiplier speed selector (1x, 2x, 5x, 10x, Custom) to speed up macro action playbacks (sleeps, holds, moves).
 - Added a macro execution time indicator that scales automatically based on the selected playback speed.
+- Redesigned the profile Save button to dynamically display AUTO-SAVED (for existing profiles) or CREATE (for new profiles) to clarify the auto-saving behavior.
 
 ## Bug Fixes
 
 - Fixed a bug where starting or stopping macro recording via a keybind recorded the keybind itself into the macro.
 - Fixed a bug where modifiers like `ctrl`, `shift`, `alt`, `win` typed characters like `c`, `s`, `a`, `w` instead of acting as modifier keys.
 - Fixed keyboard shortcut combinations not working during macro playback due to incorrect modifier key mapping.
+- Fixed the profile rename feature being broken due to conflicts with draft input name updates.
 
 ## Notes
 
