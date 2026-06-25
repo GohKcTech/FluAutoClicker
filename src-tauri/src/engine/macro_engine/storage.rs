@@ -61,13 +61,7 @@ pub async fn load_macro(
     let macro_file: MacroFile =
         serde_json::from_str(&json).map_err(|e| format!("Failed to parse macro file: {}", e))?;
 
-    if macro_file.version != MacroFile::CURRENT_VERSION {
-        return Err(format!(
-            "Unsupported macro file version: {}. Expected: {}",
-            macro_file.version,
-            MacroFile::CURRENT_VERSION
-        ));
-    }
+    let macro_file = macro_file.migrate();
 
     Ok((
         macro_file.actions,

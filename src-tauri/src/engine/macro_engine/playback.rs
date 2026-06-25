@@ -102,6 +102,9 @@ async fn execute_action(
                 .await?;
             }
         },
+        MacroActionConfig::RawMove { points } => {
+            play_raw_move(enigo, points, multiplier).await?;
+        }
         MacroActionConfig::Keyboard {
             key,
             text,
@@ -317,6 +320,9 @@ async fn execute_action(
                 .await?;
             }
         },
+        MacroActionConfig::RawMove { points } => {
+            play_raw_move(backend, points, multiplier).await?;
+        }
         MacroActionConfig::Keyboard {
             key,
             text,
@@ -745,9 +751,8 @@ async fn linear_move_to(
 
     for step in 1..=step_count {
         let progress = step as f32 / step_count as f32;
-        let eased = ease_in_out(progress);
-        let next_x = start_x + ((target_x - start_x) as f32 * eased).round() as i32;
-        let next_y = start_y + ((target_y - start_y) as f32 * eased).round() as i32;
+        let next_x = start_x + ((target_x - start_x) as f32 * progress).round() as i32;
+        let next_y = start_y + ((target_y - start_y) as f32 * progress).round() as i32;
 
         enigo
             .move_mouse(next_x, next_y, Coordinate::Abs)
@@ -771,13 +776,79 @@ async fn play_smooth_path(
     if path.is_empty() {
         return Ok(());
     }
-    let total_points = path.len();
-    let sleep_delay = Duration::from_millis((duration_ms as u64 / total_points as u64).max(1));
-    for &(x, y) in path {
+    if path.len() == 1 {
+        let (x, y) = path[0];
         enigo
             .move_mouse(x, y, Coordinate::Abs)
             .map_err(|e| format!("Could not move mouse to ({}, {}): {}", x, y, e))?;
-        sleep(sleep_delay).await;
+        return Ok(());
+    }
+
+    let mut segment_lengths = Vec::with_capacity(path.len() - 1);
+    let mut total_length = 0.0f32;
+    for i in 1..path.len() {
+        let dx = (path[i].0 - path[i - 1].0) as f32;
+        let dy = (path[i].1 - path[i - 1].1) as f32;
+        let len = (dx * dx + dy * dy).sqrt();
+        segment_lengths.push(len);
+        total_length += len;
+    }
+
+    if total_length <= 0.0 {
+        let (x, y) = path[0];
+        enigo
+            .move_mouse(x, y, Coordinate::Abs)
+            .map_err(|e| format!("Could not move mouse to ({}, {}): {}", x, y, e))?;
+        return Ok(());
+    }
+
+    let duration_ms = duration_ms.max(1);
+
+    for i in 1..path.len() {
+        let (start_x, start_y) = path[i - 1];
+        let (target_x, target_y) = path[i];
+        let segment_duration =
+            (duration_ms as f32 * segment_lengths[i - 1] / total_length).max(8.0) as u32;
+        let step_count = ((segment_duration as f32 / 8.0).ceil() as u32).clamp(2, 60);
+
+        for step in 1..=step_count {
+            let progress = step as f32 / step_count as f32;
+            let x = start_x + ((target_x - start_x) as f32 * progress).round() as i32;
+            let y = start_y + ((target_y - start_y) as f32 * progress).round() as i32;
+            enigo
+                .move_mouse(x, y, Coordinate::Abs)
+                .map_err(|e| format!("Could not move the mouse. Details: {}", e))?;
+            sleep(Duration::from_millis(
+                (segment_duration / step_count.max(1)) as u64,
+            ))
+            .await;
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn play_raw_move(
+    enigo: &mut Enigo,
+    points: &[(i32, i32, u64)],
+    multiplier: f64,
+) -> Result<(), String> {
+    if points.is_empty() {
+        return Ok(());
+    }
+    let mut prev_ts = points[0].2;
+    for &(x, y, ts) in points {
+        enigo
+            .move_mouse(x, y, Coordinate::Abs)
+            .map_err(|e| format!("Could not move the mouse. Details: {}", e))?;
+        if ts > prev_ts {
+            let delay_ms = ((ts - prev_ts) as f64 / multiplier).round() as u64;
+            if delay_ms > 0 {
+                sleep(Duration::from_millis(delay_ms)).await;
+            }
+        }
+        prev_ts = ts;
     }
     Ok(())
 }
@@ -795,9 +866,8 @@ async fn linear_move_to(
 
     for step in 1..=step_count {
         let progress = step as f32 / step_count as f32;
-        let eased = ease_in_out(progress);
-        let next_x = start_x + ((target_x - start_x) as f32 * eased).round() as i32;
-        let next_y = start_y + ((target_y - start_y) as f32 * eased).round() as i32;
+        let next_x = start_x + ((target_x - start_x) as f32 * progress).round() as i32;
+        let next_y = start_y + ((target_y - start_y) as f32 * progress).round() as i32;
 
         backend.move_mouse(next_x, next_y)?;
 
@@ -819,11 +889,71 @@ async fn play_smooth_path(
     if path.is_empty() {
         return Ok(());
     }
-    let total_points = path.len();
-    let sleep_delay = Duration::from_millis((duration_ms as u64 / total_points as u64).max(1));
-    for &(x, y) in path {
+    if path.len() == 1 {
+        let (x, y) = path[0];
         backend.move_mouse(x, y)?;
-        sleep(sleep_delay).await;
+        return Ok(());
+    }
+
+    let mut segment_lengths = Vec::with_capacity(path.len() - 1);
+    let mut total_length = 0.0f32;
+    for i in 1..path.len() {
+        let dx = (path[i].0 - path[i - 1].0) as f32;
+        let dy = (path[i].1 - path[i - 1].1) as f32;
+        let len = (dx * dx + dy * dy).sqrt();
+        segment_lengths.push(len);
+        total_length += len;
+    }
+
+    if total_length <= 0.0 {
+        let (x, y) = path[0];
+        backend.move_mouse(x, y)?;
+        return Ok(());
+    }
+
+    let duration_ms = duration_ms.max(1);
+
+    for i in 1..path.len() {
+        let (start_x, start_y) = path[i - 1];
+        let (target_x, target_y) = path[i];
+        let segment_duration =
+            (duration_ms as f32 * segment_lengths[i - 1] / total_length).max(8.0) as u32;
+        let step_count = ((segment_duration as f32 / 8.0).ceil() as u32).clamp(2, 60);
+
+        for step in 1..=step_count {
+            let progress = step as f32 / step_count as f32;
+            let x = start_x + ((target_x - start_x) as f32 * progress).round() as i32;
+            let y = start_y + ((target_y - start_y) as f32 * progress).round() as i32;
+            backend.move_mouse(x, y)?;
+            sleep(Duration::from_millis(
+                (segment_duration / step_count.max(1)) as u64,
+            ))
+            .await;
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+async fn play_raw_move(
+    backend: &mut LinuxPlaybackBackend,
+    points: &[(i32, i32, u64)],
+    multiplier: f64,
+) -> Result<(), String> {
+    if points.is_empty() {
+        return Ok(());
+    }
+    let mut prev_ts = points[0].2;
+    for &(x, y, ts) in points {
+        backend.move_mouse(x, y)?;
+        if ts > prev_ts {
+            let delay_ms = ((ts - prev_ts) as f64 / multiplier).round() as u64;
+            if delay_ms > 0 {
+                sleep(Duration::from_millis(delay_ms)).await;
+            }
+        }
+        prev_ts = ts;
     }
     Ok(())
 }
@@ -835,14 +965,6 @@ fn current_cursor_position() -> Result<(i32, i32), String> {
     enigo
         .location()
         .map_err(|e| format!("Could not read the cursor position. Details: {e}"))
-}
-
-fn ease_in_out(progress: f32) -> f32 {
-    if progress < 0.5 {
-        2.0 * progress * progress
-    } else {
-        1.0 - ((-2.0 * progress + 2.0).powf(2.0) / 2.0)
-    }
 }
 
 pub async fn start_playback(
@@ -1017,10 +1139,23 @@ async fn playback_loop(
                 break;
             }
 
-            sleep(Duration::from_millis(
-                ((5.0 / speed_multiplier).round() as u64).max(1),
-            ))
-            .await;
+            let wait_ms = if let Some(next_action) = actions.get(action_index + 1) {
+                if action.timestamp_ms > 0
+                    && next_action.timestamp_ms > 0
+                    && next_action.timestamp_ms >= action.timestamp_ms
+                {
+                    let elapsed = next_action.timestamp_ms - action.timestamp_ms;
+                    (elapsed as f64 / speed_multiplier).round() as u64
+                } else {
+                    ((5.0 / speed_multiplier).round() as u64).max(1)
+                }
+            } else {
+                0
+            };
+
+            if wait_ms > 0 {
+                sleep(Duration::from_millis(wait_ms)).await;
+            }
         }
 
         iteration += 1;
@@ -1099,6 +1234,13 @@ fn estimate_actions_duration(actions: &[MacroAction]) -> u64 {
             }
             MacroActionConfig::Scroll { .. } => {
                 total += 50;
+            }
+            MacroActionConfig::RawMove { points } => {
+                if points.len() >= 2 {
+                    total += points.last().map(|p| p.2).unwrap_or(0)
+                        - points.first().map(|p| p.2).unwrap_or(0);
+                }
+                total += 10;
             }
         }
     }

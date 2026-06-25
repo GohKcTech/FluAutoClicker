@@ -1,4 +1,4 @@
-export type MacroActionType = "mouse" | "move" | "keyboard" | "sleep" | "scroll";
+export type MacroActionType = "mouse" | "move" | "keyboard" | "sleep" | "scroll" | "raw_move";
 
 export type MacroUiAction = {
     id: number;
@@ -23,7 +23,7 @@ export type MacroCapabilities = {
 
 export type MacroRecordingOptions = {
     record_mouse_clicks: boolean;
-    record_mouse_moves: "off" | "instant" | "linear" | "smooth";
+    record_mouse_moves: "off" | "instant" | "linear" | "smooth" | "raw";
     record_keyboard: boolean;
     record_delays: boolean;
     record_click_position: boolean;
@@ -37,6 +37,7 @@ export type MacroRepeatState = {
 
 export type MacroBackendAction = {
     id?: unknown;
+    timestamp_ms?: number;
     config?: {
         type?: MacroActionType;
         button?: string;
@@ -50,6 +51,9 @@ export type MacroBackendAction = {
         modifiers?: unknown;
         duration_ms?: number;
         clicks?: number;
+        points?: number;
+        start?: string;
+        end?: string;
     };
 };
 

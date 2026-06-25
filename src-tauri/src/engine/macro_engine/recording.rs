@@ -19,6 +19,7 @@ use super::types::{
 const MIN_SLEEP_MS: u64 = 25;
 const MOVE_THRESHOLD_PX: i32 = 2;
 const MOVE_MERGE_WINDOW_MS: u64 = 125;
+const SMOOTH_MOVE_MERGE_WINDOW_MS: u64 = 500;
 const HOLD_THRESHOLD_MS: u64 = 160;
 
 #[derive(Clone)]
@@ -31,6 +32,7 @@ struct PressSnapshot {
 
 #[derive(Default)]
 pub struct MacroRecordingContext {
+    recording_started_at: Option<SystemTime>,
     last_recorded_at: Option<SystemTime>,
     last_persisted_at: Option<SystemTime>,
     last_pointer: Option<(i32, i32)>,
@@ -44,6 +46,7 @@ pub struct MacroRecordingContext {
 
 impl MacroRecordingContext {
     pub fn reset(&mut self, cursor_position: Option<(i32, i32)>) {
+        self.recording_started_at = Some(SystemTime::now());
         self.last_recorded_at = None;
         self.last_persisted_at = None;
         self.last_pointer = cursor_position;
@@ -291,6 +294,7 @@ fn handle_recording_event(
     let Ok(mut context) = state.recording_context.lock() else {
         return;
     };
+    let is_raw_mode = recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Raw;
 
     match event.event_type {
         EventType::MouseMove { x, y } => {
@@ -303,18 +307,37 @@ fn handle_recording_event(
                 return;
             }
 
-            if let Some((prev_x, prev_y)) = previous_pointer {
-                let delta_x = (prev_x - x).abs();
-                let delta_y = (prev_y - y).abs();
-                if delta_x < MOVE_THRESHOLD_PX && delta_y < MOVE_THRESHOLD_PX {
-                    return;
+            if !is_raw_mode {
+                let threshold = if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Smooth {
+                    MOVE_THRESHOLD_PX
+                } else {
+                    MOVE_THRESHOLD_PX
+                };
+                if let Some((prev_x, prev_y)) = previous_pointer {
+                    let delta_x = (prev_x - x).abs();
+                    let delta_y = (prev_y - y).abs();
+                    if delta_x <= threshold && delta_y <= threshold {
+                        return;
+                    }
                 }
             }
+
+            if is_raw_mode {
+                append_raw_move_point(state, &mut context, x, y, event_time);
+                persist_and_emit_if_needed(state, app, &mut context, event_time);
+                return;
+            }
+
+            let merge_window_ms = if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Smooth {
+                SMOOTH_MOVE_MERGE_WINDOW_MS
+            } else {
+                MOVE_MERGE_WINDOW_MS
+            };
 
             let should_merge = context
                 .last_move_recorded_at
                 .and_then(|last| event_time.duration_since(last).ok())
-                .map(|elapsed| elapsed <= Duration::from_millis(MOVE_MERGE_WINDOW_MS))
+                .map(|elapsed| elapsed <= Duration::from_millis(merge_window_ms))
                 .unwrap_or(false);
 
             if should_merge {
@@ -353,7 +376,7 @@ fn handle_recording_event(
                                 path.push((x, y));
                                 MacroMoveStyle::Smooth { path, duration_ms }
                             }
-                            MacroRecordMouseMovesMode::Off => MacroMoveStyle::Instant,
+                            MacroRecordMouseMovesMode::Raw | MacroRecordMouseMovesMode::Off => MacroMoveStyle::Instant,
                         };
                         action.config = MacroActionConfig::Move { x, y, style };
                         context.last_pointer = Some((x, y));
@@ -375,16 +398,16 @@ fn handle_recording_event(
                 }
                 MacroRecordMouseMovesMode::Linear => {
                     context.last_move_start_time = Some(event_time);
-                    MacroMoveStyle::Linear { duration_ms: 100 }
+                    MacroMoveStyle::Linear { duration_ms: 50 }
                 }
                 MacroRecordMouseMovesMode::Smooth => {
                     context.last_move_start_time = Some(event_time);
                     MacroMoveStyle::Smooth {
                         path: vec![(x, y)],
-                        duration_ms: 100,
+                        duration_ms: 50,
                     }
                 }
-                MacroRecordMouseMovesMode::Off => {
+                MacroRecordMouseMovesMode::Raw | MacroRecordMouseMovesMode::Off => {
                     context.last_move_start_time = None;
                     MacroMoveStyle::Instant
                 }
@@ -395,6 +418,7 @@ fn handle_recording_event(
                 MacroActionConfig::Move { x, y, style },
                 Some(&mut context),
                 event_time,
+                false,
             );
             persist_and_emit_if_needed(state, app, &mut context, event_time);
         }
@@ -428,6 +452,7 @@ fn handle_recording_event(
                     },
                     Some(&mut context),
                     event_time,
+                    is_raw_mode,
                 );
                 persist_and_emit_if_needed(state, app, &mut context, event_time);
             }
@@ -452,6 +477,7 @@ fn handle_recording_event(
                         },
                         Some(&mut context),
                         event_time,
+                        is_raw_mode,
                     );
                     persist_and_emit_if_needed(state, app, &mut context, event_time);
                 }
@@ -484,6 +510,7 @@ fn handle_recording_event(
                     },
                     Some(&mut context),
                     event_time,
+                    is_raw_mode,
                 );
                 persist_and_emit_if_needed(state, app, &mut context, event_time);
             }
@@ -505,6 +532,7 @@ fn handle_recording_event(
                         },
                         Some(&mut context),
                         event_time,
+                        is_raw_mode,
                     );
                     persist_and_emit_if_needed(state, app, &mut context, event_time);
                 }
@@ -520,6 +548,7 @@ fn handle_recording_event(
                     },
                     Some(&mut context),
                     event_time,
+                    is_raw_mode,
                 );
                 persist_and_emit_if_needed(state, app, &mut context, event_time);
             }
@@ -527,16 +556,67 @@ fn handle_recording_event(
     }
 }
 
+fn append_raw_move_point(
+    state: &MacroEngineState,
+    context: &mut MacroRecordingContext,
+    x: i32,
+    y: i32,
+    recorded_at: SystemTime,
+) {
+    let timestamp_ms = context
+        .recording_started_at
+        .and_then(|started| recorded_at.duration_since(started).ok())
+        .map(|elapsed| elapsed.as_millis() as u64)
+        .unwrap_or(0);
+
+    let mut actions = state.actions.blocking_lock();
+    if let Some(last_action) = actions.last_mut() {
+        if let MacroActionConfig::RawMove { points } = &mut last_action.config {
+            points.push((x, y, timestamp_ms));
+            last_action.timestamp_ms = timestamp_ms;
+            drop(actions);
+            context.last_recorded_at = Some(recorded_at);
+            return;
+        }
+    }
+    drop(actions);
+
+    append_action(
+        state,
+        MacroActionConfig::RawMove {
+            points: vec![(x, y, timestamp_ms)],
+        },
+        Some(context),
+        recorded_at,
+        true,
+    );
+}
+
 fn append_action(
     state: &MacroEngineState,
     config: MacroActionConfig,
     context: Option<&mut MacroRecordingContext>,
     recorded_at: SystemTime,
+    use_timestamp: bool,
 ) {
     let is_move = matches!(config, MacroActionConfig::Move { .. });
     let id = state.action_id_counter.fetch_add(1, Ordering::SeqCst);
+    let timestamp_ms = if use_timestamp {
+        context
+            .as_ref()
+            .and_then(|ctx| ctx.recording_started_at)
+            .and_then(|started| recorded_at.duration_since(started).ok())
+            .map(|elapsed| elapsed.as_millis() as u64)
+            .unwrap_or(0)
+    } else {
+        0
+    };
     let mut actions = state.actions.blocking_lock();
-    actions.push(MacroAction { id, config });
+    actions.push(MacroAction {
+        id,
+        timestamp_ms,
+        config,
+    });
     drop(actions);
 
     if let Some(context) = context {
@@ -737,6 +817,10 @@ fn push_sleep_if_needed(
         return;
     }
 
+    if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Raw {
+        return;
+    }
+
     let Some(last_recorded_at) = context.last_recorded_at else {
         return;
     };
@@ -757,6 +841,7 @@ fn push_sleep_if_needed(
         },
         Some(context),
         event_time,
+        false,
     );
 }
 
@@ -843,16 +928,16 @@ pub async fn record_local_macro_event(
                                 }
                                 MacroRecordMouseMovesMode::Linear => {
                                     context.last_move_start_time = Some(event_time);
-                                    MacroMoveStyle::Linear { duration_ms: 100 }
+                                    MacroMoveStyle::Linear { duration_ms: 50 }
                                 }
                                 MacroRecordMouseMovesMode::Smooth => {
                                     context.last_move_start_time = Some(event_time);
                                     MacroMoveStyle::Smooth {
                                         path: vec![(x, y)],
-                                        duration_ms: 100,
+                                        duration_ms: 50,
                                     }
                                 }
-                                MacroRecordMouseMovesMode::Off => {
+                                MacroRecordMouseMovesMode::Raw | MacroRecordMouseMovesMode::Off => {
                                     context.last_move_start_time = None;
                                     MacroMoveStyle::Instant
                                 }
@@ -955,7 +1040,7 @@ pub async fn record_local_macro_event(
                         .unwrap_or_default()
                         .as_millis() as u64;
 
-                    if elapsed_ms >= MIN_SLEEP_MS {
+                    if elapsed_ms >= MIN_SLEEP_MS && recording_options.record_mouse_moves != MacroRecordMouseMovesMode::Raw {
                         let duration_ms = elapsed_ms.min(u32::MAX as u64) as u32;
                         sleep_config = Some(MacroActionConfig::Sleep { duration_ms });
                     }
@@ -1005,7 +1090,7 @@ pub async fn record_local_macro_event(
                         path.push((cx, cy));
                         MacroMoveStyle::Smooth { path, duration_ms }
                     }
-                    MacroRecordMouseMovesMode::Off => MacroMoveStyle::Instant,
+                    MacroRecordMouseMovesMode::Raw | MacroRecordMouseMovesMode::Off => MacroMoveStyle::Instant,
                 };
 
                 action.config = MacroActionConfig::Move {
@@ -1024,10 +1109,26 @@ pub async fn record_local_macro_event(
     } else if let Some(main_config) = main_action {
         let mut actions = macro_state.actions.lock().await;
 
+        let use_timestamp = recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Raw;
+        let timestamp_ms = if use_timestamp {
+            let context = macro_state
+                .recording_context
+                .lock()
+                .map_err(|e| e.to_string())?;
+            context
+                .recording_started_at
+                .and_then(|started| event_time.duration_since(started).ok())
+                .map(|elapsed| elapsed.as_millis() as u64)
+                .unwrap_or(0)
+        } else {
+            0
+        };
+
         if let Some(sleep_cfg) = sleep_config {
             let sleep_id = macro_state.action_id_counter.fetch_add(1, Ordering::SeqCst);
             actions.push(MacroAction {
                 id: sleep_id,
+                timestamp_ms: 0,
                 config: sleep_cfg,
             });
         }
@@ -1036,6 +1137,7 @@ pub async fn record_local_macro_event(
         let main_is_move = matches!(main_config, MacroActionConfig::Move { .. });
         actions.push(MacroAction {
             id: main_id,
+            timestamp_ms,
             config: main_config,
         });
         let last_id = Some(main_id);

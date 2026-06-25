@@ -7,6 +7,7 @@ import type {
     MacroActionType,
     MacroKeyboardDraft,
     MacroMouseDraft,
+    MacroMoveDraft,
     MacroBackendAction,
 } from "./types";
 
@@ -694,6 +695,14 @@ export function generateConfigUi(type: MacroActionType): string {
                     </div>
                 </div>
             `;
+        case "raw_move":
+            return `
+                <div class="section-row">
+                    <div style="font-size: 12px; color: var(--text-dim); text-align: center; width: 100%;">
+                        Raw move actions cannot be edited manually.
+                    </div>
+                </div>
+            `;
     }
 }
 
@@ -752,6 +761,14 @@ export function gatherConfig(type: MacroActionType): MacroActionDraft {
         return {
             durationMs: (document.getElementById("cfg-sleep-ms") as HTMLInputElement | null)?.value || "500",
         };
+    }
+
+    if (type === "raw_move") {
+        return {
+            x: "0",
+            y: "0",
+            style: "instant",
+        } as MacroMoveDraft;
     }
 
     const amountVal = Number((document.getElementById("cfg-scroll-amount") as HTMLInputElement | null)?.value || "1");

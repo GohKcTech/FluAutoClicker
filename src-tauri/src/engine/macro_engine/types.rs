@@ -58,6 +58,9 @@ pub enum MacroActionConfig {
     Scroll {
         clicks: i32,
     },
+    RawMove {
+        points: Vec<(i32, i32, u64)>,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -72,6 +75,8 @@ pub enum MacroKeyboardAction {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MacroAction {
     pub id: u64,
+    #[serde(default)]
+    pub timestamp_ms: u64,
     pub config: MacroActionConfig,
 }
 
@@ -95,6 +100,7 @@ pub enum MacroRecordMouseMovesMode {
     Instant,
     Linear,
     Smooth,
+    Raw,
 }
 
 impl Default for MacroRecordMouseMovesMode {
@@ -136,6 +142,7 @@ where
                 "instant" | "true" | "on" => Ok(MacroRecordMouseMovesMode::Instant),
                 "linear" => Ok(MacroRecordMouseMovesMode::Linear),
                 "smooth" => Ok(MacroRecordMouseMovesMode::Smooth),
+                "raw" => Ok(MacroRecordMouseMovesMode::Raw),
                 _ => Ok(MacroRecordMouseMovesMode::Off),
             }
         }

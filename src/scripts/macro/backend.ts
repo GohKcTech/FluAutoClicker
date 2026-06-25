@@ -252,6 +252,19 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         };
     }
 
+    if (type === "raw_move") {
+        const points = Number(config.points || 0);
+        const start = typeof config.start === "string" ? config.start : "?";
+        const end = typeof config.end === "string" ? config.end : "?";
+        return {
+            id,
+            type,
+            name: "Raw Move",
+            details: `${points} points (${start} → ${end})`,
+            icon: "&#57987;",
+        };
+    }
+
     return null;
 }
 
@@ -308,6 +321,13 @@ export function toBackendConfig(type: MacroActionType, draft: MacroActionDraft):
         return {
             type: "scroll",
             clicks: Number(scrollDraft.clicks || 0),
+        };
+    }
+
+    if (type === "raw_move") {
+        return {
+            type: "raw_move",
+            points: [],
         };
     }
 

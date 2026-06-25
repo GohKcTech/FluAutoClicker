@@ -1312,7 +1312,11 @@ pub async fn add_macro_action(
         .action_id_counter
         .fetch_add(1, Ordering::SeqCst);
 
-    let action = MacroAction { id, config };
+    let action = MacroAction {
+        id,
+        timestamp_ms: 0,
+        config,
+    };
 
     let mut actions = state.macro_engine.actions.lock().await;
     actions.push(action);
@@ -1633,6 +1637,7 @@ pub async fn get_macro_actions(
     let result: Vec<serde_json::Value> = actions.iter().map(|action| {
         serde_json::json!({
             "id": action.id,
+            "timestamp_ms": action.timestamp_ms,
             "config": match &action.config {
                 MacroActionConfig::Mouse { button, action: mouse_action, position } => {
                     serde_json::json!({
@@ -1691,6 +1696,19 @@ pub async fn get_macro_actions(
                     serde_json::json!({
                         "type": "scroll",
                         "clicks": clicks,
+                    })
+                }
+                MacroActionConfig::RawMove { points } => {
+                    let duration_ms = points
+                        .first()
+                        .and_then(|first| points.last().map(|last| (last.2.saturating_sub(first.2)) as u32))
+                        .unwrap_or(0);
+                    serde_json::json!({
+                        "type": "raw_move",
+                        "points": points.len(),
+                        "duration_ms": duration_ms,
+                        "start": points.first().map(|(x, y, _)| format!("{}, {}", x, y)),
+                        "end": points.last().map(|(x, y, _)| format!("{}, {}", x, y)),
                     })
                 }
             }

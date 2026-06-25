@@ -39,6 +39,8 @@ export function getMacroDurationMs(actions: MacroBackendAction[]): number {
                     }
                 }
             }
+        } else if (config.type === "raw_move") {
+            totalMs += Number(config.duration_ms) || 0;
         }
     }
     return totalMs;

@@ -60,7 +60,7 @@ pub struct MacroFile {
 }
 
 impl MacroFile {
-    pub const CURRENT_VERSION: u32 = 1;
+    pub const CURRENT_VERSION: u32 = 2;
 
     pub fn new(
         actions: Vec<MacroAction>,
@@ -73,5 +73,18 @@ impl MacroFile {
             repeat_mode,
             recording_options,
         }
+    }
+
+    pub fn migrate(mut self) -> Self {
+        if self.version >= Self::CURRENT_VERSION {
+            return self;
+        }
+        if self.version == 1 {
+            for action in &mut self.actions {
+                action.timestamp_ms = 0;
+            }
+            self.version = Self::CURRENT_VERSION;
+        }
+        self
     }
 }
