@@ -40,24 +40,46 @@
 
 .time-inputs-row {
 	display: flex;
-	gap: 7px;
-	padding: 8px 8px 4px;
+	gap: 6px;
+	padding: 0;
 }
 
 .time-input-box {
-	background: var(--control-bg);
-	border-radius: var(--radius);
 	flex: 1;
-	min-height: 44px;
+	min-height: 38px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	justify-content: center;
 	position: relative;
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-.time-input-box input {
+.time-input-box::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 30px;
+	background: color-mix(in srgb, var(--control-bg) 85%, #000);
+	border-radius: 0 0 var(--radius) var(--radius);
+	z-index: 0;
+}
+
+.time-input-wrap {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-height: 0;
+	background: var(--control-bg);
+	border-radius: var(--radius);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+	position: relative;
+	z-index: 1;
+}
+
+.time-input-wrap input {
 	background: transparent;
 	border: none;
 	outline: none;
@@ -67,40 +89,45 @@
 	font-size: 24px;
 	text-align: center;
 	width: 100%;
-	padding: 0;
+	padding: 2px 0;
+	line-height: 1;
 	-moz-appearance: textfield;
 	appearance: textfield;
 }
 
-.time-input-box input::-webkit-outer-spin-button,
-.time-input-box input::-webkit-inner-spin-button {
+.time-input-wrap input::-webkit-outer-spin-button,
+.time-input-wrap input::-webkit-inner-spin-button {
 	-webkit-appearance: none;
 	margin: 0;
 }
 
-.time-input-box input:focus {
+.time-input-wrap input:focus {
 	color: var(--accent);
 }
 
-.time-labels-row {
-	display: flex;
-	gap: 7px;
-	padding: 0 8px 6px;
-}
-
 .time-label {
-	flex: 1;
 	font-family: var(--font);
 	font-weight: 300;
-	font-size: 12px;
+	font-size: 9px;
 	color: var(--text-label);
 	text-align: center;
+	line-height: 1;
+	padding: 12px 0 4px;
+	width: 100%;
+	border-radius: 0 0 var(--radius) var(--radius);
+	letter-spacing: 0.3px;
+	text-transform: lowercase;
+	flex-shrink: 0;
+	margin-top: calc(-1 * var(--radius));
+	position: relative;
+	z-index: 1;
 }
 
 
 
 .slider-row {
-	padding: 0 8px 8px;
+	padding: 0;
+	margin-bottom: -4px;
 }
 
 .interval-slider {
