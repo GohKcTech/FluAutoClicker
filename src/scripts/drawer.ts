@@ -6,23 +6,34 @@ import { ensureUinputPermissionsForFeature } from "./uinput-permissions";
 import { updateSliderFill } from "./utils";
 
 const DRAWER_FOCUSABLE_SELECTOR = [
-    'button:not([disabled])',
-    'input:not([disabled])',
-    'select:not([disabled])',
-    'textarea:not([disabled])',
-    'a[href]',
+    "button:not([disabled])",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    "a[href]",
     '[tabindex]:not([tabindex="-1"])',
-].join(',');
+].join(",");
 
 let drawerReturnFocus: HTMLElement | null = null;
 
+const DRAWER_HEIGHT_KEY = "flu-drawer-height-pct";
+const DRAWER_HEIGHT_DEFAULT = 75;
+
 function isVisibleElement(element: HTMLElement) {
-    return Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+    return Boolean(
+        element.offsetWidth ||
+        element.offsetHeight ||
+        element.getClientRects().length,
+    );
 }
 
 function getDrawerFocusableElements(drawer: HTMLElement) {
-    return Array.from(drawer.querySelectorAll<HTMLElement>(DRAWER_FOCUSABLE_SELECTOR))
-        .filter((element) => !element.hasAttribute("inert") && isVisibleElement(element));
+    return Array.from(
+        drawer.querySelectorAll<HTMLElement>(DRAWER_FOCUSABLE_SELECTOR),
+    ).filter(
+        (element) =>
+            !element.hasAttribute("inert") && isVisibleElement(element),
+    );
 }
 
 function setDrawerAccessibilityState(drawer: HTMLElement, isOpen: boolean) {
@@ -32,14 +43,20 @@ function setDrawerAccessibilityState(drawer: HTMLElement, isOpen: boolean) {
 
 function rememberDrawerReturnFocus(drawer: HTMLElement) {
     const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement && !drawer.contains(activeElement)) {
+    if (
+        activeElement instanceof HTMLElement &&
+        !drawer.contains(activeElement)
+    ) {
         drawerReturnFocus = activeElement;
     }
 }
 
 function restoreDrawerReturnFocus(drawer: HTMLElement) {
     const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement && drawer.contains(activeElement)) {
+    if (
+        activeElement instanceof HTMLElement &&
+        drawer.contains(activeElement)
+    ) {
         activeElement.blur();
     }
 
@@ -50,61 +67,67 @@ function restoreDrawerReturnFocus(drawer: HTMLElement) {
 }
 
 export function openDrawer(sectionId: string, title: string, icon?: string) {
-    const drawer = document.getElementById('bottom-drawer');
-    const drawerOverlay = document.getElementById('drawer-overlay');
-    const drawerTitleText = document.getElementById('drawer-title-text');
-    const drawerTitleIcon = document.getElementById('drawer-title-icon');
-    const drawerSections = document.querySelectorAll('.drawer-section');
+    const drawer = document.getElementById("drawer-shell");
+    const drawerOverlay = document.getElementById("drawer-overlay");
+    const drawerSection = document.getElementById("drawer-title-section");
+    const drawerGroup = document.getElementById("drawer-title-group");
+    const drawerTitleIcon = document.getElementById("drawer-title-icon");
+    const drawerSections = document.querySelectorAll(".drawer-section");
 
-    if (!drawer || !drawerOverlay || !drawerTitleText) return;
+    if (!drawer || !drawerOverlay || !drawerSection) return;
 
     rememberDrawerReturnFocus(drawer);
     setDrawerAccessibilityState(drawer, true);
-    
-    drawerTitleText.textContent = title;
-    if (drawerTitleIcon) {
-        drawerTitleIcon.innerHTML = icon || '';
-        drawerTitleIcon.style.display = icon ? 'flex' : 'none';
+
+    const titleParts = title.split(" > ");
+    drawerSection.textContent = titleParts[0];
+    if (titleParts.length > 1 && drawerGroup) {
+        drawerGroup.innerHTML = `<span style="color: var(--text-dim);"> ></span> ${titleParts.slice(1).join(" > ")}`;
+    } else if (drawerGroup) {
+        drawerGroup.textContent = "";
     }
-    
-    drawerSections.forEach(s => s.classList.remove('active'));
+    if (drawerTitleIcon) {
+        drawerTitleIcon.innerHTML = icon || "";
+        drawerTitleIcon.style.display = icon ? "flex" : "none";
+    }
+
+    drawerSections.forEach((s) => s.classList.remove("active"));
     const target = document.getElementById(sectionId);
-    if (target) target.classList.add('active');
-    
-    drawer.classList.add('active');
-    drawerOverlay.classList.add('active');
-    document.getElementById('content')?.classList.add('blurred');
-    
-    
+    if (target) target.classList.add("active");
+
+    drawer.classList.add("active");
+    drawerOverlay.classList.add("active");
+    document.getElementById("content")?.classList.add("blurred");
+
     setTimeout(() => refreshDrawerUi(target), 50);
 }
 
 export function closeDrawer() {
-    const drawer = document.getElementById('bottom-drawer');
-    const drawerOverlay = document.getElementById('drawer-overlay');
-    drawer?.classList.remove('active');
-    drawerOverlay?.classList.remove('active');
+    const drawer = document.getElementById("drawer-shell");
+    const drawerOverlay = document.getElementById("drawer-overlay");
+    drawer?.classList.remove("active");
+    drawerOverlay?.classList.remove("active");
     if (drawer) {
         restoreDrawerReturnFocus(drawer);
         setDrawerAccessibilityState(drawer, false);
     }
     setTimeout(() => {
-        document.getElementById('content')?.classList.remove('blurred');
+        document.getElementById("content")?.classList.remove("blurred");
     }, 300);
 }
 
 function refreshDrawerUi(section?: HTMLElement | null) {
-    const rows = document.querySelectorAll('.multi-button-row');
-    rows.forEach(row => {
-        const indicator = row.querySelector('.slide-indicator') as HTMLElement;
-        const activeBtn = row.querySelector('.multi-btn.active') as HTMLElement;
+    const rows = document.querySelectorAll(".multi-button-row");
+    rows.forEach((row) => {
+        const indicator = row.querySelector(".slide-indicator") as HTMLElement;
+        const activeBtn = row.querySelector(".multi-btn.active") as HTMLElement;
         if (indicator && activeBtn) {
             indicator.style.width = `${activeBtn.offsetWidth}px`;
             indicator.style.left = `${activeBtn.offsetLeft}px`;
         }
     });
 
-    section?.querySelectorAll('.interval-slider').forEach(slider => {
+    section?.querySelectorAll(".interval-slider").forEach((slider) => {
         updateSliderFill(slider as HTMLInputElement);
     });
 }
@@ -133,7 +156,12 @@ function bindHelpLink(elementId: string, url: string, label: string) {
     });
 }
 
-function bindDrawerLink(elementId: string, sectionId: string, title: string, icon?: string) {
+function bindDrawerLink(
+    elementId: string,
+    sectionId: string,
+    title: string,
+    icon?: string,
+) {
     const element = document.getElementById(elementId);
     if (!element) return;
 
@@ -150,15 +178,19 @@ function bindDrawerLink(elementId: string, sectionId: string, title: string, ico
 }
 
 export function initDrawer() {
-    const drawerOverlay = document.getElementById('drawer-overlay');
-    const drawer = document.getElementById('bottom-drawer');
-    const drawerClose = document.getElementById('drawer-close-btn');
+    const drawerOverlay = document.getElementById("drawer-overlay");
+    const drawer = document.getElementById("drawer-shell");
+    const drawerClose = document.getElementById("drawer-close-btn");
 
     if (drawer) {
-        setDrawerAccessibilityState(drawer, drawer.classList.contains('active'));
+        setDrawerAccessibilityState(
+            drawer,
+            drawer.classList.contains("active"),
+        );
 
-        drawer.addEventListener('keydown', (event) => {
-            if (event.key !== 'Tab' || !drawer.classList.contains('active')) return;
+        drawer.addEventListener("keydown", (event) => {
+            if (event.key !== "Tab" || !drawer.classList.contains("active"))
+                return;
 
             const focusableElements = getDrawerFocusableElements(drawer);
             if (focusableElements.length === 0) {
@@ -180,65 +212,91 @@ export function initDrawer() {
         });
     }
 
-    drawerClose?.addEventListener('click', closeDrawer);
-    drawerOverlay?.addEventListener('click', closeDrawer);
+    drawerClose?.addEventListener("click", closeDrawer);
+    drawerOverlay?.addEventListener("click", closeDrawer);
 
-    document.getElementById('settings-btn')?.addEventListener('click', () => openDrawer('section-settings', 'Settings', '&#xe154;'));
-    document.getElementById('hotkeys-btn')?.addEventListener('click', () => openDrawer('section-hotkeys', 'Hotkeys', '&#xe284;'));
-    document.getElementById('profiles-btn')?.addEventListener('click', () => openDrawer('section-profiles', 'Profiles System', '&#xe36b;'));
-    document.getElementById('help-btn')?.addEventListener('click', () => openDrawer('section-help', 'Help & Resources', '&#xe47b;'));
-    bindHelpLink('help-discord-link', 'https://agzes.github.io/go/to/discord', 'Discord');
-    bindHelpLink('help-github-link', 'https://github.com/Agzes/FluAutoClicker', 'GitHub');
-    bindDrawerLink('help-updates-link', 'section-updates', 'Updates', '&#xe47b;');
+    document
+        .getElementById("settings-btn")
+        ?.addEventListener("click", () =>
+            openDrawer("section-settings", "Settings > General", "&#xe154;"),
+        );
+    document
+        .getElementById("hotkeys-btn")
+        ?.addEventListener("click", () =>
+            openDrawer("section-hotkeys", "Hotkeys", "&#xe284;"),
+        );
+    document
+        .getElementById("profiles-btn")
+        ?.addEventListener("click", () =>
+            openDrawer("section-profiles", "Profiles System", "&#xe36b;"),
+        );
+    document
+        .getElementById("help-btn")
+        ?.addEventListener("click", () =>
+            openDrawer("section-help", "Help & Resources", "&#xe47b;"),
+        );
+    bindHelpLink(
+        "help-discord-link",
+        "https://agzes.github.io/go/to/discord",
+        "Discord",
+    );
+    bindHelpLink(
+        "help-github-link",
+        "https://github.com/Agzes/FluAutoClicker",
+        "GitHub",
+    );
+    initDrawerResize();
+    initDrawerHoverTitle();
 
     return { openDrawer, closeDrawer };
 }
 
-
 export function initJiggler() {
-    
-    const jigglerToggle = document.getElementById('jiggler-toggle');
+    const jigglerToggle = document.getElementById("jiggler-toggle");
     if (jigglerToggle) {
-        jigglerToggle.addEventListener('click', async () => {
-            
+        jigglerToggle.addEventListener("click", async () => {
             if (!(await ensureUinputPermissionsForFeature())) {
                 return;
             }
 
-            const newState = await invoke("toggle_jiggler") as boolean;
-            jigglerToggle.classList.toggle('active', newState);
+            const newState = (await invoke("toggle_jiggler")) as boolean;
+            jigglerToggle.classList.toggle("active", newState);
 
-            
-            const mainBtn = document.getElementById('jiggler-btn');
-            mainBtn?.classList.toggle('active', newState);
+            const mainBtn = document.getElementById("jiggler-btn");
+            mainBtn?.classList.toggle("active", newState);
         });
     }
 
-    
-    const patternRow = document.getElementById('jiggler-pattern-row');
+    const patternRow = document.getElementById("jiggler-pattern-row");
     if (patternRow) {
-        const buttons = patternRow.querySelectorAll('.multi-btn');
-        const ozoneHelp = document.getElementById('jiggler-ozone-help');
+        const buttons = patternRow.querySelectorAll(".multi-btn");
+        const ozoneHelp = document.getElementById("jiggler-ozone-help");
         const syncOzoneHelp = () => {
-            const activePattern = (patternRow.querySelector('.multi-btn.active') as HTMLElement | null)?.dataset.pattern;
-            ozoneHelp?.classList.toggle('visible', activePattern === 'ozn');
+            const activePattern = (
+                patternRow.querySelector(
+                    ".multi-btn.active",
+                ) as HTMLElement | null
+            )?.dataset.pattern;
+            ozoneHelp?.classList.toggle("visible", activePattern === "ozn");
         };
         syncOzoneHelp();
-        buttons.forEach(btn => {
-            btn.addEventListener('click', async () => {
-                buttons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+        buttons.forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                buttons.forEach((b) => b.classList.remove("active"));
+                btn.classList.add("active");
                 syncOzoneHelp();
-                
-                
-                const indicator = patternRow.querySelector('.slide-indicator') as HTMLElement;
-                const activeBtn = patternRow.querySelector('.multi-btn.active') as HTMLElement;
+
+                const indicator = patternRow.querySelector(
+                    ".slide-indicator",
+                ) as HTMLElement;
+                const activeBtn = patternRow.querySelector(
+                    ".multi-btn.active",
+                ) as HTMLElement;
                 if (indicator && activeBtn) {
                     indicator.style.width = `${activeBtn.offsetWidth}px`;
                     indicator.style.left = `${activeBtn.offsetLeft}px`;
                 }
-                
-                
+
                 const pattern = (btn as HTMLElement).dataset.pattern;
                 if (pattern) {
                     await invoke("set_jiggler_pattern", { pattern });
@@ -247,26 +305,32 @@ export function initJiggler() {
         });
     }
 
-    
-    const intervalSlider = document.getElementById('jiggler-slider') as HTMLInputElement;
+    const intervalSlider = document.getElementById(
+        "jiggler-slider",
+    ) as HTMLInputElement;
     if (intervalSlider) {
-        intervalSlider.addEventListener('input', () => {
+        intervalSlider.addEventListener("input", () => {
             const value = parseInt(intervalSlider.value);
-            const valueDisplay = intervalSlider.parentElement?.querySelector('.visual-slider-value');
+            const valueDisplay = intervalSlider.parentElement?.querySelector(
+                ".visual-slider-value",
+            );
             if (valueDisplay) {
                 valueDisplay.textContent = `${value}s`;
             }
-            
+
             invoke("set_jiggler_interval", { interval: value * 1000 });
         });
     }
 
-    
-    const distanceSlider = document.getElementById('jiggler-distance-slider') as HTMLInputElement;
+    const distanceSlider = document.getElementById(
+        "jiggler-distance-slider",
+    ) as HTMLInputElement;
     if (distanceSlider) {
-        distanceSlider.addEventListener('input', () => {
+        distanceSlider.addEventListener("input", () => {
             const value = parseInt(distanceSlider.value);
-            const valueDisplay = distanceSlider.parentElement?.querySelector('.visual-slider-value');
+            const valueDisplay = distanceSlider.parentElement?.querySelector(
+                ".visual-slider-value",
+            );
             if (valueDisplay) {
                 valueDisplay.textContent = `${value}px`;
             }
@@ -277,40 +341,46 @@ export function initJiggler() {
     void listen("jiggler-status-changed", (event) => {
         const payload = event.payload as { active?: boolean };
         const active = Boolean(payload?.active);
-        jigglerToggle?.classList.toggle('active', active);
-        document.getElementById('jiggler-btn')?.classList.toggle('active', active);
+        jigglerToggle?.classList.toggle("active", active);
+        document
+            .getElementById("jiggler-btn")
+            ?.classList.toggle("active", active);
     });
 }
 
 export function initTimingModal(onConfirm: () => void) {
-    const modal = document.getElementById('timing-warning-modal');
-    const track = document.getElementById('timing-unlock-track');
-    const progress = document.getElementById('timing-unlock-progress');
-    const text = track?.querySelector('.unlock-slider-text');
-    const handle = document.getElementById('timing-unlock-handle');
-    const cancel = document.getElementById('timing-cancel-btn');
+    const modal = document.getElementById("timing-warning-modal");
+    const track = document.getElementById("timing-unlock-track");
+    const progress = document.getElementById("timing-unlock-progress");
+    const text = track?.querySelector(".unlock-slider-text");
+    const handle = document.getElementById("timing-unlock-handle");
+    const cancel = document.getElementById("timing-cancel-btn");
 
     if (modal && track && handle && cancel) {
         let isDragging = false;
         let startX = 0;
         let currentX = 0;
         let maxDelta = 0;
-        const handleTransition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease';
-        const handleDragTransition = 'transform 0s linear, background 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease';
-        const progressTransition = 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
-        const progressDragTransition = 'width 0s linear, background 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
+        const handleTransition =
+            "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease";
+        const handleDragTransition =
+            "transform 0s linear, background 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease";
+        const progressTransition =
+            "width 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
+        const progressDragTransition =
+            "width 0s linear, background 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
 
         const resetHandle = () => {
             isDragging = false;
             currentX = 0;
-            handle.style.transform = 'translateX(0)';
+            handle.style.transform = "translateX(0)";
             handle.style.transition = handleTransition;
             if (progress) {
-                progress.style.width = '0';
+                progress.style.width = "0";
                 progress.style.transition = progressTransition;
             }
-            if (text) text.textContent = 'Slide to confirm';
-            track.classList.remove('unlocked');
+            if (text) text.textContent = "Slide to confirm";
+            track.classList.remove("unlocked");
         };
 
         const startDragging = (clientX: number) => {
@@ -323,38 +393,40 @@ export function initTimingModal(onConfirm: () => void) {
 
         const moveDragging = (clientX: number) => {
             if (!isDragging) return;
-            
+
             let delta = clientX - startX;
             if (delta < 0) delta = 0;
             if (delta > maxDelta) delta = maxDelta;
-            
+
             currentX = delta;
             handle.style.transform = `translateX(${delta}px)`;
             if (progress) {
-                progress.style.width = `${delta + 21}px`; 
+                progress.style.width = `${delta + 21}px`;
             }
 
-            const iconEl = document.getElementById('timing-unlock-icon');
+            const iconEl = document.getElementById("timing-unlock-icon");
             if (delta >= maxDelta * 0.98) {
-                track.classList.add('unlocked');
-                if (text) text.textContent = 'Release to confirm';
-                if (iconEl) iconEl.innerHTML = '&#58544;';
+                track.classList.add("unlocked");
+                if (text) text.textContent = "Release to confirm";
+                if (iconEl) iconEl.innerHTML = "&#58544;";
             } else {
-                track.classList.remove('unlocked');
-                if (text) text.textContent = 'Slide to confirm';
-                if (iconEl) iconEl.innerHTML = '&#58591;';
+                track.classList.remove("unlocked");
+                if (text) text.textContent = "Slide to confirm";
+                if (iconEl) iconEl.innerHTML = "&#58591;";
             }
         };
 
-        handle.addEventListener('mousedown', (e) => startDragging(e.clientX));
-        window.addEventListener('mousemove', (e) => moveDragging(e.clientX));
-        window.addEventListener('mouseup', () => {
+        handle.addEventListener("mousedown", (e) => startDragging(e.clientX));
+        window.addEventListener("mousemove", (e) => moveDragging(e.clientX));
+        window.addEventListener("mouseup", () => {
             if (!isDragging) return;
             if (currentX >= maxDelta * 0.98) {
-                modal.classList.remove('active');
+                modal.classList.remove("active");
                 setTimeout(() => {
-                    modal.style.display = 'none';
-                    document.getElementById('content')?.classList.remove('blurred');
+                    modal.style.display = "none";
+                    document
+                        .getElementById("content")
+                        ?.classList.remove("blurred");
                 }, 300);
                 onConfirm();
                 setTimeout(resetHandle, 300);
@@ -364,16 +436,25 @@ export function initTimingModal(onConfirm: () => void) {
             isDragging = false;
         });
 
-        
-        handle.addEventListener('touchstart', (e) => startDragging(e.touches[0].clientX), { passive: true });
-        window.addEventListener('touchmove', (e) => moveDragging(e.touches[0].clientX), { passive: true });
-        window.addEventListener('touchend', () => {
+        handle.addEventListener(
+            "touchstart",
+            (e) => startDragging(e.touches[0].clientX),
+            { passive: true },
+        );
+        window.addEventListener(
+            "touchmove",
+            (e) => moveDragging(e.touches[0].clientX),
+            { passive: true },
+        );
+        window.addEventListener("touchend", () => {
             if (!isDragging) return;
             if (currentX >= maxDelta * 0.98) {
-                modal.classList.remove('active');
+                modal.classList.remove("active");
                 setTimeout(() => {
-                    modal.style.display = 'none';
-                    document.getElementById('content')?.classList.remove('blurred');
+                    modal.style.display = "none";
+                    document
+                        .getElementById("content")
+                        ?.classList.remove("blurred");
                 }, 300);
                 onConfirm();
                 setTimeout(resetHandle, 300);
@@ -383,14 +464,190 @@ export function initTimingModal(onConfirm: () => void) {
             isDragging = false;
         });
 
-        cancel.addEventListener('click', () => {
-            modal.classList.remove('active');
+        cancel.addEventListener("click", () => {
+            modal.classList.remove("active");
             setTimeout(() => {
-                modal.style.display = 'none';
-                document.getElementById('content')?.classList.remove('blurred');
+                modal.style.display = "none";
+                document.getElementById("content")?.classList.remove("blurred");
             }, 300);
             resetHandle();
         });
     }
 }
 
+function getDrawerHeightPct(): number {
+    try {
+        const v = localStorage.getItem(DRAWER_HEIGHT_KEY);
+        if (v !== null) {
+            const n = Number(v);
+            if (!isNaN(n) && n >= 25 && n <= 90) return n;
+        }
+    } catch {}
+    return DRAWER_HEIGHT_DEFAULT;
+}
+
+function saveDrawerHeightPct(pct: number) {
+    try {
+        localStorage.setItem(DRAWER_HEIGHT_KEY, String(pct));
+    } catch {}
+}
+
+function applyDrawerHeightPct(pct: number) {
+    const drawer = document.getElementById("drawer-shell");
+    if (!drawer) return;
+    const maxH = window.innerHeight * (pct / 100);
+    const minH = window.innerHeight * 0.25;
+    const clamped = Math.max(minH, maxH);
+    drawer.style.height = `${clamped}px`;
+}
+
+function setDrawerHeight(heightPx: number) {
+    const drawer = document.getElementById("drawer-shell");
+    if (!drawer) return;
+    const maxH = window.innerHeight * 0.9;
+    const minH = window.innerHeight * 0.25;
+    const clamped = Math.max(minH, Math.min(maxH, heightPx));
+    drawer.style.height = `${clamped}px`;
+}
+
+export function initDrawerResize() {
+    const handle = document.getElementById("drawer-drag-handle");
+    const drawer = document.getElementById("drawer-shell");
+    if (!handle || !drawer) return;
+
+    applyDrawerHeightPct(getDrawerHeightPct());
+
+    let isDragging = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const onStart = (clientY: number) => {
+        isDragging = true;
+        startY = clientY;
+        startHeight = drawer.offsetHeight;
+        document.body.style.cursor = "ns-resize";
+        document.body.style.userSelect = "none";
+    };
+
+    const onMove = (clientY: number) => {
+        if (!isDragging) return;
+        const maxDelta = window.innerHeight * 0.9 - startHeight;
+        const minDelta = window.innerHeight * 0.25 - startHeight;
+        let delta = startY - clientY;
+        delta = Math.max(minDelta, Math.min(maxDelta, delta));
+        setDrawerHeight(startHeight + delta);
+    };
+
+    const onEnd = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        const pct = Math.round(
+            (drawer.offsetHeight / window.innerHeight) * 100,
+        );
+        saveDrawerHeightPct(Math.max(25, Math.min(90, pct)));
+    };
+
+    handle.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        onStart(e.clientY);
+    });
+    window.addEventListener("mousemove", (e) => onMove(e.clientY));
+    window.addEventListener("mouseup", onEnd);
+
+    handle.addEventListener(
+        "touchstart",
+        (e) => {
+            onStart(e.touches[0].clientY);
+        },
+        { passive: true },
+    );
+    window.addEventListener(
+        "touchmove",
+        (e) => {
+            onMove(e.touches[0].clientY);
+        },
+        { passive: true },
+    );
+    window.addEventListener("touchend", onEnd);
+}
+
+function setDrawerTitleHtml(group: string) {
+    const groupEl = document.getElementById("drawer-title-group");
+    const section = document.getElementById("drawer-title-section");
+    if (!groupEl || !section) return;
+
+    const newHtml = `<span style="color: var(--text-dim);"> ></span> ${group}`;
+    if (groupEl.innerHTML === newHtml) return;
+
+    const oldSectionRect = section.getBoundingClientRect();
+    const oldSectionCenter = oldSectionRect.left + oldSectionRect.width / 2;
+
+    groupEl.classList.add("slide-out");
+
+    setTimeout(() => {
+        groupEl.innerHTML = newHtml;
+
+        const newSectionRect = section.getBoundingClientRect();
+        const newSectionCenter = newSectionRect.left + newSectionRect.width / 2;
+        const movedBy = newSectionCenter - oldSectionCenter;
+
+        section.style.transition = "none";
+        section.style.transform = `translateX(${-movedBy}px)`;
+        void section.offsetWidth;
+
+        groupEl.classList.remove("slide-out");
+        groupEl.classList.add("slide-in");
+
+        section.style.transition =
+            "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)";
+        section.style.transform = "translateX(0)";
+
+        void groupEl.offsetWidth;
+
+        groupEl.classList.add("slide-in-active");
+
+        setTimeout(() => {
+            groupEl.classList.remove("slide-in", "slide-in-active");
+            section.style.transition = "";
+            section.style.transform = "";
+        }, 220);
+    }, 200);
+}
+
+function initDrawerHoverTitle() {
+    const wrapper = document.getElementById("drawer-sections-wrapper");
+    if (!wrapper) return;
+
+    let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+    let currentGroup = "";
+
+    const getGroupForItem = (item: HTMLElement): string | null => {
+        let el: HTMLElement | null = item;
+        while (el && el !== wrapper && el.parentElement !== wrapper) {
+            const prev = el.previousElementSibling as HTMLElement | null;
+            if (prev && prev.hasAttribute("data-group")) {
+                return prev.getAttribute("data-group");
+            }
+            el = prev;
+        }
+        return null;
+    };
+
+    wrapper.addEventListener("mouseover", (e) => {
+        const target = (e.target as HTMLElement).closest(
+            ".settings-list-item, .hotkey-list-item, .help-list-item",
+        );
+        if (!target) return;
+
+        const group = getGroupForItem(target as HTMLElement);
+        if (!group || group === currentGroup) return;
+
+        if (hoverTimer) clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(() => {
+            currentGroup = group;
+            setDrawerTitleHtml(group);
+        }, 200);
+    });
+}

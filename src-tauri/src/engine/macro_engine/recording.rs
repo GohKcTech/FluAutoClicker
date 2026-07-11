@@ -308,11 +308,12 @@ fn handle_recording_event(
             }
 
             if !is_raw_mode {
-                let threshold = if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Smooth {
-                    MOVE_THRESHOLD_PX
-                } else {
-                    MOVE_THRESHOLD_PX
-                };
+                let threshold =
+                    if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Smooth {
+                        MOVE_THRESHOLD_PX
+                    } else {
+                        MOVE_THRESHOLD_PX
+                    };
                 if let Some((prev_x, prev_y)) = previous_pointer {
                     let delta_x = (prev_x - x).abs();
                     let delta_y = (prev_y - y).abs();
@@ -328,11 +329,12 @@ fn handle_recording_event(
                 return;
             }
 
-            let merge_window_ms = if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Smooth {
-                SMOOTH_MOVE_MERGE_WINDOW_MS
-            } else {
-                MOVE_MERGE_WINDOW_MS
-            };
+            let merge_window_ms =
+                if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Smooth {
+                    SMOOTH_MOVE_MERGE_WINDOW_MS
+                } else {
+                    MOVE_MERGE_WINDOW_MS
+                };
 
             let should_merge = context
                 .last_move_recorded_at
@@ -376,7 +378,9 @@ fn handle_recording_event(
                                 path.push((x, y));
                                 MacroMoveStyle::Smooth { path, duration_ms }
                             }
-                            MacroRecordMouseMovesMode::Raw | MacroRecordMouseMovesMode::Off => MacroMoveStyle::Instant,
+                            MacroRecordMouseMovesMode::Raw | MacroRecordMouseMovesMode::Off => {
+                                MacroMoveStyle::Instant
+                            }
                         };
                         action.config = MacroActionConfig::Move { x, y, style };
                         context.last_pointer = Some((x, y));
@@ -1040,7 +1044,9 @@ pub async fn record_local_macro_event(
                         .unwrap_or_default()
                         .as_millis() as u64;
 
-                    if elapsed_ms >= MIN_SLEEP_MS && recording_options.record_mouse_moves != MacroRecordMouseMovesMode::Raw {
+                    if elapsed_ms >= MIN_SLEEP_MS
+                        && recording_options.record_mouse_moves != MacroRecordMouseMovesMode::Raw
+                    {
                         let duration_ms = elapsed_ms.min(u32::MAX as u64) as u32;
                         sleep_config = Some(MacroActionConfig::Sleep { duration_ms });
                     }
@@ -1090,7 +1096,9 @@ pub async fn record_local_macro_event(
                         path.push((cx, cy));
                         MacroMoveStyle::Smooth { path, duration_ms }
                     }
-                    MacroRecordMouseMovesMode::Raw | MacroRecordMouseMovesMode::Off => MacroMoveStyle::Instant,
+                    MacroRecordMouseMovesMode::Raw | MacroRecordMouseMovesMode::Off => {
+                        MacroMoveStyle::Instant
+                    }
                 };
 
                 action.config = MacroActionConfig::Move {

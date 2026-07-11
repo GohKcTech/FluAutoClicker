@@ -1,5 +1,9 @@
 import { getSystemAccentColor, updateSliderFill } from "./utils";
-import { applyWindowEffects, isAcrylicPreferred, setAcrylicPreferred } from "./window-effects";
+import {
+    applyWindowEffects,
+    isAcrylicPreferred,
+    setAcrylicPreferred,
+} from "./window-effects";
 import { emitSettingsChanged } from "./settings-persistence";
 import { getPlatformCapabilities } from "./platform-capabilities";
 
@@ -16,7 +20,10 @@ function clamp(value: number, min: number, max: number) {
 function normalizeHexColor(value: string) {
     const raw = value.trim().replace(/^#/, "");
     if (/^[0-9a-fA-F]{3}$/.test(raw)) {
-        return `#${raw.split("").map((part) => `${part}${part}`).join("")}`.toUpperCase();
+        return `#${raw
+            .split("")
+            .map((part) => `${part}${part}`)
+            .join("")}`.toUpperCase();
     }
     if (/^[0-9a-fA-F]{6}$/.test(raw)) {
         return `#${raw}`.toUpperCase();
@@ -38,7 +45,9 @@ function getRelativeLuminance(hex: string) {
     const { r, g, b } = hexToRgb(hex);
     const toLinear = (channel: number) => {
         const normalized = channel / 255;
-        return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+        return normalized <= 0.03928
+            ? normalized / 12.92
+            : ((normalized + 0.055) / 1.055) ** 2.4;
     };
     return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 }
@@ -86,39 +95,59 @@ function hsvToHex({ h, s, v }: HsvColor) {
     else if (hueSegment < 5) [red, green, blue] = [x, 0, chroma];
     else [red, green, blue] = [chroma, 0, x];
 
-    return rgbToHex((red + match) * 255, (green + match) * 255, (blue + match) * 255);
+    return rgbToHex(
+        (red + match) * 255,
+        (green + match) * 255,
+        (blue + match) * 255,
+    );
 }
 
 export function initTheme() {
-    const accentModal = document.getElementById('accent-color-modal');
-    const accentModalClose = document.getElementById('accent-modal-close');
-    const accentPresetsModal = document.getElementById('accent-presets-modal');
-    const customPicker = document.getElementById('accent-custom-picker');
-    const colorPlane = document.getElementById('accent-color-sv-plane');
-    const hueSlider = document.getElementById('accent-color-hue') as HTMLInputElement | null;
-    const hexInput = document.getElementById('accent-color-hex') as HTMLInputElement | null;
-    const darkWarning = document.getElementById('accent-color-dark-warning');
-    const accentPreviewCircle = document.getElementById('accent-preview-circle');
-    const accentNameDisplay = document.getElementById('current-accent-name');
-    let pickerHsv = hexToHsv('#77B6DD');
+    const accentModal = document.getElementById("accent-color-modal");
+    const accentModalClose = document.getElementById("accent-modal-close");
+    const accentPresetsModal = document.getElementById("accent-presets-modal");
+    const customPicker = document.getElementById("accent-custom-picker");
+    const colorPlane = document.getElementById("accent-color-sv-plane");
+    const hueSlider = document.getElementById(
+        "accent-color-hue",
+    ) as HTMLInputElement | null;
+    const hexInput = document.getElementById(
+        "accent-color-hex",
+    ) as HTMLInputElement | null;
+    const darkWarning = document.getElementById("accent-color-dark-warning");
+    const accentPreviewCircle = document.getElementById(
+        "accent-preview-circle",
+    );
+    const accentNameDisplay = document.getElementById("current-accent-name");
+    let pickerHsv = hexToHsv("#77B6DD");
     let isDraggingPicker = false;
     let isApplyingPickerColor = false;
 
     function renderCustomPicker(color: string) {
         const normalized = normalizeHexColor(color) || hsvToHex(pickerHsv);
         const hueColor = hsvToHex({ h: pickerHsv.h, s: 1, v: 1 });
-        customPicker?.style.setProperty('--picker-color', normalized);
-        customPicker?.style.setProperty('--picker-hue-color', hueColor);
-        customPicker?.style.setProperty('--picker-x', `${pickerHsv.s * 100}%`);
-        customPicker?.style.setProperty('--picker-y', `${(1 - pickerHsv.v) * 100}%`);
-        colorPlane?.setAttribute('aria-valuenow', Math.round(pickerHsv.v * 100).toString());
+        customPicker?.style.setProperty("--picker-color", normalized);
+        customPicker?.style.setProperty("--picker-hue-color", hueColor);
+        customPicker?.style.setProperty("--picker-x", `${pickerHsv.s * 100}%`);
+        customPicker?.style.setProperty(
+            "--picker-y",
+            `${(1 - pickerHsv.v) * 100}%`,
+        );
+        colorPlane?.setAttribute(
+            "aria-valuenow",
+            Math.round(pickerHsv.v * 100).toString(),
+        );
         if (hueSlider) hueSlider.value = Math.round(pickerHsv.h).toString();
         if (hexInput) hexInput.value = normalized;
-        if (darkWarning) darkWarning.setAttribute('aria-hidden', String(getRelativeLuminance(normalized) >= 0.035));
+        if (darkWarning)
+            darkWarning.setAttribute(
+                "aria-hidden",
+                String(getRelativeLuminance(normalized) >= 0.035),
+            );
     }
 
     function syncCustomPicker(color: string) {
-        const normalized = normalizeHexColor(color) || '#77B6DD';
+        const normalized = normalizeHexColor(color) || "#77B6DD";
         pickerHsv = hexToHsv(normalized);
         renderCustomPicker(normalized);
     }
@@ -127,7 +156,7 @@ export function initTheme() {
         const color = hsvToHex(pickerHsv);
         renderCustomPicker(color);
         isApplyingPickerColor = true;
-        void updateTheme(color, 'solid', 'Custom').finally(() => {
+        void updateTheme(color, "solid", "Custom").finally(() => {
             isApplyingPickerColor = false;
         });
     }
@@ -143,195 +172,206 @@ export function initTheme() {
         applyCustomPickerColor();
     }
 
-    async function updateTheme(color: string, mode: string = 'solid', name?: string) {
-        document.body.classList.remove('theme-rainbow');
-        if (mode === 'rainbow') {
-            document.body.classList.add('theme-rainbow');
-            if (accentNameDisplay) accentNameDisplay.textContent = 'Rainbow (25 R$)';
-            if (accentPreviewCircle) accentPreviewCircle.style.background = 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)';
-            localStorage.setItem('flu-theme-mode', 'rainbow');
+    async function updateTheme(
+        color: string,
+        mode: string = "solid",
+        name?: string,
+    ) {
+        document.body.classList.remove("theme-rainbow");
+        if (mode === "rainbow") {
+            document.body.classList.add("theme-rainbow");
+            if (accentNameDisplay)
+                accentNameDisplay.textContent = "Rainbow (25 R$)";
+            if (accentPreviewCircle)
+                accentPreviewCircle.style.background =
+                    "linear-gradient(45deg, #ff0000, #00ff00, #0000ff)";
+            localStorage.setItem("flu-theme-mode", "rainbow");
         } else {
             let actualColor = color;
-            if (mode === 'system') {
+            if (mode === "system") {
                 actualColor = await getSystemAccentColor();
-                localStorage.setItem('flu-theme-mode', 'system');
-                name = 'System';
+                localStorage.setItem("flu-theme-mode", "system");
+                name = "System";
             } else {
-                localStorage.setItem('flu-theme-mode', 'solid');
-                localStorage.setItem('flu-theme-color', actualColor);
-                if (name) localStorage.setItem('flu-theme-name', name);
+                localStorage.setItem("flu-theme-mode", "solid");
+                localStorage.setItem("flu-theme-color", actualColor);
+                if (name) localStorage.setItem("flu-theme-name", name);
             }
 
-            document.documentElement.style.setProperty('--accent', actualColor);
-            const dimColor = actualColor.length === 7 ? `${actualColor}66` : actualColor;
-            document.documentElement.style.setProperty('--accent-dim', dimColor);
-            if (accentNameDisplay) accentNameDisplay.textContent = name || localStorage.getItem('flu-theme-name') || `Custom`;
-            if (accentPreviewCircle) accentPreviewCircle.style.background = actualColor;
+            document.documentElement.style.setProperty("--accent", actualColor);
+            const dimColor =
+                actualColor.length === 7 ? `${actualColor}66` : actualColor;
+            document.documentElement.style.setProperty(
+                "--accent-dim",
+                dimColor,
+            );
+            if (accentNameDisplay)
+                accentNameDisplay.textContent =
+                    name || localStorage.getItem("flu-theme-name") || `Custom`;
+            if (accentPreviewCircle)
+                accentPreviewCircle.style.background = actualColor;
             if (!isApplyingPickerColor) syncCustomPicker(actualColor);
         }
 
-        document.querySelectorAll('.accent-tile').forEach(tile => {
-            const tileColor = (tile as HTMLElement).dataset.color;
-            const tileMode = (tile as HTMLElement).dataset.mode || 'solid';
-            const isActive = tileMode === mode && (mode === 'rainbow' || mode === 'system' || tileColor === color);
-            tile.classList.toggle('active', isActive);
-
-            if ((tile as HTMLElement).classList.contains('theme-preset-btn')) {
-                const btn = tile as HTMLElement;
-                if (isActive) {
-                    btn.style.background = `var(--accent)`;
-                    btn.style.color = '#000';
-                    btn.style.borderColor = 'transparent';
-                    btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)';
-                } else {
-                    btn.style.background = 'rgba(255, 255, 255, 0.05)';
-                    btn.style.color = 'rgba(255, 255, 255, 0.9)';
-                    btn.style.borderColor = '';
-                    btn.style.boxShadow = '';
-                }
-            }
+        document.querySelectorAll(".accent-preset-btn").forEach((btn) => {
+            const btnColor = (btn as HTMLElement).dataset.color;
+            const btnMode = (btn as HTMLElement).dataset.mode || "solid";
+            const isActive =
+                btnMode === mode &&
+                (mode === "rainbow" || mode === "system" || btnColor === color);
+            btn.classList.toggle("active", isActive);
         });
 
-        const presetsModal = document.getElementById('accent-presets-modal');
-        const indicator = presetsModal?.querySelector('.slide-indicator') as HTMLElement;
-        if (indicator) {
-            const anyActive = presetsModal?.querySelector('.accent-tile.active');
-            indicator.style.opacity = anyActive ? '1' : '0';
-        }
-
-        document.querySelectorAll('.interval-slider').forEach(s => updateSliderFill(s as HTMLInputElement));
+        document
+            .querySelectorAll(".interval-slider")
+            .forEach((s) => updateSliderFill(s as HTMLInputElement));
         emitSettingsChanged();
     }
 
-    const accentSettingsTrigger = document.getElementById('accent-settings-trigger');
+    const accentSettingsTrigger = document.getElementById(
+        "accent-settings-trigger",
+    );
     if (accentSettingsTrigger) {
-        accentSettingsTrigger.addEventListener('click', () => {
+        accentSettingsTrigger.addEventListener("click", () => {
             if (accentModal) {
-                accentModal.style.display = 'flex';
+                accentModal.style.display = "flex";
                 requestAnimationFrame(() => {
-                    accentModal.classList.add('active');
+                    accentModal.classList.add("active");
                 });
-                document.getElementById('content')?.classList.add('blurred');
+                document.getElementById("content")?.classList.add("blurred");
             }
         });
     }
-    
-    accentModalClose?.addEventListener('click', () => {
+
+    accentModalClose?.addEventListener("click", () => {
         if (accentModal) {
-            accentModal.classList.remove('active');
+            accentModal.classList.remove("active");
             setTimeout(() => {
-                accentModal.style.display = 'none';
-                document.getElementById('content')?.classList.remove('blurred');
+                accentModal.style.display = "none";
+                document.getElementById("content")?.classList.remove("blurred");
             }, 300);
         }
     });
 
-    accentPresetsModal?.addEventListener('click', (e) => {
-        const tile = (e.target as HTMLElement).closest('.accent-tile');
-        if (tile) {
-            const color = (tile as HTMLElement).dataset.color || '#77B6DD';
-            const mode = (tile as HTMLElement).dataset.mode || 'solid';
-            const name = (tile as HTMLElement).dataset.name;
+    accentPresetsModal?.addEventListener("click", (e) => {
+        const btn = (e.target as HTMLElement).closest(".accent-preset-btn");
+        if (btn) {
+            const color = (btn as HTMLElement).dataset.color || "#77B6DD";
+            const mode = (btn as HTMLElement).dataset.mode || "solid";
+            const name = (btn as HTMLElement).dataset.name;
 
-            if (mode === 'rainbow') void updateTheme('', 'rainbow');
-            else if (mode === 'system') void updateTheme('', 'system', name);
-            else if (color) void updateTheme(color, 'solid', name);
+            if (mode === "rainbow") void updateTheme("", "rainbow");
+            else if (mode === "system") void updateTheme("", "system", name);
+            else if (color) void updateTheme(color, "solid", name);
         }
     });
 
-    colorPlane?.addEventListener('pointerdown', (event) => {
+    colorPlane?.addEventListener("pointerdown", (event) => {
         isDraggingPicker = true;
         colorPlane.setPointerCapture(event.pointerId);
         updatePickerFromPointer(event);
     });
-    colorPlane?.addEventListener('pointermove', (event) => {
+    colorPlane?.addEventListener("pointermove", (event) => {
         if (isDraggingPicker) updatePickerFromPointer(event);
     });
-    colorPlane?.addEventListener('pointerup', (event) => {
+    colorPlane?.addEventListener("pointerup", (event) => {
         isDraggingPicker = false;
         colorPlane.releasePointerCapture(event.pointerId);
     });
-    colorPlane?.addEventListener('keydown', (event) => {
+    colorPlane?.addEventListener("keydown", (event) => {
         const step = event.shiftKey ? 0.1 : 0.02;
-        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+        if (
+            !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
+                event.key,
+            )
+        )
+            return;
         event.preventDefault();
-        if (event.key === 'ArrowLeft') pickerHsv = { ...pickerHsv, s: clamp(pickerHsv.s - step, 0, 1) };
-        if (event.key === 'ArrowRight') pickerHsv = { ...pickerHsv, s: clamp(pickerHsv.s + step, 0, 1) };
-        if (event.key === 'ArrowUp') pickerHsv = { ...pickerHsv, v: clamp(pickerHsv.v + step, 0, 1) };
-        if (event.key === 'ArrowDown') pickerHsv = { ...pickerHsv, v: clamp(pickerHsv.v - step, 0, 1) };
+        if (event.key === "ArrowLeft")
+            pickerHsv = { ...pickerHsv, s: clamp(pickerHsv.s - step, 0, 1) };
+        if (event.key === "ArrowRight")
+            pickerHsv = { ...pickerHsv, s: clamp(pickerHsv.s + step, 0, 1) };
+        if (event.key === "ArrowUp")
+            pickerHsv = { ...pickerHsv, v: clamp(pickerHsv.v + step, 0, 1) };
+        if (event.key === "ArrowDown")
+            pickerHsv = { ...pickerHsv, v: clamp(pickerHsv.v - step, 0, 1) };
         applyCustomPickerColor();
     });
-    hueSlider?.addEventListener('input', () => {
+    hueSlider?.addEventListener("input", () => {
         pickerHsv = { ...pickerHsv, h: Number(hueSlider.value) };
         applyCustomPickerColor();
     });
-    hexInput?.addEventListener('input', () => {
+    hexInput?.addEventListener("input", () => {
         const normalized = normalizeHexColor(hexInput.value);
-        if (normalized) void updateTheme(normalized, 'solid', 'Custom');
+        if (normalized) void updateTheme(normalized, "solid", "Custom");
     });
-    accentModal?.addEventListener('click', (e) => { if (e.target === accentModal) accentModalClose?.click(); });
+    accentModal?.addEventListener("click", (e) => {
+        if (e.target === accentModal) accentModalClose?.click();
+    });
 
-    
-    const storedColor = localStorage.getItem('flu-theme-color') || '#77B6DD';
-    const storedMode = localStorage.getItem('flu-theme-mode') || 'solid';
-    const storedName = localStorage.getItem('flu-theme-name') || 'Flu';
+    const storedColor = localStorage.getItem("flu-theme-color") || "#77B6DD";
+    const storedMode = localStorage.getItem("flu-theme-mode") || "solid";
+    const storedName = localStorage.getItem("flu-theme-name") || "Flu";
     void updateTheme(storedColor, storedMode, storedName);
 
-    
-    const italicTrigger = document.getElementById('remove-italic-trigger');
-    const italicToggle = document.getElementById('remove-italic-toggle');
-    const storedNoItalic = localStorage.getItem('flu-no-italic') === 'true';
-    const acrylicTrigger = document.getElementById('acrylic-toggle-trigger');
-    const acrylicToggle = document.getElementById('acrylic-toggle');
+    const italicTrigger = document.getElementById("remove-italic-trigger");
+    const italicToggle = document.getElementById("remove-italic-toggle");
+    const storedNoItalic = localStorage.getItem("flu-no-italic") === "true";
+    const acrylicTrigger = document.getElementById("acrylic-toggle-trigger");
+    const acrylicToggle = document.getElementById("acrylic-toggle");
     let acrylicSupported = true;
-    
+
     if (italicTrigger && italicToggle) {
         if (storedNoItalic) {
-            italicToggle.classList.add('active');
-            document.body.classList.add('font-no-italic');
+            italicToggle.classList.add("active");
+            document.body.classList.add("font-no-italic");
         }
 
-        italicTrigger.addEventListener('click', () => {
-            const isNoItalic = italicToggle.classList.toggle('active');
-            document.body.classList.toggle('font-no-italic', isNoItalic);
-            localStorage.setItem('flu-no-italic', isNoItalic.toString());
+        italicTrigger.addEventListener("click", () => {
+            const isNoItalic = italicToggle.classList.toggle("active");
+            document.body.classList.toggle("font-no-italic", isNoItalic);
+            localStorage.setItem("flu-no-italic", isNoItalic.toString());
             emitSettingsChanged();
         });
     }
 
     if (acrylicTrigger && acrylicToggle) {
         const syncAcrylicToggle = (enabled: boolean) => {
-            acrylicToggle.classList.toggle('active', enabled);
-            document.documentElement.dataset.acrylicEnabled = enabled ? '1' : '0';
+            acrylicToggle.classList.toggle("active", enabled);
+            document.documentElement.dataset.acrylicEnabled = enabled
+                ? "1"
+                : "0";
         };
 
         syncAcrylicToggle(isAcrylicPreferred());
 
         void getPlatformCapabilities().then((capabilities) => {
             acrylicSupported = capabilities.window_acrylic;
-            acrylicTrigger.classList.toggle('disabled', !acrylicSupported);
+            acrylicTrigger.classList.toggle("disabled", !acrylicSupported);
             acrylicTrigger.setAttribute(
-                'aria-disabled',
-                acrylicSupported ? 'false' : 'true',
+                "aria-disabled",
+                acrylicSupported ? "false" : "true",
             );
 
             if (!acrylicSupported) {
                 setAcrylicPreferred(false);
                 syncAcrylicToggle(false);
                 void applyWindowEffects(false);
-                const description = acrylicTrigger.querySelector<HTMLElement>('.settings-item-desc');
+                const description = acrylicTrigger.querySelector<HTMLElement>(
+                    ".settings-item-desc",
+                );
                 if (description) {
-                    description.textContent = 'Unavailable on this desktop';
+                    description.textContent = "Unavailable on this desktop";
                 }
             }
         });
 
-        acrylicTrigger.addEventListener('click', async () => {
+        acrylicTrigger.addEventListener("click", async () => {
             if (!acrylicSupported) {
                 return;
             }
 
-            const next = !acrylicToggle.classList.contains('active');
+            const next = !acrylicToggle.classList.contains("active");
             setAcrylicPreferred(next);
             emitSettingsChanged();
             const applied = await applyWindowEffects(next);
@@ -340,16 +380,18 @@ export function initTheme() {
     }
 
     window.addEventListener("flu:settings-applied", () => {
-        const nextColor = localStorage.getItem('flu-theme-color') || '#77B6DD';
-        const nextMode = localStorage.getItem('flu-theme-mode') || 'solid';
-        const nextName = localStorage.getItem('flu-theme-name') || 'Flu';
+        const nextColor = localStorage.getItem("flu-theme-color") || "#77B6DD";
+        const nextMode = localStorage.getItem("flu-theme-mode") || "solid";
+        const nextName = localStorage.getItem("flu-theme-name") || "Flu";
         void updateTheme(nextColor, nextMode, nextName);
 
-        const noItalic = localStorage.getItem('flu-no-italic') === 'true';
-        italicToggle?.classList.toggle('active', noItalic);
-        document.body.classList.toggle('font-no-italic', noItalic);
+        const noItalic = localStorage.getItem("flu-no-italic") === "true";
+        italicToggle?.classList.toggle("active", noItalic);
+        document.body.classList.toggle("font-no-italic", noItalic);
         const acrylicEnabled = acrylicSupported && isAcrylicPreferred();
-        acrylicToggle?.classList.toggle('active', acrylicEnabled);
-        document.documentElement.dataset.acrylicEnabled = acrylicEnabled ? '1' : '0';
+        acrylicToggle?.classList.toggle("active", acrylicEnabled);
+        document.documentElement.dataset.acrylicEnabled = acrylicEnabled
+            ? "1"
+            : "0";
     });
 }
