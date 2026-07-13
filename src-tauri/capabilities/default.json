@@ -19,6 +19,7 @@
     "core:window:allow-set-title",
     "core:window:allow-show",
     "core:window:allow-center",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "dialog:allow-open"
   ]
 }

@@ -39,6 +39,8 @@ export type AppConfigFile = {
         theme_color: string;
         theme_name: string;
         remove_italic: boolean;
+        font_app: string;
+        font_loc: string;
         language: string;
         autostart: boolean;
         minimize_to_tray: boolean;
@@ -115,6 +117,8 @@ function defaultConfig(): AppConfigFile {
             theme_color: "#77B6DD",
             theme_name: "Flu",
             remove_italic: false,
+            font_app: "museo-moderno",
+            font_loc: "geologica",
             language: "en",
             autostart: false,
             minimize_to_tray: false,
@@ -288,6 +292,8 @@ function applyLocalStorageSnapshot(config: AppConfigFile) {
     localStorage.setItem("flu-theme-color", config.general.theme_color);
     localStorage.setItem("flu-theme-name", config.general.theme_name);
     localStorage.setItem("flu-no-italic", String(config.general.remove_italic));
+    localStorage.setItem("flu-font-app", config.general.font_app || "museo-moderno");
+    localStorage.setItem("flu-font-loc", config.general.font_loc || "geologica");
     localStorage.setItem("flu-language", "en");
     localStorage.setItem("flu-reduce-motion", config.general.reduce_motion || "none");
 
@@ -492,6 +498,8 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
             theme_color: localStorage.getItem("flu-theme-color") || base.general.theme_color,
             theme_name: localStorage.getItem("flu-theme-name") || base.general.theme_name,
             remove_italic: localStorage.getItem("flu-no-italic") === "true",
+            font_app: localStorage.getItem("flu-font-app") || "museo-moderno",
+            font_loc: localStorage.getItem("flu-font-loc") || "geologica",
             language: "en",
             autostart: isSystemStartupAvailable()
                 && (document.getElementById("autostart-toggle")?.classList.contains("active") ?? base.general.autostart),

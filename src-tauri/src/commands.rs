@@ -7,6 +7,7 @@ use crate::engine::state::{
     AppState, ClickMode, HoldUnit, JigglerPattern, KeyboardModifier, MouseButton, PositionMode,
     RepeatMode, RepeatUnit, RuntimeHotkeys,
 };
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use enigo::{Enigo, Mouse, Settings};
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
@@ -15,6 +16,68 @@ use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State, Window};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+
+fn fonts_dir() -> std::path::PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("fluautoclicker")
+        .join("fonts")
+}
+
+#[tauri::command]
+pub async fn save_font_file(name: String, data: String) -> Result<String, String> {
+    let dir = fonts_dir();
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .map_err(|e| format!("Failed to create fonts dir: {e}"))?;
+
+    let bytes = BASE64
+        .decode(&data)
+        .map_err(|e| format!("Invalid base64: {e}"))?;
+
+    let path = dir.join(&name);
+    tokio::fs::write(&path, &bytes)
+        .await
+        .map_err(|e| format!("Failed to write font: {e}"))?;
+
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn load_font_file(name: String) -> Result<String, String> {
+    let path = fonts_dir().join(&name);
+    let bytes = tokio::fs::read(&path)
+        .await
+        .map_err(|e| format!("Failed to read font: {e}"))?;
+    Ok(BASE64.encode(&bytes))
+}
+
+#[tauri::command]
+pub async fn import_font_file(source: String) -> Result<(String, String), String> {
+    let src = std::path::PathBuf::from(&source);
+    let file_name = src
+        .file_name()
+        .ok_or_else(|| "Invalid file path".to_string())?
+        .to_string_lossy()
+        .to_string();
+
+    let dir = fonts_dir();
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .map_err(|e| format!("Failed to create fonts dir: {e}"))?;
+
+    let dest = dir.join(&file_name);
+    tokio::fs::copy(&src, &dest)
+        .await
+        .map_err(|e| format!("Failed to copy font: {e}"))?;
+
+    let bytes = tokio::fs::read(&dest)
+        .await
+        .map_err(|e| format!("Failed to read copied font: {e}"))?;
+    let b64 = BASE64.encode(&bytes);
+
+    Ok((file_name, b64))
+}
 
 const MIN_MACRO_ACTION_DURATION_MS: u32 = 1;
 const MAX_MACRO_ACTION_DURATION_MS: u32 = 3_600_000;

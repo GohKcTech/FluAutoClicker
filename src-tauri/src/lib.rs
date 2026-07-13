@@ -709,7 +709,10 @@ pub fn run() {
             get_system_accent_color,
             set_window_acrylic,
             set_macro_speed_multiplier,
-            get_macro_speed_multiplier
+            get_macro_speed_multiplier,
+            save_font_file,
+            load_font_file,
+            import_font_file
         ])
         .setup(move |app| {
             let state = app.state::<Arc<AppState>>().inner().clone();

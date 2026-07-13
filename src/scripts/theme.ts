@@ -6,6 +6,7 @@ import {
 } from "./window-effects";
 import { emitSettingsChanged } from "./settings-persistence";
 import { getPlatformCapabilities } from "./platform-capabilities";
+import { applyFonts } from "./fonts";
 
 type HsvColor = {
     h: number;
@@ -384,6 +385,8 @@ export function initTheme() {
         const nextMode = localStorage.getItem("flu-theme-mode") || "solid";
         const nextName = localStorage.getItem("flu-theme-name") || "Flu";
         void updateTheme(nextColor, nextMode, nextName);
+
+        applyFonts();
 
         const noItalic = localStorage.getItem("flu-no-italic") === "true";
         italicToggle?.classList.toggle("active", noItalic);

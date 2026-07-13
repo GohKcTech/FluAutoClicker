@@ -305,6 +305,26 @@
     display: block;
 }
 
+.font-indicator {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--accent);
+    color: #000;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    transition: filter 0.2s ease, font-family 0.2s ease;
+}
+
+.settings-list-item:hover .font-indicator {
+    filter: brightness(1.15);
+}
+
 .settings-item-icon {
     width: 26px;
     height: 26px;

@@ -7,6 +7,7 @@ import { initProfiles } from "../profiles";
 import { loadPersistedSettings, initSettingsPersistence } from "../settings-persistence";
 import { initStartupModals } from "../startup-modals";
 import { initTheme } from "../theme";
+import { initFonts } from "../fonts";
 import { initInputs } from "../ui";
 import { initUpdateChecks } from "../update-check";
 import { initUinputPermissionModal } from "../uinput-permissions";
@@ -32,6 +33,7 @@ export async function bootstrapApp() {
     initKeyboard();
     initDrawer();
     initTheme();
+    initFonts();
     initInputs();
     initMacro();
     initMouseSettings();

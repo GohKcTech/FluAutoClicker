@@ -15,6 +15,30 @@
 }
 
 @font-face {
+    font-family: "Geologica";
+    src: url("../assets/fonts/Geologica/Geologica-VariableFont_CRSV,SHRP,slnt,wght.ttf")
+        format("truetype");
+    font-weight: 100 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Montserrat";
+    src: url("../assets/fonts/Monstserrat/Montserrat-VariableFont_wght.ttf")
+        format("truetype");
+    font-weight: 100 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: "Montserrat";
+    src: url("../assets/fonts/Monstserrat/Montserrat-Italic-VariableFont_wght.ttf")
+        format("truetype");
+    font-weight: 100 900;
+    font-style: italic;
+}
+
+@font-face {
     font-family: "LucideIcons";
     src:
         url("../assets/icons/lucide-icons/lucide.woff2") format("woff2"),
@@ -75,7 +99,9 @@
     --radius-inner: 6px;
     --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --slide-transition: 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-    --font: "MuseoModerno", cursive;
+    --font-app: "MuseoModerno", cursive;
+    --font-loc: "Geologica", sans-serif;
+    --font: var(--font-app);
 
     transition:
         --accent 0.5s ease-in-out,
@@ -104,6 +130,14 @@ body {
     flex-direction: column;
     user-select: none;
     border-radius: var(--radius);
+}
+
+.font-logo {
+    font-family: "MuseoModerno", cursive !important;
+}
+
+.font-loc {
+    font-family: var(--font-loc) !important;
 }
 
 body.font-no-italic,
