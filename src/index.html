@@ -1959,117 +1959,21 @@
 
                             <div class="drawer-section" id="section-profiles">
                                 <div class="settings-items-list">
-                                    <div class="settings-group-title" data-i18n="profiles.active">
-                                        Active Profile
-                                    </div>
-                                    <div class="settings-list-item">
-                                        <div class="settings-item-icon">
-                                            <span class="icon">&#58218;</span>
-                                        </div>
-                                        <div class="settings-item-content">
-                                            <span
-                                                class="settings-item-title"
-                                                id="profiles-active-name"
-                                                >default</span
-                                            >
-                                            <span class="settings-item-desc" data-i18n="profiles.active_desc"
-                                                >The profile currently applied
-                                                to runtime and UI</span
-                                            >
-                                        </div>
-                                    <button
-                                        class="feature-btn"
-                                        id="profile-reload-btn"
-                                        style="flex: none; width: 92px"
-                                    >
-                                        <span class="icon">&#58546;</span>
-                                        <span data-i18n="profiles.refresh">REFRESH</span>
-                                    </button>
-                                    </div>
 
-                                    <div class="settings-group-title" data-i18n="profiles.name">
-                                        Profile Name
-                                    </div>
-                                    <div
-                                        class="settings-list-item"
-                                        style="display: block"
-                                    >
-                                        <div
-                                            class="coord-input-box profile-name-box"
-                                        >
-                                            <input
-                                                type="text"
-                                                id="profile-name-input"
-                                                value="default"
-                                                maxlength="32"
-                                                placeholder="default"
-                                                data-i18n-placeholder="profiles.input.placeholder"
-                                            />
-                                        </div>
-                                        <div
-                                            class="feature-buttons-row"
-                                            style="margin-top: 10px"
-                                        >
-                                            <button
-                                                class="feature-btn"
-                                                id="profile-save-btn"
-                                            >
-                                                <span class="icon"
-                                                    >&#57677;</span
-                                                >
-                                                <span data-i18n="profiles.save">SAVE</span>
-                                            </button>
-                                            <button
-                                                class="feature-btn"
-                                                id="profile-rename-btn"
-                                            >
-                                                <span class="icon"
-                                                    >&#57714;</span
-                                                >
-                                                <span data-i18n="profiles.rename">RENAME</span>
-                                            </button>
-                                            <button
-                                                class="feature-btn"
-                                                id="profile-delete-btn"
-                                            >
-                                                <span class="icon"
-                                                    >&#57742;</span
-                                                >
-                                                <span data-i18n="profiles.delete">DELETE</span>
-                                            </button>
-                                        </div>
-                                        <div
-                                            class="feature-buttons-row"
-                                            style="margin-top: 8px"
-                                        >
-                                            <button
-                                                class="feature-btn"
-                                                id="profile-export-btn"
-                                            >
-                                                <span class="icon"
-                                                    >&#58154;</span
-                                                >
-                                                <span data-i18n="profiles.export">EXPORT</span>
-                                            </button>
-                                            <button
-                                                class="feature-btn"
-                                                id="profile-import-btn"
-                                            >
-                                                <span class="icon"
-                                                    >&#58136;</span
-                                                >
-                                                <span data-i18n="profiles.import">IMPORT</span>
+                                <div id="profiles-list" class="profiles-list"></div>
+
+                                    <div class="profiles-create-sticky">
+                                        <div class="profile-search-row">
+                                            <div class="profile-search-wrap">
+                                                <span class="icon profile-search-icon">&#57681;</span>
+                                                <input type="text" id="profile-name-input" maxlength="32" placeholder="Search profiles..." data-i18n-placeholder="profiles.search_placeholder" />
+                                            </div>
+                                            <button class="profile-create-btn" id="profile-create-btn" title="Create new profile">
+                                                <span class="icon">&#57661;</span>
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div class="settings-group-title" data-i18n="profiles.saved">
-                                        Saved Profiles
-                                    </div>
-                                    <div
-                                        id="profiles-list"
-                                        class="profiles-list"
-                                    ></div>
                                 </div>
                             </div>
                             <div class="drawer-section" id="section-help">
@@ -3568,6 +3472,225 @@
                                 class="language-list"
                                 id="language-list"
                             ></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div
+            id="icon-picker-modal"
+            class="drawer-modal-overlay"
+            style="
+                display: none;
+                z-index: 10000;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+            "
+        >
+            <div class="drawer-modal-shell" id="icon-picker-shell">
+                <div class="drawer-modal-content-wrap">
+                    <div class="drawer-modal-header">
+                        <div class="drawer-modal-header-left">
+                            <span
+                                class="icon"
+                                style="font-size: 13px; color: var(--accent)"
+                                >&#58218;</span
+                            >
+                        </div>
+                        <div class="drawer-modal-header-title">
+                            <span class="drawer-modal-group-wrap">
+                                <span
+                                    id="icon-picker-title"
+                                    style="font-weight: 700; color: var(--accent)"
+                                    data-i18n="profiles.choose_icon"
+                                    >Choose Icon</span
+                                >
+                            </span>
+                        </div>
+                        <button
+                            class="control-btn close"
+                            id="icon-picker-close"
+                            title="Close"
+                            data-i18n-title="close"
+                        >
+                            <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.2"
+                                stroke-linecap="round"
+                            >
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="drawer-modal-body">
+                        <div class="drawer-modal-picker-wrap">
+                            <div class="icon-search-wrap">
+                                <span class="icon icon-search-icon">&#57681;</span>
+                                <input
+                                    type="text"
+                                    class="icon-search-input"
+                                    id="icon-search-input"
+                                    placeholder="Search icons..."
+                                    data-i18n-placeholder="profiles.search_icons"
+                                />
+                            </div>
+                            <div class="icon-grid" id="icon-grid"></div>
+                            <div class="icon-picker-selected" id="icon-picker-selected"
+                                data-i18n="profiles.no_icon_selected">No icon selected</div>
+                            <div style="display:flex;gap:4px;padding:0 8px 8px">
+                                <button class="font-import-btn" id="icon-picker-confirm" style="flex:1;margin:0;width:auto">
+                                    <span class="icon">&#57894;</span>
+                                    <span data-i18n="profiles.confirm">CONFIRM</span>
+                                </button>
+                                <button class="font-import-btn" id="icon-picker-cancel" style="flex:1;margin:0;width:auto">
+                                    <span class="icon">&#57476;</span>
+                                    <span data-i18n="profiles.cancel">CANCEL</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div
+            id="create-profile-modal"
+            class="drawer-modal-overlay"
+            style="display:none;z-index:10000;justify-content:center;align-items:center;padding:20px"
+        >
+            <div class="drawer-modal-shell">
+                <div class="drawer-modal-content-wrap">
+                    <div class="drawer-modal-header">
+                        <div class="drawer-modal-header-left">
+                            <span class="icon" style="font-size:13px;color:var(--accent)">&#58490;</span>
+                        </div>
+                        <div class="drawer-modal-header-title">
+                            <span class="drawer-modal-group-wrap">
+                                <span style="font-weight:700;color:var(--accent)" data-i18n="profiles.create">Create New Profile</span>
+                            </span>
+                        </div>
+                        <button class="control-btn close" id="create-profile-close" title="Close" data-i18n-title="close">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="drawer-modal-body">
+                        <div class="drawer-modal-picker-wrap">
+                            <div class="settings-items-list">
+                                <div class="settings-list-item" id="create-mode-blank" style="cursor:pointer">
+                                    <div class="settings-item-icon">
+                                        <span class="icon">&#57472;</span>
+                                    </div>
+                                    <div class="settings-item-content">
+                                        <span class="settings-item-title" data-i18n="profiles.create_blank">Blank</span>
+                                        <span class="settings-item-desc" data-i18n="profiles.create_blank_desc">Empty profile with no settings</span>
+                                    </div>
+                                    <span class="icon settings-item-arrow">&#57529;</span>
+                                </div>
+                                <div class="settings-list-item" id="create-mode-copy" style="cursor:pointer">
+                                    <div class="settings-item-icon">
+                                        <span class="icon">&#58218;</span>
+                                    </div>
+                                    <div class="settings-item-content">
+                                        <span class="settings-item-title" data-i18n="profiles.create_copy">Copy Active</span>
+                                        <span class="settings-item-desc" data-i18n="profiles.create_copy_desc">Copy settings from active profile</span>
+                                    </div>
+                                    <span class="icon settings-item-arrow">&#57529;</span>
+                                </div>
+                                <div class="settings-list-item" id="create-mode-ui" style="cursor:pointer">
+                                    <div class="settings-item-icon">
+                                        <span class="icon">&#58386;</span>
+                                    </div>
+                                    <div class="settings-item-content">
+                                        <span class="settings-item-title" data-i18n="profiles.create_ui_only">Copy Interface</span>
+                                        <span class="settings-item-desc" data-i18n="profiles.create_ui_desc">UI only: theme, fonts, language</span>
+                                    </div>
+                                    <span class="icon settings-item-arrow">&#57529;</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="rename-confirm-modal" class="drawer-modal-overlay" style="display:none;z-index:10000;justify-content:center;align-items:center;padding:20px">
+            <div class="drawer-modal-shell" style="max-width:280px">
+                <div class="drawer-modal-content-wrap">
+                    <div class="drawer-modal-header">
+                        <div class="drawer-modal-header-left">
+                            <span class="icon" style="font-size:13px;color:var(--accent)">&#57714;</span>
+                        </div>
+                        <div class="drawer-modal-header-title">
+                            <span class="drawer-modal-group-wrap">
+                                <span style="font-weight:700;color:var(--accent)" data-i18n="profiles.rename">Rename</span>
+                            </span>
+                        </div>
+                        <button class="control-btn close" id="rename-confirm-close" title="Close" data-i18n-title="close">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="drawer-modal-body">
+                        <div class="drawer-modal-picker-wrap" style="padding:8px 10px">
+                            <div class="settings-item-content" style="text-align:center;margin-bottom:8px">
+                                <span class="settings-item-title" id="rename-confirm-label" style="font-size:11px">default</span>
+                                <span class="settings-item-desc" data-i18n="profiles.rename_desc">Change profile name</span>
+                            </div>
+                            <div class="coord-input-box" style="height:28px;margin-bottom:8px">
+                                <input type="text" id="profile-rename-input" maxlength="32" placeholder="New name..." data-i18n-placeholder="profiles.rename_placeholder" />
+                            </div>
+                            <button class="font-import-btn" id="profile-rename-confirm" style="margin:0;width:100%">
+                                <span class="icon">&#57714;</span>
+                                <span data-i18n="profiles.rename">RENAME</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="delete-confirm-modal" class="drawer-modal-overlay" style="display:none;z-index:10000;justify-content:center;align-items:center;padding:20px">
+            <div class="drawer-modal-shell" style="max-width:280px">
+                <div class="drawer-modal-content-wrap">
+                    <div class="drawer-modal-header">
+                        <div class="drawer-modal-header-left">
+                            <span class="icon" style="font-size:13px;color:#ff4b4b">&#57742;</span>
+                        </div>
+                        <div class="drawer-modal-header-title">
+                            <span class="drawer-modal-group-wrap">
+                                <span style="font-weight:700;color:#ff4b4b" data-i18n="profiles.delete">Delete</span>
+                            </span>
+                        </div>
+                        <button class="control-btn close" id="delete-confirm-close" title="Close" data-i18n-title="close">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="drawer-modal-body">
+                        <div class="drawer-modal-picker-wrap" style="padding:10px;text-align:center">
+                            <div class="settings-item-content">
+                                <span class="settings-item-title" id="delete-confirm-text" style="font-size:12px;color:#ff4b4b">default</span>
+                                <span class="settings-item-desc" style="margin-top:2px" data-i18n="profiles.delete_desc">Remove this profile permanently</span>
+                            </div>
+                            <button class="font-import-btn" id="profile-delete-confirm" style="color:#ff4b4b;margin:10px 0 0;width:100%">
+                                <span class="icon">&#57742;</span>
+                                <span data-i18n="profiles.delete_action">DELETE</span>
+                            </button>
                         </div>
                     </div>
                 </div>

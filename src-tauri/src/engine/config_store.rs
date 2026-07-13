@@ -332,6 +332,8 @@ impl AppConfigFile {
 pub struct ProfileFile {
     pub version: u32,
     pub name: String,
+    #[serde(default)]
+    pub icon: Option<String>,
     pub data: AppConfigFile,
 }
 
@@ -340,6 +342,7 @@ impl ProfileFile {
         Self {
             version: CURRENT_PROFILE_VERSION,
             name,
+            icon: None,
             data,
         }
     }
@@ -450,7 +453,11 @@ pub async fn list_profiles() -> Result<Vec<String>, String> {
     Ok(names)
 }
 
-pub async fn save_profile(name: &str, data: &AppConfigFile) -> Result<(), String> {
+pub async fn save_profile(
+    name: &str,
+    data: &AppConfigFile,
+    icon: Option<&str>,
+) -> Result<(), String> {
     let path = profile_path(name);
 
     if let Some(parent) = path.parent() {
@@ -459,7 +466,8 @@ pub async fn save_profile(name: &str, data: &AppConfigFile) -> Result<(), String
             .map_err(|e| format!("Failed to create profiles dir: {e}"))?;
     }
 
-    let profile = ProfileFile::new(name.to_string(), data.normalized_for_save());
+    let mut profile = ProfileFile::new(name.to_string(), data.normalized_for_save());
+    profile.icon = icon.map(|s| s.to_string());
     let raw = serde_json::to_string_pretty(&profile)
         .map_err(|e| format!("Failed to serialize profile: {e}"))?;
 
@@ -519,7 +527,7 @@ pub async fn ensure_default_profile(config: &AppConfigFile) -> Result<(), String
     if names.iter().any(|n| n == "default") {
         return Ok(());
     }
-    save_profile("default", config).await
+    save_profile("default", config, None).await
 }
 
 #[cfg(test)]

@@ -296,12 +296,18 @@ pub async fn save_profile_cmd(
     state: State<'_, Arc<AppState>>,
     app: AppHandle,
     name: String,
+    icon: Option<String>,
     config: crate::engine::config_store::AppConfigFile,
 ) -> Result<crate::engine::config_store::AppConfigFile, String> {
     let normalized_name = crate::validate_profile_name(&name)?;
     let mut next_config = config;
     next_config.active_profile = normalized_name.clone();
-    crate::engine::config_store::save_profile(&normalized_name, &next_config).await?;
+    crate::engine::config_store::save_profile(
+        &normalized_name,
+        &next_config,
+        icon.as_deref(),
+    )
+    .await?;
     crate::persist_and_apply_config(&app, state.inner(), next_config.clone()).await?;
     let _ = app.emit(
         "profiles-updated",
@@ -331,13 +337,7 @@ pub async fn export_profile_cmd(
 ) -> Result<crate::engine::config_store::ProfileFile, String> {
     let normalized_name = crate::validate_profile_name(&name)?;
     if normalized_name == "default" {
-        let config = crate::engine::config_store::load_profile("default")
-            .await
-            .unwrap_or_else(|_| crate::engine::config_store::AppConfigFile::default());
-        return Ok(crate::engine::config_store::ProfileFile::new(
-            "default".to_string(),
-            config,
-        ));
+        return crate::engine::config_store::load_profile_file("default").await;
     }
 
     crate::engine::config_store::load_profile_file(&normalized_name).await
@@ -352,7 +352,12 @@ pub async fn import_profile_cmd(
     let normalized_name = crate::validate_profile_name(&profile.name)?;
     let mut config = profile.data.normalized_for_save();
     config.active_profile = normalized_name.clone();
-    crate::engine::config_store::save_profile(&normalized_name, &config).await?;
+    crate::engine::config_store::save_profile(
+        &normalized_name,
+        &config,
+        profile.icon.as_deref(),
+    )
+    .await?;
     crate::persist_and_apply_config(&app, state.inner(), config.clone()).await?;
     let _ = app.emit(
         "profiles-updated",
@@ -406,7 +411,12 @@ pub async fn import_backup_cmd(
     for profile in backup.profiles {
         if let Ok(normalized_name) = crate::validate_profile_name(&profile.name) {
             let config = profile.data.normalized_for_save();
-            let _ = crate::engine::config_store::save_profile(&normalized_name, &config).await;
+            let _ = crate::engine::config_store::save_profile(
+                &normalized_name,
+                &config,
+                profile.icon.as_deref(),
+            )
+            .await;
         }
     }
 

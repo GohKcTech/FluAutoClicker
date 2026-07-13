@@ -98,6 +98,7 @@ export function openDrawer(sectionId: string, title: string, icon?: string) {
     const titleParts = title.split(" > ");
     const translatedParts = titleParts.map((part) => t(DRAWER_TITLE_KEYS[part] || "", part));
     drawerSection.textContent = translatedParts[0];
+    drawerSection.removeAttribute("data-i18n");
     if (translatedParts.length > 1 && drawerGroup) {
         drawerGroup.innerHTML = `<span style="color: var(--text-dim);"> ></span> ${translatedParts.slice(1).join(" > ")}`;
     } else if (drawerGroup) {
@@ -179,8 +180,6 @@ function bindHelpLink(elementId: string, url: string, label: string) {
         void openResource();
     });
 }
-
-
 
 export function initDrawer() {
     const drawerOverlay = document.getElementById("drawer-overlay");
