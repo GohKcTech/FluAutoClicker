@@ -4,6 +4,7 @@ import { fromBackendAction } from "./backend";
 import { macroState } from "./state";
 import type { MacroBackendAction, MacroUiAction } from "./types";
 import { formatDuration } from "../utils";
+import { t } from "../i18n";
 
 export function getMacroDurationMs(actions: MacroBackendAction[]): number {
     let totalMs = 0;
@@ -321,7 +322,7 @@ function getActionSummary(action: (typeof macroState.actions)[number]) {
     }
 
     if (action.type === "move") {
-        return `Move ${action.details.charAt(0).toLowerCase()}${action.details.slice(1).replace(" (instant)", "")}`;
+        return t("macro.move_summary", "Move {details}", { details: `${action.details.charAt(0).toLowerCase()}${action.details.slice(1).replace(t("macro.instant_suffix", " (instant)"), "")}` });
     }
 
     if (action.type === "mouse") {
@@ -332,7 +333,7 @@ function getActionSummary(action: (typeof macroState.actions)[number]) {
     }
 
     if (action.type === "keyboard") {
-        return action.detailSuffix ? `${action.name.replace("Key ", "")} ${action.details}` : `${action.name.replace("Key ", "")} ${action.details}`;
+        return action.detailSuffix ? `${action.name.replace(t("macro.key_prefix", "Key "), "")} ${action.details}` : `${action.name.replace(t("macro.key_prefix", "Key "), "")} ${action.details}`;
     }
 
     return `${action.name} ${action.details}`.trim();
@@ -350,20 +351,20 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
     }
 
     item.innerHTML = `
-        <button class="action-drag-handle" type="button" aria-label="Drag action to reorder" title="Drag to reorder">
+        <button class="action-drag-handle" type="button" aria-label="${t("macro.drag_to_reorder", "Drag to reorder")}" title="${t("macro.drag_to_reorder", "Drag to reorder")}">
             <span class="icon">&#57579;</span>
         </button>
         <div class="action-icon"><span class="icon">${action.icon}</span></div>
         <div class="action-info">
             <span class="action-details"></span>
         </div>
-        <button class="action-edit" type="button" data-id="${action.id}" aria-label="Edit action" title="Edit action">
+        <button class="action-edit" type="button" data-id="${action.id}" aria-label="${t("macro.edit_action_btn", "Edit action")}" title="${t("macro.edit_action_btn", "Edit action")}">
             <span class="icon">&#57714;</span>
         </button>
-        <button class="action-duplicate" type="button" data-id="${action.id}" aria-label="Duplicate action" title="Duplicate action">
+        <button class="action-duplicate" type="button" data-id="${action.id}" aria-label="${t("macro.duplicate_action", "Duplicate action")}" title="${t("macro.duplicate_action", "Duplicate action")}">
             <span class="icon">&#57502;</span>
         </button>
-        <button class="action-remove" type="button" data-id="${action.id}">
+        <button class="action-remove" type="button" data-id="${action.id}" aria-label="${t("macro.remove_action", "Remove action")}" title="${t("macro.remove_action", "Remove action")}">
             <span class="icon">&#57742;</span>
         </button>
     `;
@@ -373,7 +374,7 @@ function createActionElement(action: (typeof macroState.actions)[number], animat
         details.classList.add("action-details-keys");
         const prefix = document.createElement("span");
         prefix.className = "action-detail-text";
-        prefix.textContent = `${action.name.replace("Key ", "")} `;
+        prefix.textContent = `${action.name.replace(t("macro.key_prefix", "Key "), "")} `;
         details.appendChild(prefix);
 
         const combo = document.createElement("span");
@@ -471,7 +472,7 @@ export function renderActions(options: { animateNew?: boolean } = {}) {
         listContainer.innerHTML = `
             <div class="macro-list-empty">
                 <span class="icon" style="font-size: 32px; color: var(--accent); margin-bottom: 12px; opacity: 0.6;">&#58964;</span>
-                <span style="letter-spacing: 1px; text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text); opacity: 0.9;">No actions recorded yet</span>
+                <span style="letter-spacing: 1px; text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text); opacity: 0.9;">${t("macro.no_actions", "No actions recorded yet")}</span>
             </div>
         `;
         return;

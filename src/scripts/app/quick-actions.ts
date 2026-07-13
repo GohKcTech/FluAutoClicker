@@ -40,7 +40,7 @@ function readJsonFile(onRead: (payload: unknown) => void | Promise<void>) {
             const payload = JSON.parse(await file.text());
             await onRead(payload);
         } catch (error) {
-            notify(error instanceof Error ? error.message : "Could not read JSON file", "error", 3200);
+            notify(error instanceof Error ? error.message : t("error.could_not_read_json", "Could not read JSON file"), "error", 3200);
         }
     }, { once: true });
     document.body.appendChild(input);
@@ -50,28 +50,28 @@ function readJsonFile(onRead: (payload: unknown) => void | Promise<void>) {
 async function exportConfig() {
     const config = await persistCurrentSettings();
     const saved = await saveJson(`fluautoclicker-config-${timestampForFile()}.json`, config);
-    if (saved) notify("Config exported", "success", 1800);
+    if (saved) notify(t("config_exported", "Config exported"), "success", 1800);
 }
 
 function importConfig() {
     readJsonFile(async (payload) => {
         const updated = await invoke<AppConfigFile>("import_app_config", { config: payload });
         applyPersistedConfig(updated);
-        notify("Config imported", "success", 2200);
+        notify(t("config_imported", "Config imported"), "success", 2200);
     });
 }
 
 async function exportBackup() {
     const backup = await invoke("export_backup_cmd");
     const saved = await saveJson(`fluautoclicker-backup-${timestampForFile()}.json`, backup);
-    if (saved) notify("All settings and profiles exported", "success", 1800);
+    if (saved) notify(t("backup_exported", "All settings and profiles exported"), "success", 1800);
 }
 
 function importBackup() {
     readJsonFile(async (payload) => {
         const updated = await invoke<AppConfigFile>("import_backup_cmd", { backup: payload });
         applyPersistedConfig(updated);
-        notify("All settings and profiles imported", "success", 2200);
+        notify(t("backup_imported", "All settings and profiles imported"), "success", 2200);
     });
 }
 
@@ -79,7 +79,7 @@ export function initCpsTestWindow() {
     document.getElementById("cps-test-btn")?.addEventListener("click", () => {
         const cpsWindow = new WebviewWindow("cps-test", {
             url: "cps.html",
-            title: "CPS Test",
+            title: t("cps.window_title", "CPS Test"),
             width: 400,
             height: 500,
             resizable: false,
@@ -132,7 +132,7 @@ export function initCpsTestWindow() {
 export function initDrawerLaunchers() {
     document.getElementById("config-export-btn")?.addEventListener("click", () => {
         void exportConfig().catch((error) => {
-            notify(error instanceof Error ? error.message : "Could not export config", "error", 3200);
+            notify(error instanceof Error ? error.message : t("error.could_not_export_config", "Could not export config"), "error", 3200);
         });
     });
 
@@ -142,7 +142,7 @@ export function initDrawerLaunchers() {
 
     document.getElementById("backup-export-btn")?.addEventListener("click", () => {
         void exportBackup().catch((error) => {
-            notify(error instanceof Error ? error.message : "Could not export backup", "error", 3200);
+            notify(error instanceof Error ? error.message : t("error.could_not_export_backup", "Could not export backup"), "error", 3200);
         });
     });
 
@@ -153,12 +153,12 @@ export function initDrawerLaunchers() {
     document.getElementById("jiggler-btn")?.addEventListener("click", async (event) => {
         event.stopPropagation();
         const { openDrawer } = await import("../drawer");
-        openDrawer("section-jiggler", "Mouse Jiggler", "&#57987;");
+        openDrawer("section-jiggler", t("jiggler.drawer_title", "Mouse Jiggler"), "&#57987;");
     });
 
     document.getElementById("github-btn")?.addEventListener("click", () => {
         void openUrl("https://github.com/Agzes/FluAutoClicker").catch((error) => {
-            notify(error instanceof Error ? error.message : "Could not open GitHub", "error", 3200);
+            notify(error instanceof Error ? error.message : t("error.could_not_open_github", "Could not open GitHub"), "error", 3200);
         });
     });
 }

@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
 import { formatInvokeError, safeInvoke } from "./invoke";
 import { notify } from "./notifications";
+import { t } from "./i18n";
 import {
     applyPersistedConfig,
     persistCurrentSettings,
@@ -85,7 +86,7 @@ async function refreshProfiles(preferredProfile?: string) {
         safeInvoke<string[]>("list_profiles_cmd", undefined, {
             fallback: ["default"],
             notifyOnError: true,
-            errorMessage: "Could not load profiles",
+            errorMessage: t("error.could_not_load_profiles", "Could not load profiles"),
         }),
         safeInvoke<Pick<AppConfigFile, "active_profile">>(
             "load_app_config",
@@ -93,7 +94,7 @@ async function refreshProfiles(preferredProfile?: string) {
             {
                 fallback: { active_profile: "default" },
                 notifyOnError: true,
-                errorMessage: "Could not load active profile",
+                errorMessage: t("error.could_not_load_active_profile", "Could not load active profile"),
             },
         ),
     ]);
@@ -122,9 +123,9 @@ async function refreshProfiles(preferredProfile?: string) {
             <div class="settings-item-icon"><span class="icon">&#58218;</span></div>
             <div class="settings-item-content">
                 <span class="settings-item-title">${profile}</span>
-                <span class="settings-item-desc">${profile === activeProfile ? "Active profile" : "Click to load"}</span>
+                <span class="settings-item-desc">${profile === activeProfile ? t("profiles.active_desc", "Active profile") : t("profile_click_to_load", "Click to load")}</span>
             </div>
-            ${profile === activeProfile ? '<span class="profile-status-badge">ACTIVE</span>' : ""}
+            ${profile === activeProfile ? '<span class="profile-status-badge">' + t("active_profile_badge", "ACTIVE") + '</span>' : ""}
         `;
         button.addEventListener("click", () => {
             void loadProfile(profile);
@@ -150,11 +151,11 @@ async function saveProfile() {
             name,
             config: currentConfig,
         },
-        { notifyOnError: true, errorMessage: "Could not save profile" },
+        { notifyOnError: true, errorMessage: t("error.could_not_save_profile", "Could not save profile") },
     );
     applyPersistedConfig(updated as any);
     await refreshProfiles(name);
-    notify(`Profile "${name}" saved`, "success", 1800);
+    notify(t("profile_saved", 'Profile "{name}" saved', { name }), "success", 1800);
 }
 
 async function loadProfile(name: string) {
@@ -163,14 +164,14 @@ async function loadProfile(name: string) {
         { name },
         {
             notifyOnError: true,
-            errorMessage: "Could not load profile",
+            errorMessage: t("error.could_not_load_profile", "Could not load profile"),
         },
     );
     selectedProfile = name;
     activeProfile = name;
     applyPersistedConfig(updated as any);
     await refreshProfiles(name);
-    notify(`Profile "${name}" loaded`, "success", 1800);
+    notify(t("profile_loaded", 'Profile "{name}" loaded', { name }), "success", 1800);
 }
 
 async function renameProfile() {
@@ -184,12 +185,12 @@ async function renameProfile() {
         },
         {
             notifyOnError: true,
-            errorMessage: "Could not rename profile",
+            errorMessage: t("error.could_not_rename_profile", "Could not rename profile"),
         },
     );
     selectedProfile = nextName;
     await refreshProfiles(nextName);
-    notify(`Profile renamed to "${nextName}"`, "success", 1800);
+    notify(t("profile_renamed", 'Profile renamed to "{name}"', { name: nextName }), "success", 1800);
 }
 
 async function deleteProfile() {
@@ -199,7 +200,7 @@ async function deleteProfile() {
         { name: profile },
         {
             notifyOnError: true,
-            errorMessage: "Could not delete profile",
+            errorMessage: t("error.could_not_delete_profile", "Could not delete profile"),
         },
     );
     const config = await safeInvoke<Pick<AppConfigFile, "active_profile">>(
@@ -213,7 +214,7 @@ async function deleteProfile() {
     activeProfile = "default";
     applyPersistedConfig(config as any);
     await refreshProfiles("default");
-    notify(`Profile "${profile}" deleted`, "info", 1800);
+    notify(t("profile_deleted", 'Profile "{name}" deleted', { name: profile }), "info", 1800);
 }
 
 async function exportProfile() {
@@ -239,7 +240,7 @@ async function exportProfile() {
         `fluautoclicker-profile-${safeFilePart(profile.name)}-${timestampForFile()}.json`,
         profile,
     );
-    if (saved) notify(`Profile "${profile.name}" exported`, "success", 1800);
+    if (saved) notify(t("profile_exported", 'Profile "{name}" exported', { name: profile.name }), "success", 1800);
 }
 
 function importProfile() {
@@ -251,7 +252,7 @@ function importProfile() {
         activeProfile = selectedProfile;
         applyPersistedConfig(updated);
         await refreshProfiles(selectedProfile);
-        notify(`Profile "${selectedProfile}" imported`, "success", 2200);
+        notify(t("profile_imported", 'Profile "{name}" imported', { name: selectedProfile }), "success", 2200);
     });
 }
 
@@ -280,13 +281,13 @@ function syncProfileActionState() {
         renameBtn.disabled = isRenameDisabled;
         renameBtn.classList.toggle("disabled", isRenameDisabled);
         if (isDefault) {
-            renameBtn.title = "The default profile cannot be renamed.";
+            renameBtn.title = t("default_profile_no_rename", "The default profile cannot be renamed.");
         } else if (!currentInputName) {
-            renameBtn.title = "Please enter a profile name.";
+            renameBtn.title = t("please_enter_profile_name", "Please enter a profile name.");
         } else if (currentInputName === selectedProfile) {
-            renameBtn.title = "Profile name is unchanged.";
+            renameBtn.title = t("profile_name_unchanged", "Profile name is unchanged.");
         } else if (allProfilesList.includes(currentInputName)) {
-            renameBtn.title = `A profile named "${currentInputName}" already exists.`;
+            renameBtn.title = t("profile_name_exists", 'A profile named "{name}" already exists.', { name: currentInputName });
         } else {
             renameBtn.title = "";
         }
@@ -296,7 +297,7 @@ function syncProfileActionState() {
         deleteBtn.disabled = isDefault;
         deleteBtn.classList.toggle("disabled", isDefault);
         deleteBtn.title = isDefault
-            ? "The default profile cannot be deleted."
+            ? t("default_profile_no_delete", "The default profile cannot be deleted.")
             : "";
     }
 
@@ -304,18 +305,18 @@ function syncProfileActionState() {
         if (!currentInputName) {
             saveBtn.disabled = true;
             saveBtn.classList.add("disabled");
-            saveBtn.innerHTML = `<span class="icon">&#57677;</span>SAVE`;
-            saveBtn.title = "Please enter a profile name.";
+            saveBtn.innerHTML = `<span class="icon">&#57677;</span>` + t("save", "SAVE");
+            saveBtn.title = t("please_enter_profile_name", "Please enter a profile name.");
         } else if (allProfilesList.includes(currentInputName)) {
             saveBtn.disabled = true;
             saveBtn.classList.add("disabled");
-            saveBtn.innerHTML = `<span class="icon">&#57677;</span>AUTO-SAVED`;
-            saveBtn.title = "All changes are saved automatically.";
+            saveBtn.innerHTML = `<span class="icon">&#57677;</span>` + t("profiles.autosaved", "AUTO-SAVED");
+            saveBtn.title = t("profiles.autosaved_desc", "All changes are saved automatically.");
         } else {
             saveBtn.disabled = false;
             saveBtn.classList.remove("disabled");
-            saveBtn.innerHTML = `<span class="icon">&#57677;</span>CREATE`;
-            saveBtn.title = `Save settings as a new profile "${currentInputName}".`;
+            saveBtn.innerHTML = `<span class="icon">&#57677;</span>` + t("create", "CREATE");
+            saveBtn.title = t("save_as_new_profile", 'Save settings as a new profile "{name}".', { name: currentInputName });
         }
     }
 }

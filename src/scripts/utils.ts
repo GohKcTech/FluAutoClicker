@@ -1,4 +1,5 @@
 import { safeInvoke } from "./invoke";
+import { t } from "./i18n";
 
 export function createSlideIndicator(container: Element, activeBtn: Element, noTransition = false) {
     let indicator = container.querySelector('.slide-indicator') as HTMLElement;
@@ -89,8 +90,8 @@ export async function isWebviewDevtoolsAvailable() {
 
 export function formatDuration(ms: number): string {
     if (ms >= 1000) {
-        return `${(ms / 1000).toFixed(2)}s`;
+        return t("duration.s", undefined, { value: (ms / 1000).toFixed(2) });
     }
-    return `${ms}ms`;
+    return t("duration.ms", undefined, { value: String(ms) });
 }
 

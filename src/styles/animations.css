@@ -90,16 +90,6 @@
   100% { background-position: 0% 50%; }
 }
 
-
-@keyframes rainbow-accent {
-  0%   { --accent: #ff4d4d; --accent-dim: rgba(255, 77, 77, 0.4); }
-  20%  { --accent: #f9d423; --accent-dim: rgba(249, 212, 35, 0.4); }
-  40%  { --accent: #4ade80; --accent-dim: rgba(74, 222, 128, 0.4); }
-  60%  { --accent: #00c9ff; --accent-dim: rgba(0, 201, 255, 0.4); }
-  80%  { --accent: #a855f7; --accent-dim: rgba(168, 85, 247, 0.4); }
-  100% { --accent: #ff4d4d; --accent-dim: rgba(255, 77, 77, 0.4); }
-}
-
 .slide-indicator {
   transition: var(--slide-transition);
 }

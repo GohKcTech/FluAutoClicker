@@ -3,10 +3,12 @@ import { createSlideIndicator, updateIndicator } from "./utils";
 import { initWebviewErrorModal } from "./webview-error-modal";
 import { initWindowEffects } from "./window-effects";
 import { applyWindowControlIcons, WINDOW_CONTROL_ICONS_STORAGE_KEY } from "./window-control-icons";
+import { t, initI18n } from "./i18n";
 
 const appWindow = getCurrentWindow();
 
 window.addEventListener("DOMContentLoaded", async () => {
+    initI18n();
     initWebviewErrorModal();
     await initWindowEffects();
     applyWindowControlIcons();
@@ -31,7 +33,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     let startTime = 0;
     let duration = 5;
     let timer: any = null;
-    let facts: string[] = ["Loading facts..."];
+    let facts: string[] = t("cps.facts", "Rust ensures blazing speed and safety.|Crafted with love and ∞ cups of tea.|It will always be free and open-source.|Personalize your UI with dynamic themes.|Ultralight code minimizes system usage.|Star FluAutoClicker on github.").split("|").map(s => s.trim());
     let lastCps = 0;
 
     
@@ -84,15 +86,15 @@ window.addEventListener("DOMContentLoaded", async () => {
                 if (mode === 'click') {
                     const stats = calcStats();
                     mainDisplay.textContent = clickCount.toString();
-                    if (maxDisplay) maxDisplay.textContent = `MAX ${formatMs(stats.max)}`;
-                    if (minDisplay) minDisplay.textContent = `MIN ${formatMs(stats.min)}`;
+                    if (maxDisplay) maxDisplay.textContent = t("cps.max", "MAX") + " " + formatMs(stats.max);
+                    if (minDisplay) minDisplay.textContent = t("cps.min", "MIN") + " " + formatMs(stats.min);
                 } else {
                     
                     if (isHolding) {
                         const currentHold = performance.now() - holdStartTime;
-                        mainDisplay.textContent = `${Math.round(currentHold)}ms`;
+                        mainDisplay.textContent = t("cps.ms", "{value}ms", { value: String(Math.round(currentHold)) });
                     } else {
-                        mainDisplay.textContent = totalHoldTime > 0 ? `${totalHoldTime}ms` : "HOLD!";
+                        mainDisplay.textContent = totalHoldTime > 0 ? t("cps.ms", "{value}ms", { value: String(totalHoldTime) }) : t("cps.hold", "HOLD!");
                     }
                     if (maxDisplay) maxDisplay.textContent = '';
                     if (minDisplay) minDisplay.textContent = '';
@@ -109,27 +111,16 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    try {
-        const response = await fetch('/assets/data/facts.json');
-        facts = await response.json();
-        showRandomFact();
-    } catch (e) {
-        facts = ["FluAutoClicker: High-performance."];
-        showRandomFact();
-    }
+    showRandomFact();
 
     closeBtn?.addEventListener('click', () => appWindow.close());
     minimizeBtn?.addEventListener('click', () => appWindow.minimize());
 
     function applyTheme() {
-        const mode_ = localStorage.getItem('flu-theme-mode') || 'solid';
         const color = localStorage.getItem('flu-theme-color') || '#77B6DD';
-        document.body.classList.toggle('theme-rainbow', mode_ === 'rainbow');
-        if (mode_ !== 'rainbow') {
-            document.documentElement.style.setProperty('--accent', color);
-            const dimColor = color.length === 7 ? `${color}66` : color;
-            document.documentElement.style.setProperty('--accent-dim', dimColor);
-        }
+        document.documentElement.style.setProperty('--accent', color);
+        const dimColor = color.length === 7 ? `${color}66` : color;
+        document.documentElement.style.setProperty('--accent-dim', dimColor);
     }
 
     window.addEventListener('storage', (e) => {
@@ -184,7 +175,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         if (mainDisplay) mainDisplay.textContent = "1";
         if (maxDisplay) maxDisplay.textContent = '—';
         if (minDisplay) minDisplay.textContent = '—';
-        if (statusHint) statusHint.textContent = `Time left: ${duration}s`;
+        if (statusHint) statusHint.textContent = t("cps.time_left", "Time left: {time}s", { time: String(duration) });
         if (retryBtn) retryBtn.classList.remove('ready');
 
         requestAnimationFrame(updateDisplayLoop);
@@ -197,9 +188,9 @@ window.addEventListener("DOMContentLoaded", async () => {
             const stats = calcStats();
             if (statusHint) {
                 const accText = intervals.length >= 2
-                    ? `Accuracy: ~${stats.accuracy.toFixed(1)}%`
-                    : `Time left: ${remaining.toFixed(1)}s`;
-                statusHint.textContent = `${accText} • ${lastCps.toFixed(1)} CPS`;
+                    ? t("cps.accuracy", "Accuracy") + ": ~" + stats.accuracy.toFixed(1) + "%"
+                    : t("cps.time_left", "Time left: {time}s", { time: remaining.toFixed(1) });
+                statusHint.textContent = accText + " • " + lastCps.toFixed(1) + " " + t("cps.label", "CPS");
             }
 
             if (remaining <= 0) {
@@ -214,14 +205,14 @@ window.addEventListener("DOMContentLoaded", async () => {
         clearInterval(timer);
         const finalCps = clickCount / duration;
         const stats = calcStats();
-        if (mainDisplay) mainDisplay.textContent = `${finalCps.toFixed(1)} CPS`;
-        if (maxDisplay) maxDisplay.textContent = `MAX ${formatMs(stats.max)}`;
-        if (minDisplay) minDisplay.textContent = `MIN ${formatMs(stats.min)}`;
+        if (mainDisplay) mainDisplay.textContent = finalCps.toFixed(1) + " " + t("cps.label", "CPS");
+        if (maxDisplay) maxDisplay.textContent = t("cps.max", "MAX") + " " + formatMs(stats.max);
+        if (minDisplay) minDisplay.textContent = t("cps.min", "MIN") + " " + formatMs(stats.min);
         if (statusHint) {
             const accText = intervals.length >= 2
-                ? `Accuracy: ~${stats.accuracy.toFixed(1)}%`
-                : 'No interval data';
-            statusHint.textContent = `${accText} • ${clickCount} clicks in ${duration}s`;
+                ? t("cps.accuracy", "Accuracy") + ": ~" + stats.accuracy.toFixed(1) + "%"
+                : t("cps.no_interval", "No interval data");
+            statusHint.textContent = accText + " • " + clickCount + " " + t("cps.clicks_in", "clicks in") + " " + duration + "s";
         }
 
         showRandomFact();
@@ -235,8 +226,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         isFinished = false;
         totalHoldTime = 0;
         startTime = performance.now();
-        if (mainDisplay) mainDisplay.textContent = "HOLD!";
-        if (statusHint) statusHint.textContent = `Hold the button • ${duration}s timer`;
+        if (mainDisplay) mainDisplay.textContent = t("cps.hold", "HOLD!");
+        if (statusHint) statusHint.textContent = t("cps.hold_button", "Hold the button") + " • " + duration + "s timer";
         if (retryBtn) retryBtn.classList.remove('ready');
 
         requestAnimationFrame(updateDisplayLoop);
@@ -249,7 +240,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
             if (statusHint) {
                 const holdSecs = (totalHoldTime / 1000).toFixed(2);
-                statusHint.textContent = `Time left: ${remaining.toFixed(1)}s • Held: ${holdSecs}s (${(holdFraction * 100).toFixed(1)}%)`;
+                statusHint.textContent = t("cps.time_left", "Time left: {time}s", { time: remaining.toFixed(1) }) + " • " + t("cps.held_label", "Held") + ": " + holdSecs + "s (" + (holdFraction * 100).toFixed(1) + "%)";
             }
 
             if (remaining <= 0) {
@@ -270,7 +261,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         const totalHoldSecs = totalHoldTime / 1000;
         const holdPercent = (totalHoldTime / 1000 / duration) * 100;
         if (mainDisplay) mainDisplay.textContent = `${holdPercent.toFixed(1)}%`;
-        if (statusHint) statusHint.textContent = `Held ${totalHoldSecs.toFixed(2)}s out of ${duration}s`;
+        if (statusHint) statusHint.textContent = t("cps.held_format", "Held {held}s out of {total}s", { held: totalHoldSecs.toFixed(2), total: String(duration) });
 
         showRandomFact();
         if (retryBtn) retryBtn.classList.add('ready');
@@ -288,12 +279,12 @@ window.addEventListener("DOMContentLoaded", async () => {
         lastCps = 0;
         intervals = [];
         lastClickTime = 0;
-        if (mainDisplay) mainDisplay.textContent = mode === 'click' ? "CLICK!" : "HOLD!";
+        if (mainDisplay) mainDisplay.textContent = mode === 'click' ? t("cps.start", "CLICK!") : t("cps.hold", "HOLD!");
         if (maxDisplay) maxDisplay.textContent = '—';
         if (minDisplay) minDisplay.textContent = '—';
         if (statusHint) statusHint.textContent = mode === 'click'
-            ? `READY TO START • ${duration}S`
-            : `READY TO HOLD • ${duration}S`;
+            ? t("cps.ready_to_start", "READY TO START") + " • " + duration + "S"
+            : t("cps.ready_to_hold", "READY TO HOLD") + " • " + duration + "S";
         showRandomFact();
         if (retryBtn) retryBtn.classList.remove('ready');
         document.body.classList.remove('high-performance-mode');

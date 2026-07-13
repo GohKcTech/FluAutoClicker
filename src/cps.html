@@ -236,12 +236,12 @@
     <header data-tauri-drag-region>
       <div class="header-left" style="display: flex; align-items: center; -webkit-app-region: no-drag;">
         <div class="title-group">
-          <span class="app-name" style="cursor: default;"><span style="color: var(--accent); transition: color 0.2s;">Flu</span><span style="color: var(--accent-dim); transition: color 0.2s;">AutoClicker</span></span>
+          <span class="app-name font-logo" style="cursor: default;"><span style="color: var(--accent); transition: color 0.2s;">Flu</span><span style="color: var(--accent-dim); transition: color 0.2s;">AutoClicker</span></span>
         </div>
       </div>
 
       <div class="header-tag">
-        <span class="tag-text">CPS Test</span>
+        <span class="tag-text" data-i18n="cps.test">CPS Test</span>
       </div>
 
       <div class="window-controls" style="-webkit-app-region: no-drag;">
@@ -263,8 +263,8 @@
         <div class="section-row" style="flex-shrink: 0;">
           <div class="multi-button-row" id="cps-mode-row" style="margin: 0; width: 100%;">
             <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
-            <button class="multi-btn active" data-value="click">Click</button>
-            <button class="multi-btn" data-value="hold">Hold</button>
+            <button class="multi-btn active" data-value="click" data-i18n="cps.click_mode">Click</button>
+            <button class="multi-btn" data-value="hold" data-i18n="cps.hold_mode">Hold</button>
           </div>
         </div>
 
@@ -290,9 +290,9 @@
           <div class="kb-status-row">
             <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; flex: 1;">
               <span class="icon" style="color: var(--accent); opacity: 0.8; font-size: 14px; flex-shrink: 0; margin-top: 1px;">&#58487;</span>
-              <span class="kb-status-text" id="cps-result-text">LOADING FACTS...</span>
+              <span class="kb-status-text" id="cps-result-text" data-i18n="cps.loading_facts">LOADING FACTS...</span>
             </div>
-            <button class="kb-record-btn" id="cps-retry-btn">Try Again</button>
+            <button class="kb-record-btn" id="cps-retry-btn" data-i18n="cps.try_again">Try Again</button>
           </div>
         </div>
 

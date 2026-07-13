@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export type WindowControlIconStyle = "fluent" | "classic";
 
 export const WINDOW_CONTROL_ICONS_STORAGE_KEY = "flu-window-control-icons";
@@ -46,18 +48,18 @@ export function applyWindowControlIcons(options: { maximized?: boolean } = {}) {
     document.documentElement.dataset.windowControlIcons = style;
 
     if (style === "classic") {
-        setButtonIcon("minimize-btn", CLASSIC_ICONS.minimize, "Minimize");
-        setButtonIcon("maximize-btn", CLASSIC_ICONS.maximize, "Maximize");
-        setButtonIcon("close-btn", CLASSIC_ICONS.close, "Close");
+        setButtonIcon("minimize-btn", CLASSIC_ICONS.minimize, t("minimize", "Minimize"));
+        setButtonIcon("maximize-btn", CLASSIC_ICONS.maximize, t("maximize", "Maximize"));
+        setButtonIcon("close-btn", CLASSIC_ICONS.close, t("close", "Close"));
         return;
     }
 
     const maximized = options.maximized === true;
-    setButtonIcon("minimize-btn", fluentGlyph(FLUENT_GLYPHS.minimize), "Minimize");
+    setButtonIcon("minimize-btn", fluentGlyph(FLUENT_GLYPHS.minimize), t("minimize", "Minimize"));
     setButtonIcon(
         "maximize-btn",
         fluentGlyph(maximized ? FLUENT_GLYPHS.unmaximize : FLUENT_GLYPHS.maximize),
-        maximized ? "Unmaximize" : "Maximize",
+        maximized ? t("unmaximize", "Unmaximize") : t("maximize", "Maximize"),
     );
-    setButtonIcon("close-btn", CLASSIC_ICONS.close, "Close");
+    setButtonIcon("close-btn", CLASSIC_ICONS.close, t("close", "Close"));
 }

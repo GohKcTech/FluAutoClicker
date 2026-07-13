@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 type WebviewErrorSource = "runtime" | "promise" | "webview";
 
 type WebviewErrorDetail = {
@@ -45,21 +47,21 @@ function ensureErrorModal(): HTMLElement {
         </div>
 
         <div class="startup-copy-block">
-          <span class="startup-modal-kicker" id="webview-error-kicker">app notice</span>
-          <strong><em id="webview-error-title">Something needs attention</em></strong>
-          <p id="webview-error-message">The app ran into a problem. You can close this window and try the action again.</p>
+          <span class="startup-modal-kicker" id="webview-error-kicker">${t("webview.app_notice", "app notice")}</span>
+          <strong><em id="webview-error-title">${t("webview.attention", "Something needs attention")}</em></strong>
+          <p id="webview-error-message">${t("webview.default_message", "The app ran into a problem. You can close this window and try the action again.")}</p>
         </div>
 
         <div class="webview-error-copy-wrap">
           <div class="webview-error-copy-head">
-            <span>Details for support</span>
-            <button id="webview-error-copy-btn" type="button">Copy</button>
+            <span>${t("webview.details_for_support", "Details for support")}</span>
+            <button id="webview-error-copy-btn" type="button">${t("webview.copy", "Copy")}</button>
           </div>
           <textarea id="webview-error-text" readonly spellcheck="false"></textarea>
         </div>
 
         <div class="startup-modal-actions">
-          <button id="webview-error-close-btn" class="startup-modal-button secondary" type="button">Close</button>
+          <button id="webview-error-close-btn" class="startup-modal-button secondary" type="button">${t("webview.close", "Close")}</button>
         </div>
       </div>
     `;
@@ -91,8 +93,8 @@ async function copyErrorText(textarea: HTMLTextAreaElement | null, button: HTMLB
         document.execCommand("copy");
     }
 
-    const previousText = button.textContent || "Copy";
-    button.textContent = "Copied";
+    const previousText = button.textContent || t("webview.copy", "Copy");
+    button.textContent = t("webview.copied", "Copied");
     window.setTimeout(() => {
         button.textContent = previousText;
     }, 1100);
@@ -118,21 +120,21 @@ function hideWebviewErrorModal() {
 }
 
 function sourceLabel(source: WebviewErrorSource): string {
-    if (source === "promise") return "background action";
-    if (source === "webview") return "window issue";
-    return "app issue";
+    if (source === "promise") return t("webview.source_background", "background action");
+    if (source === "webview") return t("webview.source_window", "window issue");
+    return t("webview.source_app", "app issue");
 }
 
 function fallbackMessage(source: WebviewErrorSource): string {
     if (source === "webview") {
-        return "This window could not be opened. Close this message and try again.";
+        return t("webview.fallback_webview", "This window could not be opened. Close this message and try again.");
     }
 
     if (source === "promise") {
-        return "A background action did not finish correctly. Close this message and try the action again.";
+        return t("webview.fallback_promise", "A background action did not finish correctly. Close this message and try the action again.");
     }
 
-    return "The app ran into a problem. Close this message and try the action again.";
+    return t("webview.fallback_runtime", "The app ran into a problem. Close this message and try the action again.");
 }
 
 export function showWebviewErrorModal(detail: WebviewErrorDetail) {
@@ -146,10 +148,10 @@ export function showWebviewErrorModal(detail: WebviewErrorDetail) {
     lastErrorText = detail.raw || detail.message;
 
     if (kicker) kicker.textContent = sourceLabel(detail.source);
-    if (title) title.textContent = detail.title || "Something needs attention";
+    if (title) title.textContent = detail.title || t("webview.attention", "Something needs attention");
     if (message) message.textContent = detail.message || fallbackMessage(detail.source);
     if (textarea) textarea.value = lastErrorText;
-    if (copyButton) copyButton.textContent = "Copy";
+    if (copyButton) copyButton.textContent = t("webview.copy", "Copy");
 
     showModal(modal);
     window.setTimeout(() => textarea?.focus(), 50);
@@ -164,8 +166,8 @@ export function initWebviewErrorModal() {
         const raw = stringifyError(event.error || event.message);
         showWebviewErrorModal({
             source: "runtime",
-            title: "The app hit a problem",
-            message: "Something inside this window stopped working. Close this message and try again.",
+            title: t("webview.error_title", "The app hit a problem"),
+            message: t("webview.error_message", "Something inside this window stopped working. Close this message and try again."),
             raw,
         });
     });
@@ -174,8 +176,8 @@ export function initWebviewErrorModal() {
         const raw = stringifyError(event.reason);
         showWebviewErrorModal({
             source: "promise",
-            title: "Action did not finish",
-            message: "A background action could not be completed. Close this message and try again.",
+            title: t("webview.promise_title", "Action did not finish"),
+            message: t("webview.promise_message", "A background action could not be completed. Close this message and try again."),
             raw,
         });
     });
@@ -185,8 +187,8 @@ export function showWebviewCreationError(label: string, error: unknown) {
     const raw = stringifyError(error);
     showWebviewErrorModal({
         source: "webview",
-        title: `${label} could not open`,
-        message: `The ${label} window did not open. Close this message and try again.`,
+        title: t("webview.open_error_title", "{label} could not open", { label }),
+        message: t("webview.open_error_message", "The {label} window did not open. Close this message and try again.", { label }),
         raw,
     });
 }

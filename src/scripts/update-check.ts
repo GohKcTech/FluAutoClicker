@@ -1,6 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { emitSettingsChanged } from "./settings-persistence";
+import { t } from "./i18n";
 
 const UPDATE_FEED_URL =
     "https://raw.githubusercontent.com/Agzes/FluAutoClicker/next/docs/updates/latest-beta.json";
@@ -137,25 +138,24 @@ async function resolveCurrentVersion(): Promise<string> {
 function setChannelPill() {
     const channelLabel = document.getElementById("updates-current-channel");
     if (channelLabel) {
-        channelLabel.textContent =
-            "Current installed beta build. Feed: GitHub raw manifest.";
+        channelLabel.textContent = t("updates.channel_desc", "Current installed beta build. Feed: GitHub raw manifest.");
     }
 
     const feedBadge = document.getElementById("updates-feed-badge");
     if (feedBadge) {
-        feedBadge.textContent = "latest-beta.json";
+        feedBadge.textContent = t("updates.feed_badge", "latest-beta.json");
     }
 }
 
 function formatPublishedDate(value?: string): string {
-    if (!value) return "Published date is not provided by the manifest.";
+    if (!value) return t("updates.no_pub_date", "Published date is not provided by the manifest.");
 
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) {
-        return `Published: ${value}`;
+        return t("updates.published_prefix", "Published: {date}", { date: value });
     }
 
-    return `Published: ${parsed.toLocaleString()}`;
+    return t("updates.published_prefix", "Published: {date}", { date: parsed.toLocaleString() });
 }
 
 function updateLatestBuildDetails(manifest?: UpdateManifest | null) {
@@ -165,13 +165,12 @@ function updateLatestBuildDetails(manifest?: UpdateManifest | null) {
     if (!latestVersion || !releaseNotes) return;
 
     if (!manifest) {
-        latestVersion.textContent = "Latest published build is not loaded yet";
-        releaseNotes.textContent =
-            "Run a check to fetch version, date, and release notes from the manifest.";
+        latestVersion.textContent = t("updates.latest_not_loaded", "Latest published build is not loaded yet");
+        releaseNotes.textContent = t("updates.run_check_hint", "Run a check to fetch version, date, and release notes from the manifest.");
         return;
     }
 
-    latestVersion.textContent = `Latest published build: v${normalizeVersion(manifest.version)}`;
+    latestVersion.textContent = t("updates.latest_build", "Latest published build: v{version}", { version: normalizeVersion(manifest.version) });
     releaseNotes.textContent = manifest.notes?.trim()
         ? `${manifest.notes.trim()} ${formatPublishedDate(manifest.pub_date)}`
         : formatPublishedDate(manifest.pub_date);
@@ -192,29 +191,29 @@ function renderHelpButtonStatus(status: UpdateStatus) {
     switch (status) {
         case "checking":
             dot.classList.add("checking");
-            if (desc) desc.textContent = "Checking for updates...";
+            if (desc) desc.textContent = t("updates.status.checking", "Checking for updates...");
             break;
         case "available":
             dot.classList.add("available");
             if (desc)
-                desc.textContent = "New version available - click to view";
+                desc.textContent = t("updates.status.available", "New version available - click to view");
             if (versionTag) {
                 versionTag.classList.add("has-update", "status-available");
             }
             break;
         case "up-to-date":
             dot.classList.add("up-to-date");
-            if (desc) desc.textContent = "You are on the latest version";
+            if (desc) desc.textContent = t("updates.status.up_to_date", "You are on the latest version");
             if (versionTag) versionTag.classList.remove("has-update");
             break;
         case "error":
             dot.classList.add("error");
-            if (desc) desc.textContent = "Check failed - click to retry";
+            if (desc) desc.textContent = t("updates.status.error", "Check failed - click to retry");
             if (versionTag) versionTag.classList.remove("has-update");
             break;
         default:
             if (desc)
-                desc.textContent = "Check for new releases and update status";
+                desc.textContent = t("updates.status.idle", "Check for new releases and update status");
             if (versionTag) versionTag.classList.remove("has-update");
             return;
     }
@@ -264,7 +263,7 @@ function renderStatus(
 
     if (checkButtonLabel) {
         checkButtonLabel.textContent =
-            status === "checking" ? "CHECKING" : "CHECK";
+            status === "checking" ? t("updates.checking_btn", "CHECKING") : t("updates.check_btn", "CHECK");
     }
 
     renderHelpButtonStatus(status);
@@ -388,11 +387,11 @@ function updateModalText(manifest: UpdateManifest) {
     if (notesLabel) {
         notesLabel.textContent =
             manifest.notes?.trim() ||
-            "A newer FluAutoClicker build is available.";
+            t("updates.modal.default_notes", "A newer FluAutoClicker build is available.");
     }
 
     if (currentLabel) {
-        currentLabel.textContent = `v${currentVersion} -> v${version}`;
+        currentLabel.textContent = t("updates.modal.version_comparison", "v{current} -> v{next}", { current: currentVersion, next: version });
     }
 
     if (publishedLabel) {
@@ -433,9 +432,8 @@ async function checkForUpdates(manual = false) {
     isChecking = true;
     let checkSucceeded = false;
     let finalStatus: UpdateStatus = "checking";
-    let finalTitle = "Checking manifest...";
-    let finalDescription =
-        "Fetching the hosted static JSON file and comparing versions.";
+    let finalTitle = t("updates.checking_manifest", "Checking manifest...");
+    let finalDescription = t("updates.checking_manifest_desc", "Fetching the hosted static JSON file and comparing versions.");
     renderStatus(finalStatus, finalTitle, finalDescription);
 
     try {
@@ -446,9 +444,8 @@ async function checkForUpdates(manual = false) {
 
         if (compareVersions(currentVersion, manifest.version) < 0) {
             finalStatus = "available";
-            finalTitle = `Update v${normalizeVersion(manifest.version)} is available`;
-            finalDescription =
-                "A newer build was found in the hosted manifest. Use the GitHub button to open the release page.";
+            finalTitle = t("updates.available_title", "Update v{version} is available", { version: normalizeVersion(manifest.version) });
+            finalDescription = t("updates.available_desc", "A newer build was found in the hosted manifest. Use the GitHub button to open the release page.");
             renderStatus(finalStatus, finalTitle, finalDescription);
 
             showUpdateAvailableNotification(manifest, manual);
@@ -457,15 +454,14 @@ async function checkForUpdates(manual = false) {
         }
 
         finalStatus = "up-to-date";
-        finalTitle = "You are up to date";
-        finalDescription = `Installed version v${currentVersion} matches the newest build from the manifest.`;
+        finalTitle = t("updates.up_to_date_title", "You are up to date");
+        finalDescription = t("updates.up_to_date_desc", "Installed version v{version} matches the newest build from the manifest.", { version: currentVersion });
         renderStatus(finalStatus, finalTitle, finalDescription);
     } catch (error) {
         console.warn("Failed to check update manifest", error);
         finalStatus = "error";
-        finalTitle = "Manifest is unavailable";
-        finalDescription =
-            "The version file could not be loaded right now. You can still open GitHub Releases manually.";
+        finalTitle = t("updates.error_title", "Manifest is unavailable");
+        finalDescription = t("updates.error_desc", "The version file could not be loaded right now. You can still open GitHub Releases manually.");
         renderStatus(finalStatus, finalTitle, finalDescription);
         updateLatestBuildDetails(lastManifest);
     } finally {
@@ -554,8 +550,8 @@ export async function initUpdateChecks() {
     updateLatestBuildDetails(null);
     renderStatus(
         "idle",
-        "Version checks are ready",
-        "Checks compare your installed version with the hosted static release manifest.",
+        t("updates.idle_title", "Version checks are ready"),
+        t("updates.idle_desc", "Checks compare your installed version with the hosted static release manifest."),
     );
 
     if (shouldAutoCheck()) {

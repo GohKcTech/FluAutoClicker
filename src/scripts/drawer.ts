@@ -4,6 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { notify } from "./notifications";
 import { ensureUinputPermissionsForFeature } from "./uinput-permissions";
 import { updateSliderFill } from "./utils";
+import { t } from "./i18n";
 
 const DRAWER_FOCUSABLE_SELECTOR = [
     "button:not([disabled])",
@@ -66,6 +67,21 @@ function restoreDrawerReturnFocus(drawer: HTMLElement) {
     drawerReturnFocus = null;
 }
 
+const DRAWER_TITLE_KEYS: Record<string, string> = {
+    "Settings": "drawer.settings",
+    "Hotkeys": "drawer.hotkeys",
+    "Profiles System": "drawer.profiles",
+    "Help & Resources": "drawer.help",
+    "Mouse Jiggler": "jiggler.section_title",
+    "Add Macro Action": "macro.add_action",
+    "Edit Macro Action": "macro.edit_action",
+    "Recording Filters": "macro.recording_filters",
+    "General": "settings.group.general",
+    "Utils": "settings.group.utils",
+    "Theme & Appearance": "settings.group.theme",
+    "Updates": "settings.group.updates",
+};
+
 export function openDrawer(sectionId: string, title: string, icon?: string) {
     const drawer = document.getElementById("drawer-shell");
     const drawerOverlay = document.getElementById("drawer-overlay");
@@ -80,9 +96,10 @@ export function openDrawer(sectionId: string, title: string, icon?: string) {
     setDrawerAccessibilityState(drawer, true);
 
     const titleParts = title.split(" > ");
-    drawerSection.textContent = titleParts[0];
-    if (titleParts.length > 1 && drawerGroup) {
-        drawerGroup.innerHTML = `<span style="color: var(--text-dim);"> ></span> ${titleParts.slice(1).join(" > ")}`;
+    const translatedParts = titleParts.map((part) => t(DRAWER_TITLE_KEYS[part] || "", part));
+    drawerSection.textContent = translatedParts[0];
+    if (translatedParts.length > 1 && drawerGroup) {
+        drawerGroup.innerHTML = `<span style="color: var(--text-dim);"> ></span> ${translatedParts.slice(1).join(" > ")}`;
     } else if (drawerGroup) {
         drawerGroup.textContent = "";
     }
@@ -114,6 +131,13 @@ export function closeDrawer() {
     setTimeout(() => {
         document.getElementById("content")?.classList.remove("blurred");
     }, 300);
+
+    try {
+        if (sessionStorage.getItem("flu-language-pending-reload") === "1") {
+            sessionStorage.removeItem("flu-language-pending-reload");
+            window.location.reload();
+        }
+    } catch {}
 }
 
 function refreshDrawerUi(section?: HTMLElement | null) {
@@ -156,26 +180,7 @@ function bindHelpLink(elementId: string, url: string, label: string) {
     });
 }
 
-function bindDrawerLink(
-    elementId: string,
-    sectionId: string,
-    title: string,
-    icon?: string,
-) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
 
-    const openTarget = () => {
-        openDrawer(sectionId, title, icon);
-    };
-
-    element.addEventListener("click", openTarget);
-    element.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        openTarget();
-    });
-}
 
 export function initDrawer() {
     const drawerOverlay = document.getElementById("drawer-overlay");
@@ -379,7 +384,7 @@ export function initTimingModal(onConfirm: () => void) {
                 progress.style.width = "0";
                 progress.style.transition = progressTransition;
             }
-            if (text) text.textContent = "Slide to confirm";
+            if (text) text.textContent = t("timing.slide_to_confirm", "Slide to confirm");
             track.classList.remove("unlocked");
         };
 
@@ -407,11 +412,11 @@ export function initTimingModal(onConfirm: () => void) {
             const iconEl = document.getElementById("timing-unlock-icon");
             if (delta >= maxDelta * 0.98) {
                 track.classList.add("unlocked");
-                if (text) text.textContent = "Release to confirm";
+                if (text) text.textContent = t("timing.release_to_confirm", "Release to confirm");
                 if (iconEl) iconEl.innerHTML = "&#58544;";
             } else {
                 track.classList.remove("unlocked");
-                if (text) text.textContent = "Slide to confirm";
+            if (text) text.textContent = t("timing.slide_to_confirm", "Slide to confirm");
                 if (iconEl) iconEl.innerHTML = "&#58591;";
             }
         };
@@ -578,7 +583,8 @@ function setDrawerTitleHtml(group: string) {
     const section = document.getElementById("drawer-title-section");
     if (!groupEl || !section) return;
 
-    const newHtml = `<span style="color: var(--text-dim);"> ></span> ${group}`;
+    const translatedGroup = t(DRAWER_TITLE_KEYS[group] || "", group);
+    const newHtml = `<span style="color: var(--text-dim);"> ></span> ${translatedGroup}`;
     if (groupEl.innerHTML === newHtml) return;
 
     const oldSectionRect = section.getBoundingClientRect();

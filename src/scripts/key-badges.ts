@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export function formatKeyLabel(value: string): string {
     const normalized = value.trim();
     if (!normalized) {
@@ -62,7 +64,7 @@ function showEmptyStateAfterBadges(container: Element) {
         if (!container.querySelector(".key-badge-empty")) {
             const empty = document.createElement("span");
             empty.className = "key-badge-empty";
-            empty.textContent = "None";
+            empty.textContent = t("key_badges.none", "None");
             container.appendChild(empty);
         }
     }, delay);

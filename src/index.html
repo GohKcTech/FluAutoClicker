@@ -21,9 +21,9 @@
                 >
             </div>
             <nav class="mode-tabs">
-                <div class="tab active" data-tab="mouse">Mouse</div>
-                <div class="tab" data-tab="keyboard">Keyboard</div>
-                <div class="tab" data-tab="macro">Macro</div>
+                <div class="tab active" data-tab="mouse" data-i18n="tab.mouse">Mouse</div>
+                <div class="tab" data-tab="keyboard" data-i18n="tab.keyboard">Keyboard</div>
+                <div class="tab" data-tab="macro" data-i18n="tab.macro">Macro</div>
             </nav>
             <div class="window-controls">
                 <button class="control-btn" id="minimize-btn" title="Minimize">
@@ -67,7 +67,7 @@
                                         min="0"
                                     />
                                 </div>
-                                <span class="time-label">hours</span>
+                                <span class="time-label" data-i18n="time.hours">hours</span>
                             </div>
                             <div class="time-input-box">
                                 <div class="time-input-wrap">
@@ -78,7 +78,7 @@
                                         min="0"
                                     />
                                 </div>
-                                <span class="time-label">minutes</span>
+                                <span class="time-label" data-i18n="time.minutes">minutes</span>
                             </div>
                             <div class="time-input-box">
                                 <div class="time-input-wrap">
@@ -89,7 +89,7 @@
                                         min="0"
                                     />
                                 </div>
-                                <span class="time-label">seconds</span>
+                                <span class="time-label" data-i18n="time.seconds">seconds</span>
                             </div>
                             <div class="time-input-box">
                                 <div class="time-input-wrap">
@@ -100,7 +100,7 @@
                                         min="0"
                                     />
                                 </div>
-                                <span class="time-label">milliseconds</span>
+                                <span class="time-label" data-i18n="time.milliseconds">milliseconds</span>
                             </div>
                             <div class="time-input-box">
                                 <div class="time-input-wrap">
@@ -113,7 +113,7 @@
                                         class="variation-input-value"
                                     />
                                 </div>
-                                <span class="time-label">random (ms)</span>
+                                <span class="time-label" data-i18n="time.random">random (ms)</span>
                             </div>
                         </div>
 
@@ -138,10 +138,11 @@
                             <button
                                 class="toggle-option active"
                                 data-value="press"
+                                data-i18n="press"
                             >
                                 Press
                             </button>
-                            <button class="toggle-option" data-value="hold">
+                            <button class="toggle-option" data-value="hold" data-i18n="hold">
                                 Hold
                             </button>
                         </div>
@@ -171,12 +172,14 @@
                                         <button
                                             class="toggle-option active"
                                             data-value="ms"
+                                            data-i18n="milliseconds"
                                         >
                                             Milliseconds
                                         </button>
                                         <button
                                             class="toggle-option"
                                             data-value="s"
+                                            data-i18n="seconds"
                                         >
                                             Seconds
                                         </button>
@@ -192,13 +195,13 @@
                             id="mouse-button-toggle"
                             style="margin: 0"
                         >
-                            <button class="multi-btn active" data-value="left">
+                            <button class="multi-btn active" data-value="left" data-i18n="left">
                                 Left
                             </button>
-                            <button class="multi-btn" data-value="middle">
+                            <button class="multi-btn" data-value="middle" data-i18n="middle">
                                 Middle
                             </button>
-                            <button class="multi-btn" data-value="right">
+                            <button class="multi-btn" data-value="right" data-i18n="right">
                                 Right
                             </button>
                         </div>
@@ -213,10 +216,11 @@
                             <button
                                 class="toggle-option active"
                                 data-value="infinite"
+                                data-i18n="infinite_repeat"
                             >
                                 Repeat ∞ times
                             </button>
-                            <button class="toggle-option" data-value="finite">
+                            <button class="toggle-option" data-value="finite" data-i18n="finite_repeat">
                                 Repeat for times / seconds
                             </button>
                         </div>
@@ -246,12 +250,14 @@
                                         <button
                                             class="toggle-option active"
                                             data-value="times"
+                                            data-i18n="times"
                                         >
                                             Times
                                         </button>
                                         <button
                                             class="toggle-option"
                                             data-value="seconds"
+                                            data-i18n="seconds"
                                         >
                                             Seconds
                                         </button>
@@ -270,10 +276,11 @@
                             <button
                                 class="toggle-option active"
                                 data-value="current"
+                                data-i18n="current_position"
                             >
                                 Current position
                             </button>
-                            <button class="toggle-option" data-value="custom">
+                            <button class="toggle-option" data-value="custom" data-i18n="choose_place">
                                 Choose a place
                             </button>
                         </div>
@@ -309,7 +316,7 @@
                                             "
                                             >&#58633;</span
                                         >
-                                        PICK
+                                        <span data-i18n="pick">PICK</span>
                                     </button>
                                 </div>
                             </div>
@@ -331,7 +338,7 @@
                                         min="0"
                                     />
                                 </div>
-                                <span class="time-label">hours</span>
+                                <span class="time-label" data-i18n="time.hours">hours</span>
                             </div>
                             <div class="time-input-box">
                                 <div class="time-input-wrap">
@@ -342,7 +349,7 @@
                                         min="0"
                                     />
                                 </div>
-                                <span class="time-label">minutes</span>
+                                <span class="time-label" data-i18n="time.minutes">minutes</span>
                             </div>
                             <div class="time-input-box">
                                 <div class="time-input-wrap">
@@ -353,7 +360,7 @@
                                         min="0"
                                     />
                                 </div>
-                                <span class="time-label">seconds</span>
+                                <span class="time-label" data-i18n="time.seconds">seconds</span>
                             </div>
                             <div class="time-input-box">
                                 <div class="time-input-wrap">
@@ -364,7 +371,7 @@
                                         min="0"
                                     />
                                 </div>
-                                <span class="time-label">milliseconds</span>
+                                <span class="time-label" data-i18n="time.milliseconds">milliseconds</span>
                             </div>
                             <div class="time-input-box">
                                 <div class="time-input-wrap">
@@ -377,7 +384,7 @@
                                         class="variation-input-value"
                                     />
                                 </div>
-                                <span class="time-label">random (ms)</span>
+                                <span class="time-label" data-i18n="time.random">random (ms)</span>
                             </div>
                         </div>
                         <div class="slider-row">
@@ -401,10 +408,11 @@
                             <button
                                 class="toggle-option active"
                                 data-value="press"
+                                data-i18n="press"
                             >
                                 Press
                             </button>
-                            <button class="toggle-option" data-value="hold">
+                            <button class="toggle-option" data-value="hold" data-i18n="hold">
                                 Hold
                             </button>
                         </div>
@@ -434,12 +442,14 @@
                                         <button
                                             class="toggle-option active"
                                             data-value="ms"
+                                            data-i18n="milliseconds"
                                         >
                                             Milliseconds
                                         </button>
                                         <button
                                             class="toggle-option"
                                             data-value="s"
+                                            data-i18n="seconds"
                                         >
                                             Seconds
                                         </button>
@@ -624,11 +634,12 @@
 
                                         <div class="kb-row">
                                             <button
-                                                class="kb-key kb-back-btn"
-                                                id="kb-numpad-back"
-                                            >
-                                                BACK
-                                            </button>
+                                            class="kb-key kb-back-btn"
+                                            id="kb-numpad-back"
+                                            data-i18n="kb_back"
+                                        >
+                                            BACK
+                                        </button>
                                             <button class="kb-key">*</button>
                                             <button class="kb-key">-</button>
                                         </div>
@@ -651,7 +662,7 @@
                                     >...</span
                                 >
                             </span>
-                            <button class="kb-record-btn" id="kb-record-btn">
+                            <button class="kb-record-btn" id="kb-record-btn" data-i18n="click_to_record">
                                 Click to Record
                             </button>
                         </div>
@@ -665,18 +676,19 @@
                         >
                             <button
                                 class="toggle-option active"
-                                data-value="infinite"
-                            >
-                                Repeat ∞ times
-                            </button>
-                            <button class="toggle-option" data-value="finite">
-                                Repeat for times / seconds
-                            </button>
-                        </div>
+                                        data-value="infinite"
+                                        data-i18n="infinite_repeat"
+                                    >
+                                        Repeat ∞ times
+                                    </button>
+                                    <button class="toggle-option" data-value="finite" data-i18n="finite_repeat">
+                                        Repeat for times / seconds
+                                    </button>
+                                </div>
 
-                        <div
-                            class="expandable-content"
-                            id="kb-repeat-finite-section"
+                                <div
+                                    class="expandable-content"
+                                    id="kb-repeat-finite-section"
                         >
                             <div class="expandable-inner">
                                 <div class="finite-inputs-row">
@@ -699,12 +711,14 @@
                                         <button
                                             class="toggle-option active"
                                             data-value="times"
+                                            data-i18n="times"
                                         >
                                             Times
                                         </button>
                                         <button
                                             class="toggle-option"
                                             data-value="seconds"
+                                            data-i18n="seconds"
                                         >
                                             Seconds
                                         </button>
@@ -723,22 +737,22 @@
                                 id="macro-record-btn"
                             >
                                 <span class="icon">&#58570;</span>
-                                Record
+                                <span data-i18n="macro.record">Record</span>
                             </button>
                             <button
                                 class="feature-btn"
                                 id="macro-record-settings-btn"
                             >
                                 <span class="icon">&#58700;</span>
-                                Filters
+                                <span data-i18n="macro.filters">Filters</span>
                             </button>
                             <button class="feature-btn" id="macro-clear-btn">
                                 <span class="icon">&#57742;</span>
-                                Clear
+                                <span data-i18n="macro.clear">Clear</span>
                             </button>
                             <button class="feature-btn" id="macro-add-btn">
                                 <span class="icon">&#58490;</span>
-                                Add
+                                <span data-i18n="macro.add">Add</span>
                             </button>
                         </div>
 
@@ -818,6 +832,7 @@
                                         min-width: 0;
                                         flex: 1.8;
                                     "
+                                    data-i18n="macro.custom"
                                 >
                                     Custom
                                 </button>
@@ -901,6 +916,7 @@
                                         color: var(--text);
                                         opacity: 0.9;
                                     "
+                                    data-i18n="macro.no_actions"
                                     >No actions recorded yet</span
                                 >
                             </div>
@@ -916,10 +932,11 @@
                             <button
                                 class="toggle-option active"
                                 data-value="infinite"
+                                data-i18n="infinite_repeat"
                             >
                                 Repeat ∞ times
                             </button>
-                            <button class="toggle-option" data-value="finite">
+                            <button class="toggle-option" data-value="finite" data-i18n="finite_repeat">
                                 Repeat for times / seconds
                             </button>
                         </div>
@@ -949,12 +966,14 @@
                                         <button
                                             class="toggle-option active"
                                             data-value="times"
+                                            data-i18n="times"
                                         >
                                             Times
                                         </button>
                                         <button
                                             class="toggle-option"
                                             data-value="seconds"
+                                            data-i18n="seconds"
                                         >
                                             Seconds
                                         </button>
@@ -977,11 +996,11 @@
             <div class="feature-buttons-row">
                 <button class="feature-btn" id="jiggler-btn">
                     <span class="icon">&#57987;</span>
-                    Mouse Jiggler
+                    <span data-i18n="jiggler.title">Mouse Jiggler</span>
                 </button>
                 <button class="feature-btn" id="github-btn" type="button">
                     <span class="icon">&#58378;</span>
-                    GitHub
+                    <span data-i18n="jiggler.github">GitHub</span>
                 </button>
             </div>
         </div>
@@ -990,11 +1009,11 @@
             <div class="footer-left">
                 <button class="footer-btn" id="settings-btn" title="Settings">
                     <span class="icon">&#xe154;</span>
-                    <span class="footer-label">SETTINGS</span>
+                    <span class="footer-label" data-i18n="footer.settings">SETTINGS</span>
                 </button>
                 <button class="footer-btn" id="hotkeys-btn" title="HotKeys">
                     <span class="icon">&#xe284;</span>
-                    <span class="footer-label">HOTKEYS</span>
+                    <span class="footer-label" data-i18n="footer.hotkeys">HOTKEYS</span>
                 </button>
             </div>
 
@@ -1007,11 +1026,11 @@
             <div class="footer-right">
                 <button class="footer-btn" id="profiles-btn" title="Profiles">
                     <span class="icon">&#xe36b;</span>
-                    <span class="footer-label">PROFILES</span>
+                    <span class="footer-label" data-i18n="footer.profiles">PROFILES</span>
                 </button>
                 <button class="footer-btn" id="help-btn" title="Help">
                     <span class="icon">&#xe47b;</span>
-                    <span class="footer-label">HELP</span>
+                    <span class="footer-label" data-i18n="footer.help">HELP</span>
                 </button>
             </div>
         </footer>
@@ -1027,9 +1046,9 @@
                 </div>
 
                 <div class="startup-copy-block">
-                    <span class="startup-modal-kicker">Welcome to</span>
+                    <span class="startup-modal-kicker" data-i18n="welcome.kicker">Welcome to</span>
                     <strong class="font-logo"><span>Flu</span><span>AutoClicker</span></strong>
-                    <p>
+                    <p data-i18n="welcome.tagline">
                         Simple, modern, and fast auto-clicker.<br />With
                         keyboard and macro modes.
                     </p>
@@ -1038,15 +1057,15 @@
                 <div class="startup-info-list">
                     <div class="startup-info-row">
                         <span class="icon">&#59021;</span>
-                        <p>Free, open-source and easy to use.</p>
+                        <p data-i18n="welcome.info1">Free, open-source and easy to use.</p>
                     </div>
                     <div class="startup-info-row">
                         <span class="icon">&#57472;</span>
-                        <p>Three modes: mouse, keyboard, and macro.</p>
+                        <p data-i18n="welcome.info2">Three modes: mouse, keyboard, and macro.</p>
                     </div>
                     <div class="startup-info-row">
                         <span class="icon">&#xe36b;</span>
-                        <p>Profile system for saving setups.</p>
+                        <p data-i18n="welcome.info3">Profile system for saving setups.</p>
                     </div>
                 </div>
 
@@ -1054,6 +1073,7 @@
                     <button
                         id="first-welcome-continue-btn"
                         class="startup-modal-button"
+                        data-i18n="welcome.continue"
                     >
                         Continue
                     </button>
@@ -1072,9 +1092,9 @@
                 </div>
 
                 <div class="startup-copy-block">
-                    <span class="startup-modal-kicker">warning</span>
-                    <strong>Beta Build </strong>
-                    <p>
+                    <span class="startup-modal-kicker" data-i18n="beta.kicker">warning</span>
+                    <strong data-i18n="beta.title">Beta Build </strong>
+                    <p data-i18n="beta.desc">
                         FluAutoClicker is in beta. It may contain bugs and
                         unfinished features.
                     </p>
@@ -1083,15 +1103,15 @@
                 <div class="startup-info-list">
                     <div class="startup-info-row">
                         <span class="icon">&#58485;</span>
-                        <p>Beta may contain bugs and unstable features.</p>
+                        <p data-i18n="beta.info1">Beta may contain bugs and unstable features.</p>
                     </div>
                     <div class="startup-info-row">
                         <span class="icon">&#58378;</span>
-                        <p>Expect small changes after updates.</p>
+                        <p data-i18n="beta.info2">Expect small changes after updates.</p>
                     </div>
                     <div class="startup-info-row">
                         <span class="icon">&#xe47b;</span>
-                        <p>Tell the developer when something feels bad.</p>
+                        <p data-i18n="beta.info3">Tell the developer when something feels bad.</p>
                     </div>
                 </div>
 
@@ -1099,6 +1119,7 @@
                     <button
                         id="beta-warning-confirm-btn"
                         class="startup-modal-button"
+                        data-i18n="beta.confirm"
                     >
                         I understand
                     </button>
@@ -1117,13 +1138,14 @@
                 </div>
 
                 <div class="startup-copy-block">
-                    <span class="startup-modal-kicker">update found</span>
+                    <span class="startup-modal-kicker" data-i18n="update.kicker">update found</span>
                     <strong
                         class="update-version-title"
                         id="update-modal-version"
-                        >New build</strong
+                        data-i18n="update.title"
+                    >New build</strong
                     >
-                    <p id="update-modal-notes">
+                    <p id="update-modal-notes" data-i18n="update.desc">
                         A newer FluAutoClicker build is available.
                     </p>
                 </div>
@@ -1131,19 +1153,19 @@
                 <div class="startup-info-list">
                     <div class="startup-info-row">
                         <span class="icon">&#58546;</span>
-                        <p id="update-modal-current">
+                        <p id="update-modal-current" data-i18n="update.info_installed">
                             Installed version is being checked.
                         </p>
                     </div>
                     <div class="startup-info-row">
                         <span class="icon">&#58378;</span>
-                        <p id="update-modal-published">
+                        <p id="update-modal-published" data-i18n="update.info_date">
                             Release date will be shown when provided.
                         </p>
                     </div>
                     <div class="startup-info-row">
                         <span class="icon">&#57472;</span>
-                        <p>Open GitHub to download the latest build.</p>
+                        <p data-i18n="update.info_github">Open GitHub to download the latest build.</p>
                     </div>
                 </div>
 
@@ -1152,6 +1174,7 @@
                         id="update-modal-later-btn"
                         class="startup-modal-button secondary"
                         type="button"
+                        data-i18n="update.later"
                     >
                         Later
                     </button>
@@ -1159,6 +1182,7 @@
                         id="update-modal-open-btn"
                         class="startup-modal-button"
                         type="button"
+                        data-i18n="update.open_github"
                     >
                         Open GitHub
                     </button>
@@ -1174,7 +1198,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h3 id="modal-title">Settings</h3>
-                    <button id="modal-close-btn" class="control-btn close">
+                    <button id="modal-close-btn" class="control-btn close" data-i18n-title="close">
                         <svg
                             width="14"
                             height="14"
@@ -1215,6 +1239,7 @@
                     class="startup-close-button"
                     type="button"
                     aria-label="Close"
+                    data-i18n-title="close"
                 >
                     <span class="icon">&#58453;</span>
                 </button>
@@ -1224,9 +1249,9 @@
                 </div>
 
                 <div class="startup-copy-block">
-                    <span class="startup-modal-kicker">linux setup</span>
-                    <strong><span>uinput</span><span> access</span></strong>
-                    <p>
+                    <span class="startup-modal-kicker" data-i18n="uinput.kicker">linux setup</span>
+                    <strong data-i18n="uinput.title"><span>uinput</span><span> access</span></strong>
+                    <p data-i18n="uinput.desc">
                         FluAutoClicker needs writable
                         <code>/dev/uinput</code> for Linux mouse, keyboard,
                         jiggler, and macro playback.
@@ -1236,20 +1261,20 @@
                 <div class="startup-info-list">
                     <div class="startup-info-row">
                         <span class="icon">&#57472;</span>
-                        <p>
+                        <p data-i18n="uinput.info1">
                             Temporary access works now, but resets after reboot.
                         </p>
                     </div>
                     <div class="startup-info-row">
                         <span class="icon">&#59021;</span>
-                        <p>
+                        <p data-i18n="uinput.info2">
                             Install udev rule creates a persistent uinput group
                             setup.
                         </p>
                     </div>
                     <div class="startup-info-row">
                         <span class="icon">&#58378;</span>
-                        <p>
+                        <p data-i18n="uinput.info3">
                             You may need to log out and back in after installing
                             the rule.
                         </p>
@@ -1263,6 +1288,7 @@
                         id="uinput-modal-later-btn"
                         class="startup-modal-button secondary"
                         type="button"
+                        data-i18n="uinput.later"
                     >
                         Later
                     </button>
@@ -1270,6 +1296,7 @@
                         id="uinput-retry-btn"
                         class="startup-modal-button secondary"
                         type="button"
+                        data-i18n="uinput.retry"
                     >
                         Retry
                     </button>
@@ -1279,6 +1306,7 @@
                         id="uinput-temp-grant-btn"
                         class="startup-modal-button secondary"
                         type="button"
+                        data-i18n="uinput.temporary"
                     >
                         Temporary
                     </button>
@@ -1286,6 +1314,7 @@
                         id="uinput-install-rule-btn"
                         class="startup-modal-button"
                         type="button"
+                        data-i18n="uinput.install_rule"
                     >
                         Install rule
                     </button>
@@ -1311,7 +1340,7 @@
                         class="drawer-header-title"
                         id="drawer-title-container"
                     >
-                        <span id="drawer-title-section">Settings</span>
+                        <span id="drawer-title-section" data-i18n="drawer.settings">Settings</span>
                         <span class="drawer-group-wrap" id="drawer-group-wrap">
                             <span id="drawer-title-group"></span>
                         </span>
@@ -1320,6 +1349,7 @@
                         class="control-btn close"
                         id="drawer-close-btn"
                         title="Close"
+                        data-i18n-title="close"
                     >
                         <svg
                             width="12"
@@ -1347,6 +1377,7 @@
                                     <div
                                         class="settings-group-title"
                                         data-group="General"
+                                        data-i18n="settings.group.general"
                                     >
                                         General
                                     </div>
@@ -1360,10 +1391,10 @@
                                             <span class="icon">&#58704;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.autostart.title"
                                                 >Start on System Startup</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.autostart.desc"
                                                 >Automatically launch when
                                                 computer starts</span
                                             >
@@ -1383,10 +1414,10 @@
                                             <span class="icon">&#58835;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.tray.title"
                                                 >Minimize to Tray</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.tray.desc"
                                                 >Close button hides window
                                                 instead of exiting</span
                                             >
@@ -1406,10 +1437,10 @@
                                             <span class="icon">&#58546;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.live_macro.title"
                                                 >Live Macro List Update</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.live_macro.desc"
                                                 >Update the actions list during
                                                 macro recording (1Hz)</span
                                             >
@@ -1423,8 +1454,28 @@
                                     <div
                                         class="settings-group-title"
                                         data-group="Theme & Appearance"
+                                        data-i18n="settings.group.theme"
                                     >
                                         Theme & Appearance
+                                    </div>
+
+                                    <div
+                                        class="settings-list-item"
+                                        id="language-settings-trigger"
+                                        style="cursor: pointer"
+                                    >
+                                        <div class="settings-item-icon">
+                                            <span class="icon">&#57598;</span>
+                                        </div>
+                                        <div class="settings-item-content">
+                                            <span class="settings-item-title" data-i18n="settings.language.title"
+                                                >Language</span
+                                            >
+                                            <span class="settings-item-desc"
+                                                ><span id="current-language-name">English</span></span
+                                            >
+                                        </div>
+                                        <div class="lang-indicator" id="lang-indicator">EN</div>
                                     </div>
 
                                     <div
@@ -1436,11 +1487,11 @@
                                             <span class="icon">&#xe3a2;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.accent.title"
                                                 >Accent Color</span
                                             >
-                                            <span class="settings-item-desc"
-                                                >Selected theme:
+                                            <span class="settings-item-desc">
+                                                <span data-i18n="settings.accent.desc">Selected theme: </span>
                                                 <span id="current-accent-name"
                                                     >Flu Blue</span
                                                 ></span
@@ -1473,10 +1524,10 @@
                                             <span class="icon">&#57752;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.fonts.title"
                                                 >Customize Fonts</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.fonts.desc"
                                                 >Application & Localization font
                                                 face</span
                                             >
@@ -1496,10 +1547,10 @@
                                             <span class="icon">&#57595;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.italic.title"
                                                 >Remove Italic</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.italic.desc"
                                                 >Use standard font style instead
                                                 of italics</span
                                             >
@@ -1519,10 +1570,10 @@
                                             <span class="icon">&#58386;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.acrylic.title"
                                                 >Acrylic Blur</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.acrylic.desc"
                                                 >Experimental, Windows
                                                 only</span
                                             >
@@ -1583,10 +1634,10 @@
                                             </svg>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.classic_icons.title"
                                                 >Classic Window Icons</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.classic_icons.desc"
                                                 >Use the previous topbar SVG
                                                 icons</span
                                             >
@@ -1622,10 +1673,10 @@
                                             </svg>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.always_on_top.title"
                                                 >Always on Top</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.always_on_top.desc"
                                                 >Keep the main window above
                                                 others</span
                                             >
@@ -1661,9 +1712,10 @@
                                             <div class="settings-item-content">
                                                 <span
                                                     class="settings-item-title"
+                                                    data-i18n="settings.reduce_motion.title"
                                                     >Reduce Motion</span
                                                 >
-                                                <span class="settings-item-desc"
+                                                <span class="settings-item-desc" data-i18n="settings.reduce_motion.desc"
                                                     >Simplify or disable UI
                                                     transitions and
                                                     animations</span
@@ -1683,18 +1735,21 @@
                                             <button
                                                 class="multi-btn active"
                                                 data-value="none"
+                                                data-i18n="settings.reduce_motion.none"
                                             >
                                                 None
                                             </button>
                                             <button
                                                 class="multi-btn"
                                                 data-value="reduce"
+                                                data-i18n="settings.reduce_motion.reduce"
                                             >
                                                 Reduce
                                             </button>
                                             <button
                                                 class="multi-btn"
                                                 data-value="remove"
+                                                data-i18n="settings.reduce_motion.remove"
                                             >
                                                 Remove
                                             </button>
@@ -1704,6 +1759,7 @@
                                     <div
                                         class="settings-group-title"
                                         data-group="Utils"
+                                        data-i18n="settings.group.utils"
                                     >
                                         Utils
                                     </div>
@@ -1717,10 +1773,10 @@
                                             <span class="icon">&#58633;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.cps_test.title"
                                                 >CPS Test</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.cps_test.desc"
                                                 >Check your clicks per second
                                                 speed</span
                                             >
@@ -1739,10 +1795,10 @@
                                             <span class="icon">&#58154;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.export_config.title"
                                                 >Export Config</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.export_config.desc"
                                                 >Save the current app
                                                 configuration as JSON</span
                                             >
@@ -1761,10 +1817,10 @@
                                             <span class="icon">&#58136;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.import_config.title"
                                                 >Import Config</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.import_config.desc"
                                                 >Load a previously exported app
                                                 configuration</span
                                             >
@@ -1783,10 +1839,10 @@
                                             <span class="icon">&#58173;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.export_backup.title"
                                                 >Export Backup (All)</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.export_backup.desc"
                                                 >Save all settings and all
                                                 profiles as a single JSON
                                                 file</span
@@ -1806,10 +1862,10 @@
                                             <span class="icon">&#58162;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="settings.import_backup.title"
                                                 >Import Backup (All)</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="settings.import_backup.desc"
                                                 >Load all settings and all
                                                 profiles from a backup JSON
                                                 file</span
@@ -1823,7 +1879,7 @@
                             </div>
 
                             <div class="drawer-section" id="section-hotkeys">
-                                <div class="settings-group-title">General</div>
+                                <div class="settings-group-title" data-i18n="settings.group.hotkeys">General</div>
                                 <div class="hotkey-items-list">
                                     <div
                                         class="hotkey-list-item"
@@ -1833,10 +1889,10 @@
                                             <span class="icon">&#57472;</span>
                                         </div>
                                         <div class="hotkey-item-content">
-                                            <span class="hotkey-title"
+                                            <span class="hotkey-title" data-i18n="hotkey.toggle_start_stop"
                                                 >Toggle Start/Stop</span
                                             >
-                                            <span class="hotkey-desc"
+                                            <span class="hotkey-desc" data-i18n="hotkey.toggle_start_stop_desc"
                                                 >Tap toggles clicker, hold runs
                                                 only while key is pressed</span
                                             >
@@ -1857,10 +1913,10 @@
                                             <span class="icon">&#58633;</span>
                                         </div>
                                         <div class="hotkey-item-content">
-                                            <span class="hotkey-title"
+                                            <span class="hotkey-title" data-i18n="hotkey.pick_position"
                                                 >Pick Position</span
                                             >
-                                            <span class="hotkey-desc"
+                                            <span class="hotkey-desc" data-i18n="hotkey.pick_position_desc"
                                                 >Capture the current cursor
                                                 coordinates after a short
                                                 delay</span
@@ -1882,10 +1938,10 @@
                                             <span class="icon">&#58570;</span>
                                         </div>
                                         <div class="hotkey-item-content">
-                                            <span class="hotkey-title"
+                                            <span class="hotkey-title" data-i18n="hotkey.toggle_macro_recording"
                                                 >Macro Record</span
                                             >
-                                            <span class="hotkey-desc"
+                                            <span class="hotkey-desc" data-i18n="hotkey.toggle_macro_recording_desc"
                                                 >Start or stop live macro
                                                 recording</span
                                             >
@@ -1903,7 +1959,7 @@
 
                             <div class="drawer-section" id="section-profiles">
                                 <div class="settings-items-list">
-                                    <div class="settings-group-title">
+                                    <div class="settings-group-title" data-i18n="profiles.active">
                                         Active Profile
                                     </div>
                                     <div class="settings-list-item">
@@ -1916,22 +1972,22 @@
                                                 id="profiles-active-name"
                                                 >default</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="profiles.active_desc"
                                                 >The profile currently applied
                                                 to runtime and UI</span
                                             >
                                         </div>
-                                        <button
-                                            class="feature-btn"
-                                            id="profile-reload-btn"
-                                            style="flex: none; width: 92px"
-                                        >
-                                            <span class="icon">&#58546;</span>
-                                            REFRESH
-                                        </button>
+                                    <button
+                                        class="feature-btn"
+                                        id="profile-reload-btn"
+                                        style="flex: none; width: 92px"
+                                    >
+                                        <span class="icon">&#58546;</span>
+                                        <span data-i18n="profiles.refresh">REFRESH</span>
+                                    </button>
                                     </div>
 
-                                    <div class="settings-group-title">
+                                    <div class="settings-group-title" data-i18n="profiles.name">
                                         Profile Name
                                     </div>
                                     <div
@@ -1947,6 +2003,7 @@
                                                 value="default"
                                                 maxlength="32"
                                                 placeholder="default"
+                                                data-i18n-placeholder="profiles.input.placeholder"
                                             />
                                         </div>
                                         <div
@@ -1960,7 +2017,7 @@
                                                 <span class="icon"
                                                     >&#57677;</span
                                                 >
-                                                SAVE
+                                                <span data-i18n="profiles.save">SAVE</span>
                                             </button>
                                             <button
                                                 class="feature-btn"
@@ -1969,7 +2026,7 @@
                                                 <span class="icon"
                                                     >&#57714;</span
                                                 >
-                                                RENAME
+                                                <span data-i18n="profiles.rename">RENAME</span>
                                             </button>
                                             <button
                                                 class="feature-btn"
@@ -1978,7 +2035,7 @@
                                                 <span class="icon"
                                                     >&#57742;</span
                                                 >
-                                                DELETE
+                                                <span data-i18n="profiles.delete">DELETE</span>
                                             </button>
                                         </div>
                                         <div
@@ -1992,7 +2049,7 @@
                                                 <span class="icon"
                                                     >&#58154;</span
                                                 >
-                                                EXPORT
+                                                <span data-i18n="profiles.export">EXPORT</span>
                                             </button>
                                             <button
                                                 class="feature-btn"
@@ -2001,12 +2058,12 @@
                                                 <span class="icon"
                                                     >&#58136;</span
                                                 >
-                                                IMPORT
+                                                <span data-i18n="profiles.import">IMPORT</span>
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div class="settings-group-title">
+                                    <div class="settings-group-title" data-i18n="profiles.saved">
                                         Saved Profiles
                                     </div>
                                     <div
@@ -2033,7 +2090,7 @@
                                                 >
                                             </div>
                                         </div>
-                                        <p class="hero-desc-flat">
+                                        <p class="hero-desc-flat" data-i18n="help.description">
                                             Universal cross-platform automation
                                             for mouse, keyboard and macros with
                                             high-precision input emulation.
@@ -2045,7 +2102,7 @@
                                                 tabindex="0"
                                                 role="button"
                                             >
-                                                <span>v...</span>
+                                                <span data-i18n="updates.current_version">v...</span>
                                             </div>
                                         </div>
                                     </div>
@@ -2053,7 +2110,7 @@
 
                                 <div class="help-bottom-group">
                                     <div class="help-legal">
-                                        <span class="help-legal-text"
+                                        <span class="help-legal-text" data-i18n="help.license"
                                             >MIT License &copy; Agzes 2026</span
                                         >
                                     </div>
@@ -2066,7 +2123,7 @@
                                             role="button"
                                         >
                                             <span class="icon">&#58735;</span>
-                                            <span>Discord</span>
+                                            <span data-i18n="help.discord">Discord</span>
                                         </div>
                                         <div
                                             class="help-duo-item"
@@ -2075,7 +2132,7 @@
                                             role="button"
                                         >
                                             <span class="icon">&#58378;</span>
-                                            <span>GitHub</span>
+                                            <span data-i18n="help.github">GitHub</span>
                                         </div>
                                     </div>
 
@@ -2095,12 +2152,13 @@
                                                 >
                                             </div>
                                             <div class="help-item-content">
-                                                <span class="help-item-title"
+                                                <span class="help-item-title" data-i18n="help.updates"
                                                     >Updates</span
                                                 >
                                                 <span
                                                     class="help-item-desc"
                                                     id="help-updates-desc"
+                                                    data-i18n="help.updates_desc"
                                                     >Check for new releases and
                                                     update status</span
                                                 >
@@ -2116,10 +2174,11 @@
 
                             <div class="drawer-section" id="section-updates">
                                 <div class="settings-items-list">
-                                    <div
-                                        class="settings-group-title"
-                                        data-group="Updates"
-                                    ></div>
+                                        <div
+                                            class="settings-group-title"
+                                            data-group="Updates"
+                                            data-i18n="settings.group.updates"
+                                        ></div>
 
                                     <div
                                         class="settings-list-item"
@@ -2132,11 +2191,13 @@
                                             <span
                                                 class="settings-item-title"
                                                 id="updates-current-version"
+                                                data-i18n="updates.current_version"
                                                 >v...</span
                                             >
                                             <span
                                                 class="settings-item-desc"
                                                 id="updates-current-channel"
+                                                data-i18n="updates.current_desc"
                                                 >Current installed build. Feed:
                                                 pre-release channel.</span
                                             >
@@ -2157,7 +2218,7 @@
                                                 style="font-size: 12px"
                                                 >&#58546;</span
                                             >
-                                            <span id="update-check-btn-label"
+                                            <span id="update-check-btn-label" data-i18n="updates.check"
                                                 >CHECK</span
                                             >
                                         </button>
@@ -2194,12 +2255,14 @@
                                                 <span
                                                     class="settings-item-title"
                                                     id="updates-status-title"
+                                                    data-i18n="updates.status_ready"
                                                     >Version checks are
                                                     ready</span
                                                 >
                                                 <span
                                                     class="settings-item-desc"
                                                     id="updates-status-desc"
+                                                    data-i18n="updates.status_ready_desc"
                                                     >Checks compare your
                                                     installed version with the
                                                     hosted static release
@@ -2214,6 +2277,7 @@
                                             <span
                                                 class="settings-item-title"
                                                 id="updates-latest-version"
+                                                data-i18n="updates.latest_not_loaded"
                                                 >Latest published build is not
                                                 loaded yet</span
                                             >
@@ -2226,6 +2290,7 @@
                                         <div
                                             class="settings-item-desc"
                                             id="updates-release-notes"
+                                            data-i18n="updates.run_check"
                                         >
                                             Run a check to fetch version, date,
                                             and release notes from the manifest.
@@ -2239,7 +2304,7 @@
                                         style="margin-top: 6px"
                                     >
                                         <span class="icon">&#58378;</span>
-                                        Open GitHub
+                                        <span data-i18n="updates.open_github">Open GitHub</span>
                                     </button>
                                 </div>
                             </div>
@@ -2251,10 +2316,10 @@
                                             <span class="icon">&#57987;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="jiggler.section_title"
                                                 >Mouse Jiggler</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="jiggler.section_desc"
                                                 >Prevent system sleep by moving
                                                 cursor</span
                                             >
@@ -2264,7 +2329,7 @@
                                             id="jiggler-toggle"
                                         ></div>
                                     </div>
-                                    <div class="settings-group-title">
+                                    <div class="settings-group-title" data-i18n="jiggler.pattern">
                                         Movement Pattern
                                     </div>
                                     <div
@@ -2292,7 +2357,7 @@
                                                     "
                                                     >&#58053;</span
                                                 >
-                                                Random
+                                                <span data-i18n="jiggler.random">Random</span>
                                             </button>
                                             <button
                                                 class="multi-btn"
@@ -2306,7 +2371,7 @@
                                                     "
                                                     >&#58911;</span
                                                 >
-                                                Linear
+                                                <span data-i18n="jiggler.linear">Linear</span>
                                             </button>
                                             <button
                                                 class="multi-btn"
@@ -2320,7 +2385,7 @@
                                                     "
                                                     >&#58544;</span
                                                 >
-                                                Circle
+                                                <span data-i18n="jiggler.circle">Circle</span>
                                             </button>
                                             <button
                                                 class="multi-btn"
@@ -2334,7 +2399,7 @@
                                                     "
                                                     >&#58545;</span
                                                 >
-                                                O-Zone
+                                                <span data-i18n="jiggler.ozone">O-Zone</span>
                                             </button>
                                         </div>
                                     </div>
@@ -2358,6 +2423,7 @@
                                                 line-height: 1.5;
                                                 opacity: 0.9;
                                             "
+                                            data-i18n="jiggler.ozone_desc"
                                             >O-Zone creates a radius around the
                                             start point and clicks random
                                             positions inside it. Hotkey start
@@ -2367,7 +2433,7 @@
                                         >
                                     </div>
 
-                                    <div class="settings-group-title">
+                                    <div class="settings-group-title" data-i18n="jiggler.timing">
                                         Timing Configuration
                                     </div>
                                     <div
@@ -2386,7 +2452,7 @@
                                                 justify-content: space-between;
                                             "
                                         >
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="jiggler.interval"
                                                 >Movement Interval</span
                                             >
                                             <span
@@ -2409,7 +2475,7 @@
                                         />
                                     </div>
 
-                                    <div class="settings-group-title">
+                                    <div class="settings-group-title" data-i18n="jiggler.distance">
                                         Movement Distance
                                     </div>
                                     <div
@@ -2428,7 +2494,7 @@
                                                 justify-content: space-between;
                                             "
                                         >
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="jiggler.distance_radius"
                                                 >Distance Radius</span
                                             >
                                             <span
@@ -2458,7 +2524,7 @@
                                     class="settings-items-list"
                                     id="macro-add-selection-view"
                                 >
-                                    <div class="settings-group-title">
+                                    <div class="settings-group-title" data-i18n="macro.other_actions">
                                         Other Actions
                                     </div>
 
@@ -2470,10 +2536,10 @@
                                             <span class="icon">&#58633;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.mouse_click"
                                                 >Mouse Click</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.mouse_click_desc"
                                                 >Click mouse button at
                                                 current/custom position</span
                                             >
@@ -2491,10 +2557,10 @@
                                             <span class="icon">&#57987;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.mouse_move"
                                                 >Mouse Move</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.mouse_move_desc"
                                                 >Move cursor to specific
                                                 coordinates</span
                                             >
@@ -2512,10 +2578,10 @@
                                             <span class="icon">&#57988;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.keyboard_action"
                                                 >Keyboard Action</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.keyboard_action_desc"
                                                 >Press or hold specific
                                                 keys</span
                                             >
@@ -2533,10 +2599,10 @@
                                             <span class="icon">&#57824;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.sleep"
                                                 >Sleep (Delay)</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.sleep_desc"
                                                 >Pause between macro
                                                 actions</span
                                             >
@@ -2554,10 +2620,10 @@
                                             <span class="icon">&#59030;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.scroll"
                                                 >Mouse Scroll</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.scroll_desc"
                                                 >Scroll mouse wheel up or
                                                 down</span
                                             >
@@ -2576,6 +2642,7 @@
                                     <div
                                         class="settings-group-title"
                                         id="macro-config-title"
+                                        data-i18n="macro.configure_action"
                                     >
                                         Configure Action
                                     </div>
@@ -2630,12 +2697,14 @@
                                                 this.style.transform =
                                                     'scale(1)'
                                             "
+                                            data-i18n="macro.cancel"
                                         >
                                             CANCEL
                                         </button>
                                         <button
                                             class="macro-btn add-btn"
                                             id="macro-config-save"
+                                            data-i18n="macro.save_action"
                                             style="
                                                 flex: 2;
                                                 justify-content: center;
@@ -2679,7 +2748,7 @@
                                 id="section-macro-recording"
                             >
                                 <div class="settings-items-list">
-                                    <div class="settings-group-title">
+                                    <div class="settings-group-title" data-i18n="macro.recording_filters">
                                         Recording Filters
                                     </div>
 
@@ -2690,10 +2759,10 @@
                                             <span class="icon">&#58633;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.record_clicks"
                                                 >Mouse Clicks</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.record_clicks_desc"
                                                 >Record left, middle and right
                                                 clicks</span
                                             >
@@ -2705,12 +2774,14 @@
                                             <button
                                                 class="toggle-option active"
                                                 data-value="on"
+                                                data-i18n="on"
                                             >
                                                 On
                                             </button>
                                             <button
                                                 class="toggle-option"
                                                 data-value="off"
+                                                data-i18n="off"
                                             >
                                                 Off
                                             </button>
@@ -2740,9 +2811,10 @@
                                             <div class="settings-item-content">
                                                 <span
                                                     class="settings-item-title"
+                                                    data-i18n="macro.record_moves"
                                                     >Mouse Moves</span
                                                 >
-                                                <span class="settings-item-desc"
+                                                <span class="settings-item-desc" data-i18n="macro.record_moves_desc"
                                                     >Store cursor movement
                                                     actions while
                                                     recording</span
@@ -2761,30 +2833,35 @@
                                             <button
                                                 class="toggle-option"
                                                 data-value="off"
+                                                data-i18n="macro.record_moves_off"
                                             >
                                                 Off
                                             </button>
                                             <button
                                                 class="toggle-option active"
                                                 data-value="instant"
+                                                data-i18n="macro.record_moves_instant"
                                             >
                                                 Instant
                                             </button>
                                             <button
                                                 class="toggle-option"
                                                 data-value="linear"
+                                                data-i18n="macro.record_moves_linear"
                                             >
                                                 Linear
                                             </button>
                                             <button
                                                 class="toggle-option"
                                                 data-value="smooth"
+                                                data-i18n="macro.record_moves_smooth"
                                             >
                                                 Smooth*
                                             </button>
                                             <button
                                                 class="toggle-option"
                                                 data-value="raw"
+                                                data-i18n="macro.record_moves_raw"
                                             >
                                                 Raw
                                             </button>
@@ -2797,6 +2874,7 @@
                                                 padding-left: 2px;
                                                 opacity: 0.8;
                                             "
+                                            data-i18n="macro.record_moves_beta_wip"
                                         >
                                             * Smooth / Raw modes are in Beta /
                                             WIP
@@ -2810,10 +2888,10 @@
                                             <span class="icon">&#57988;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.record_keyboard"
                                                 >Keyboard</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.record_keyboard_desc"
                                                 >Record typed keys and
                                                 shortcuts</span
                                             >
@@ -2825,12 +2903,14 @@
                                             <button
                                                 class="toggle-option active"
                                                 data-value="on"
+                                                data-i18n="on"
                                             >
                                                 On
                                             </button>
                                             <button
                                                 class="toggle-option"
                                                 data-value="off"
+                                                data-i18n="off"
                                             >
                                                 Off
                                             </button>
@@ -2844,10 +2924,10 @@
                                             <span class="icon">&#57824;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.record_pauses"
                                                 >Pauses</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.record_pauses_desc"
                                                 >Insert sleep steps between
                                                 recorded actions</span
                                             >
@@ -2859,12 +2939,14 @@
                                             <button
                                                 class="toggle-option active"
                                                 data-value="on"
+                                                data-i18n="on"
                                             >
                                                 On
                                             </button>
                                             <button
                                                 class="toggle-option"
                                                 data-value="off"
+                                                data-i18n="off"
                                             >
                                                 Off
                                             </button>
@@ -2878,10 +2960,10 @@
                                             <span class="icon">&#57858;</span>
                                         </div>
                                         <div class="settings-item-content">
-                                            <span class="settings-item-title"
+                                            <span class="settings-item-title" data-i18n="macro.record_position"
                                                 >Click Position</span
                                             >
-                                            <span class="settings-item-desc"
+                                            <span class="settings-item-desc" data-i18n="macro.record_position_desc"
                                                 >Store cursor coordinates with
                                                 click actions</span
                                             >
@@ -2893,12 +2975,14 @@
                                             <button
                                                 class="toggle-option active"
                                                 data-value="on"
+                                                data-i18n="on"
                                             >
                                                 On
                                             </button>
                                             <button
                                                 class="toggle-option"
                                                 data-value="off"
+                                                data-i18n="off"
                                             >
                                                 Off
                                             </button>
@@ -2949,7 +3033,7 @@
                     <span class="icon" style="font-size: 20px; color: #ffc107"
                         >&#58485;</span
                     >
-                    <span style="font-size: 14px; font-weight: 700; color: #fff"
+                    <span style="font-size: 14px; font-weight: 700; color: #fff" data-i18n="performance_warning.title"
                         >Performance Warning</span
                     >
                 </div>
@@ -2974,6 +3058,7 @@
                             line-height: 1.5;
                             margin: 0;
                         "
+                        data-i18n="performance_warning.line1"
                     >
                         FluAutoClicker is not a regular autoclicker where you
                         can safely set the time to 0ms.
@@ -2985,6 +3070,7 @@
                             line-height: 1.5;
                             margin: 0;
                         "
+                        data-i18n="performance_warning.line2"
                     >
                         Setting an interval below
                         <span style="color: #ffc107; font-weight: 700"
@@ -3000,6 +3086,7 @@
                             line-height: 1.5;
                             margin: 0;
                         "
+                        data-i18n="performance_warning.line3"
                     >
                         Slide to confirm that you accept all risks.
                     </p>
@@ -3014,7 +3101,7 @@
                         class="unlock-slider-progress"
                         id="timing-unlock-progress"
                     ></div>
-                    <div class="unlock-slider-text">Slide to confirm</div>
+                    <div class="unlock-slider-text" data-i18n="performance_warning.slide_to_confirm">Slide to confirm</div>
                     <div class="unlock-slider-handle" id="timing-unlock-handle">
                         <span class="icon" id="timing-unlock-icon"
                             >&#58591;</span
@@ -3045,6 +3132,7 @@
                         onmouseout="
                             this.style.background = 'rgba(255, 255, 255, 0.05)'
                         "
+                        data-i18n="performance_warning.cancel"
                     >
                         Cancel
                     </button>
@@ -3088,6 +3176,7 @@
                                         font-weight: 700;
                                         color: var(--accent);
                                     "
+                                    data-i18n="accent.modal_title"
                                     >Theming</span
                                 >
                             </span>
@@ -3096,6 +3185,7 @@
                             class="control-btn close"
                             id="accent-modal-close"
                             title="Close"
+                            data-i18n-title="close"
                         >
                             <svg
                                 width="12"
@@ -3169,7 +3259,7 @@
                                     aria-hidden="true"
                                 >
                                     <span class="icon">&#58485;</span>
-                                    <span
+                                    <span data-i18n="accent.too_dark"
                                         >Color is too dark for clear UI
                                         accents.</span
                                     >
@@ -3185,14 +3275,14 @@
                                     data-color="#77B6DD"
                                     data-name="Flu"
                                 >
-                                    <span class="accent-preset-label">Flu</span>
+                                    <span class="accent-preset-label" data-i18n="accent.preset_flu">Flu</span>
                                 </button>
                                 <button
                                     class="accent-preset-btn"
                                     data-color="#ffc799"
                                     data-name="Vesper"
                                 >
-                                    <span class="accent-preset-label"
+                                    <span class="accent-preset-label" data-i18n="accent.preset_vesper"
                                         >Vesper</span
                                     >
                                 </button>
@@ -3201,7 +3291,7 @@
                                     data-mode="system"
                                     data-name="System"
                                 >
-                                    <span class="accent-preset-label"
+                                    <span class="accent-preset-label" data-i18n="accent.preset_system"
                                         >System</span
                                     >
                                 </button>
@@ -3244,6 +3334,7 @@
                                         font-weight: 700;
                                         color: var(--accent);
                                     "
+                                    data-i18n="font.settings_title"
                                     >Customize Fonts</span
                                 >
                             </span>
@@ -3252,6 +3343,7 @@
                             class="control-btn close"
                             id="font-settings-close"
                             title="Close"
+                            data-i18n-title="close"
                         >
                             <svg
                                 width="12"
@@ -3270,7 +3362,7 @@
 
                     <div class="drawer-modal-body">
                         <div class="drawer-modal-picker-wrap">
-                            <div class="settings-items-list" style="padding: 0">
+                            <div class="settings-items-list">
                                 <div
                                     class="settings-list-item"
                                     id="font-app-trigger"
@@ -3279,36 +3371,36 @@
                                     <div class="settings-item-icon">
                                         <span class="icon">&#57752;</span>
                                     </div>
-                                    <div class="settings-item-content">
-                                        <span class="settings-item-title"
-                                            >Application Font</span
-                                        >
-                                        <span class="settings-item-desc"
-                                            ><span id="font-app-name"
-                                                >MuseoModerno</span
-                                            ></span
+                                        <div class="settings-item-content">
+                                            <span class="settings-item-title" data-i18n="font.app_font"
+                                                >Application Font</span
+                                            >
+                                            <span class="settings-item-desc"
+                                                ><span id="font-app-name"
+                                                    >MuseoModerno</span
+                                                ></span
+                                            >
+                                        </div>
+                                        <span class="icon settings-item-arrow"
+                                            >&#57529;</span
                                         >
                                     </div>
-                                    <span class="icon settings-item-arrow"
-                                        >&#57529;</span
+                                    <div
+                                        class="settings-list-item"
+                                        id="font-loc-trigger"
+                                        style="cursor: pointer"
                                     >
-                                </div>
-                                <div
-                                    class="settings-list-item"
-                                    id="font-loc-trigger"
-                                    style="cursor: pointer"
-                                >
-                                    <div class="settings-item-icon">
-                                        <span class="icon">&#57598;</span>
-                                    </div>
-                                    <div class="settings-item-content">
-                                        <span class="settings-item-title"
-                                            >Localization Font</span
-                                        >
-                                        <span class="settings-item-desc"
-                                            ><span id="font-loc-name"
-                                                >Geologica</span
-                                            ></span
+                                        <div class="settings-item-icon">
+                                            <span class="icon">&#57598;</span>
+                                        </div>
+                                        <div class="settings-item-content">
+                                            <span class="settings-item-title" data-i18n="font.loc_font"
+                                                >Localization Font</span
+                                            >
+                                            <span class="settings-item-desc"
+                                                ><span id="font-loc-name"
+                                                    >Geologica</span
+                                                ></span
                                         >
                                     </div>
                                     <span class="icon settings-item-arrow"
@@ -3354,6 +3446,7 @@
                                         font-weight: 700;
                                         color: var(--accent);
                                     "
+                                    data-i18n="font.picker_title"
                                     >Select Font</span
                                 >
                             </span>
@@ -3362,6 +3455,7 @@
                             class="control-btn close"
                             id="font-picker-close"
                             title="Close"
+                            data-i18n-title="close"
                         >
                             <svg
                                 width="12"
@@ -3390,6 +3484,7 @@
                                     id="font-search-input"
                                     placeholder="Search by exact name (Google Fonts & System)"
                                     spellcheck="false"
+                                    data-i18n-placeholder="font.search_placeholder"
                                 />
                             </div>
                             <div
@@ -3402,8 +3497,77 @@
                                 type="button"
                             >
                                 <span class="icon">&#57545;</span>
-                                <span>Import font</span>
+                                <span data-i18n="font.import_btn">Import font</span>
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div
+            id="language-picker-modal"
+            class="drawer-modal-overlay"
+            style="
+                display: none;
+                z-index: 10000;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+            "
+        >
+            <div class="drawer-modal-shell" id="language-picker-shell">
+                <div class="drawer-modal-content-wrap">
+                    <div class="drawer-modal-header">
+                        <div class="drawer-modal-header-left">
+                            <span
+                                class="icon"
+                                style="font-size: 13px; color: var(--accent)"
+                                >&#57598;</span
+                            >
+                        </div>
+                        <div class="drawer-modal-header-title">
+                            <span
+                                class="drawer-modal-group-wrap"
+                                style="overflow: visible"
+                            >
+                                <span
+                                    id="language-picker-title"
+                                    style="
+                                        font-weight: 700;
+                                        color: var(--accent);
+                                    "
+                                    data-i18n="settings.language.title"
+                                    >Language</span
+                                >
+                            </span>
+                        </div>
+                        <button
+                            class="control-btn close"
+                            id="language-picker-close"
+                            title="Close"
+                            data-i18n-title="close"
+                        >
+                            <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.2"
+                                stroke-linecap="round"
+                            >
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="drawer-modal-body">
+                        <div class="drawer-modal-picker-wrap">
+                            <div
+                                class="language-list"
+                                id="language-list"
+                            ></div>
                         </div>
                     </div>
                 </div>

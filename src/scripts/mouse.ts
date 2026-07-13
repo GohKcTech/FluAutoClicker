@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getPlatformCapabilities } from "./platform-capabilities";
 import { notify } from "./notifications";
+import { t } from "./i18n";
 
 function readMouseIntervalMs(): number {
     const h = parseInt((document.getElementById('mouse-hours') as HTMLInputElement)?.value) || 0;
@@ -227,7 +228,7 @@ export function initMouseSettings() {
             const delayMs = 5000;
             let remainingSeconds = Math.ceil(delayMs / 1000);
             const renderCountdown = () => {
-                pickBtn.innerHTML = `<span class="icon" style="margin-right: 6px; font-size: 14px;">&#58633;</span>PICK ${remainingSeconds}`;
+                pickBtn.innerHTML = `<span class="icon" style="margin-right: 6px; font-size: 14px;">&#58633;</span>` + t("picking", "PICK") + " " + remainingSeconds;
             };
 
             button.disabled = true;
@@ -240,7 +241,7 @@ export function initMouseSettings() {
                     window.clearInterval(countdownTimer);
                 }
             }, 1000);
-            notify("Move the cursor. Position will be captured in 5s.", "info", delayMs + 600);
+            notify(t("move_cursor_capture", "Move the cursor. Position will be captured in {seconds}s.", { seconds: String(Math.round(delayMs / 1000)) }), "info", delayMs + 600);
 
             try {
                 const position = (await invoke("pick_cursor_position", {
@@ -258,7 +259,7 @@ export function initMouseSettings() {
                     coordYInput.dispatchEvent(new Event('input', { bubbles: true }));
                 }
 
-                notify(`Captured position ${position.x}, ${position.y}`, "success", 2200);
+                notify(t("captured_position", "Captured position {x}, {y}", { x: String(position.x), y: String(position.y) }), "success", 2200);
             } catch (e) {
                 const message = e instanceof Error ? e.message : String(e);
                 notify(message, "error", 3200);
@@ -281,12 +282,12 @@ export function initMouseSettings() {
             coordYInput.dispatchEvent(new Event('input', { bubbles: true }));
         }
         if (typeof payload?.x === "number" && typeof payload?.y === "number") {
-            notify(`Captured position ${payload.x}, ${payload.y}`, "success", 2200);
+            notify(t("captured_position", "Captured position {x}, {y}", { x: String(payload.x), y: String(payload.y) }), "success", 2200);
         }
     });
 
     void listen("cursor-position-pick-failed", (event) => {
         const payload = event.payload as { error?: string };
-        notify(payload?.error || "Failed to capture cursor position", "error", 3200);
+        notify(payload?.error || t("capture_failed", "Failed to capture cursor position"), "error", 3200);
     });
 }

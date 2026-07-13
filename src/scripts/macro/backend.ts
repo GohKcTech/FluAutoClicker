@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { notify } from "../notifications";
 import { macroState } from "./state";
+import { t } from "../i18n";
 import type {
     MacroActionDraft,
     MacroActionType,
@@ -96,7 +97,7 @@ export async function captureCursorPosition(
     if (delayMs > 0) {
         let remainingSeconds = Math.ceil(delayMs / 1000);
         const renderCountdown = () => {
-            pickButton.innerHTML = `<span class="icon">&#58633;</span> PICK ${remainingSeconds}`;
+            pickButton.innerHTML = `<span class="icon">&#58633;</span> ` + t("picking", "PICK") + " " + remainingSeconds;
         };
         renderCountdown();
         countdownTimer = window.setInterval(() => {
@@ -108,9 +109,9 @@ export async function captureCursorPosition(
                 countdownTimer = null;
             }
         }, 1000);
-        notify(`Move the cursor. Position will be captured in ${Math.round(delayMs / 1000)}s.`, "info", delayMs + 600);
+        notify(t("move_cursor_capture", "Move the cursor. Position will be captured in {seconds}s.", { seconds: String(Math.round(delayMs / 1000)) }), "info", delayMs + 600);
     } else {
-        pickButton.innerHTML = '<span class="icon">&#58633;</span> PICK';
+        pickButton.innerHTML = '<span class="icon">&#58633;</span> ' + t("picking", "PICK");
     }
 
     try {
@@ -130,7 +131,7 @@ export async function captureCursorPosition(
             yInput.dispatchEvent(new Event("input", { bubbles: true }));
         }
 
-        notify(`Captured position ${position.x}, ${position.y}`, "success", 2200);
+        notify(t("captured_position", "Captured position {x}, {y}", { x: String(position.x), y: String(position.y) }), "success", 2200);
     } catch (error) {
         notify(error instanceof Error ? error.message : String(error), "error", 3200);
     } finally {
@@ -160,20 +161,20 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         const holdMs = getHoldMs(action);
         const position = typeof config.position === "string" ? config.position : null;
 
-        let name = `${capitalize(button)} Click`;
+        let name = t(`macro.action.${button}_click`, `${capitalize(button)} Click`);
         if (holdMs) {
-            name = `${capitalize(button)} Hold`;
+            name = t(`macro.action.${button}_hold`, `${capitalize(button)} Hold`);
         } else if (action === "down") {
-            name = `${capitalize(button)} Down`;
+            name = t(`macro.action.${button}_down`, `${capitalize(button)} Down`);
         } else if (action === "up") {
-            name = `${capitalize(button)} Up`;
+            name = t(`macro.action.${button}_up`, `${capitalize(button)} Up`);
         }
 
         return {
             id,
             type,
             name,
-            details: `${position ? `At ${position}` : "At current position"}${holdMs ? ` for ${holdMs}ms` : ""}`,
+            details: `${position ? t("macro.action.at_position", "At {position}", { position }) : t("macro.action.at_current_position", "At current position")}${holdMs ? " " + t("macro.action.for_ms", "for {ms}ms", { ms: String(holdMs) }) : ""}`,
             icon: "&#58633;",
         };
     }
@@ -195,8 +196,8 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         return {
             id,
             type,
-            name: "Move Cursor",
-            details: `To ${x}, ${y} (${styleStr})`,
+            name: t("macro.action.move_cursor", "Move Cursor"),
+            details: t("macro.action.to_position", "To {x}, {y} ({style})", { x: String(x), y: String(y), style: styleStr }),
             icon: "&#57987;",
         };
     }
@@ -209,22 +210,22 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         const detailKeys = [...parseModifierList(config.modifiers), key].filter(Boolean);
         const combo = detailKeys.join(" + ");
 
-        let name = `Key Press`;
+        let name = t("macro.action.key_press", "Key Press");
         if (holdMs) {
-            name = `Key Hold`;
+            name = t("macro.action.key_hold", "Key Hold");
         } else if (action === "down") {
-            name = `Key Down`;
+            name = t("macro.action.key_down", "Key Down");
         } else if (action === "up") {
-            name = `Key Up`;
+            name = t("macro.action.key_up", "Key Up");
         }
 
         return {
             id,
             type,
             name,
-            details: `${combo}${holdMs ? ` for ${holdMs}ms` : ""}`,
+            details: `${combo}${holdMs ? " " + t("macro.action.for_ms", "for {ms}ms", { ms: String(holdMs) }) : ""}`,
             detailKeys,
-            detailSuffix: holdMs ? `for ${holdMs}ms` : "",
+            detailSuffix: holdMs ? t("macro.action.for_ms", "for {ms}ms", { ms: String(holdMs) }) : "",
             icon: "&#57988;",
         };
     }
@@ -234,20 +235,21 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         return {
             id,
             type,
-            name: "Sleep",
-            details: `Wait for ${durationMs}ms`,
+            name: t("macro.action.sleep", "Sleep"),
+            details: t("macro.action.wait_for", "Wait for {ms}ms", { ms: String(durationMs) }),
             icon: "&#57824;",
         };
     }
 
     if (type === "scroll") {
         const clicks = Number(config.clicks || 0);
-        const direction = clicks < 0 ? "Down" : "Up";
+        const direction = clicks < 0 ? t("config.down", "Down") : t("config.up", "Up");
+        const absClicks = Math.abs(clicks);
         return {
             id,
             type,
-            name: "Mouse Scroll",
-            details: `Scroll ${direction} (${Math.abs(clicks)} step${Math.abs(clicks) !== 1 ? "s" : ""})`,
+            name: t("macro.action.mouse_scroll", "Mouse Scroll"),
+            details: t("macro.action.scroll_dir", "Scroll {direction} ({count} step{plural})", { direction, count: String(absClicks), plural: absClicks !== 1 ? "s" : "" }),
             icon: "&#59030;",
         };
     }
@@ -259,8 +261,8 @@ export function fromBackendAction(item: MacroBackendAction): MacroUiAction | nul
         return {
             id,
             type,
-            name: "Raw Move",
-            details: `${points} points (${start} → ${end})`,
+            name: t("macro.action.raw_move", "Raw Move"),
+            details: t("macro.action.raw_details", "{points} points ({start} → {end})", { points: String(points), start, end }),
             icon: "&#57987;",
         };
     }

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { notify } from "./notifications";
 import { getPlatformCapabilities } from "./platform-capabilities";
+import { t } from "./i18n";
 
 type HotkeyAction =
     | "toggle_start_stop"
@@ -175,8 +176,8 @@ export async function initHotkeysEditor() {
 
             const raw = getHotkeyValue(hotkeys, action);
             badge.dataset.rawHotkey = raw;
-            badge.textContent = hotkeysAvailable ? formatHotkeyDisplay(raw) : "Unavailable";
-            badge.title = hotkeysAvailable ? "Click to change" : "Global hotkeys are unavailable on Wayland";
+            badge.textContent = hotkeysAvailable ? formatHotkeyDisplay(raw) : t("unavailable", "Unavailable");
+            badge.title = hotkeysAvailable ? t("click_to_change", "Click to change") : t("hotkeys_unavailable_wayland", "Global hotkeys are unavailable on Wayland");
             row.classList.toggle("disabled", !hotkeysAvailable);
             row.setAttribute("aria-disabled", hotkeysAvailable ? "false" : "true");
         });
@@ -185,7 +186,7 @@ export async function initHotkeysEditor() {
             updateStartHotkeyLabel(hotkeys);
         } else {
             const label = document.querySelector<HTMLElement>(".start-hotkey");
-            if (label) label.textContent = "BETA";
+            if (label) label.textContent = t("beta", "BETA");
         }
     };
 
@@ -247,7 +248,7 @@ export async function initHotkeysEditor() {
             hotkeys = updated;
             render();
             await clearCaptureState(false);
-            notify("Hotkey updated", "success", 1800);
+            notify(t("notify.hotkey_updated", "Hotkey updated"), "success", 1800);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             notify(message, "error", 2600);
@@ -257,7 +258,7 @@ export async function initHotkeysEditor() {
 
     const startCapture = async (row: HTMLElement, action: HotkeyAction) => {
         if (!hotkeysAvailable) {
-            notify("Global hotkeys are unavailable on Wayland", "info", 2400);
+            notify(t("hotkeys_unavailable_wayland", "Global hotkeys are unavailable on Wayland"), "info", 2400);
             return;
         }
 
@@ -288,7 +289,7 @@ export async function initHotkeysEditor() {
 
         row.classList.add("listening");
         badge.classList.add("listening");
-        badge.textContent = "Press keys...";
+        badge.textContent = t("press_key", "Press keys...");
 
         window.addEventListener("keydown", onGlobalKeydown, true);
         window.addEventListener("mousedown", onGlobalPointerDown, true);

@@ -8,6 +8,7 @@ import { loadPersistedSettings, initSettingsPersistence } from "../settings-pers
 import { initStartupModals } from "../startup-modals";
 import { initTheme } from "../theme";
 import { initFonts } from "../fonts";
+import { initI18n, initLanguagePicker } from "../i18n";
 import { initInputs } from "../ui";
 import { initUpdateChecks } from "../update-check";
 import { initUinputPermissionModal } from "../uinput-permissions";
@@ -30,6 +31,8 @@ export async function bootstrapApp() {
     await loadPersistedSettings();
     await initWindowEffects();
 
+    initI18n();
+    initLanguagePicker();
     initKeyboard();
     initDrawer();
     initTheme();

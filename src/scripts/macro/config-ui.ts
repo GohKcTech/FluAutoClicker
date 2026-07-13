@@ -2,6 +2,7 @@ import { updateIndicator } from "../utils";
 import { captureCursorPosition, normalizeKey, getHoldMs } from "./backend";
 import { setKeyBadgeContent } from "../key-badges";
 import { macroState } from "./state";
+import { t } from "../i18n";
 import type {
     MacroActionDraft,
     MacroActionType,
@@ -53,7 +54,7 @@ export function applyMouseButtonSupport(container: HTMLElement) {
         const supported = allowedButtons.has(value);
         const target = button as HTMLButtonElement;
         target.disabled = !supported;
-        target.title = supported ? "" : `Mouse button "${value}" is not supported on this system`;
+        target.title = supported ? "" : t("config.mouse_btn_unsupported", 'Mouse button "{value}" is not supported on this system', { value });
         target.style.opacity = supported ? "" : "0.4";
         target.style.cursor = supported ? "" : "not-allowed";
     });
@@ -208,7 +209,7 @@ function initKeyboardConfigUi(existingConfig?: MacroBackendAction["config"]) {
 
     recordButton?.addEventListener("click", () => {
         isLocalRecording = !isLocalRecording;
-        recordButton.textContent = isLocalRecording ? "Recording..." : "Click to Record";
+        recordButton.textContent = isLocalRecording ? t("recording", "Recording...") : t("click_to_record", "Click to Record");
         recordButton.classList.toggle("active", isLocalRecording);
 
         if (!isLocalRecording) {
@@ -254,7 +255,7 @@ function initKeyboardConfigUi(existingConfig?: MacroBackendAction["config"]) {
             updateKeyDisplay(isModifier ? "" : key);
 
             isLocalRecording = false;
-            recordButton.textContent = "Click to Record";
+            recordButton.textContent = t("click_to_record", "Click to Record");
             recordButton.classList.remove("active");
             window.removeEventListener("keydown", handleKey);
         };
@@ -319,7 +320,7 @@ function initSleepConfigUi() {
         }
 
         const seconds = (Number.parseInt(sleepInput.value, 10) || 0) / 1000;
-        sleepHint.textContent = `${seconds.toFixed(3)}s pause`;
+        sleepHint.textContent = t("config.sleep_hint", "{seconds}s pause", { seconds: seconds.toFixed(3) });
     });
 }
 
@@ -332,9 +333,9 @@ function initScrollConfigUi() {
         if (!hint || !amountInput) return;
         const amount = Number.parseInt(amountInput.value, 10) || 1;
         const dir = dirRow?.querySelector(".active")?.getAttribute("data-value") || "up";
-        const dirWord = dir === "up" ? "Up" : "Down";
-        const stepWord = amount === 1 ? "step" : "steps";
-        hint.textContent = `Scroll ${dirWord} (${amount} ${stepWord})`;
+        const dirWord = dir === "up" ? t("config.up", "Up") : t("config.down", "Down");
+        const stepWord = amount === 1 ? t("config.step", "step") : t("config.steps", "steps");
+        hint.textContent = t("config.scroll_hint", "Scroll {direction} ({amount} {step})", { direction: dirWord, amount: String(amount), step: stepWord });
     };
 
     amountInput?.addEventListener("input", updateHint);
@@ -509,19 +510,19 @@ export function generateConfigUi(type: MacroActionType): string {
                 <div class="section-row">
                     <div class="multi-button-row" id="cfg-mouse-btn" style="margin: 0;">
                         <div class="slide-indicator" style="width: 33.333%; left: 0%;"></div>
-                        <button class="multi-btn active" data-value="left">Left</button>
-                        <button class="multi-btn" data-value="middle">Middle</button>
-                        <button class="multi-btn" data-value="right">Right</button>
+                        <button class="multi-btn active" data-value="left">${t("left", "Left")}</button>
+                        <button class="multi-btn" data-value="middle">${t("middle", "Middle")}</button>
+                        <button class="multi-btn" data-value="right">${t("right", "Right")}</button>
                     </div>
                 </div>
 
                 <div class="section-row">
                     <div class="toggle-row" id="cfg-mouse-action" style="margin: 0;">
                         <div class="slide-indicator" style="width: 25%; left: 0%;"></div>
-                        <button class="toggle-option active" data-value="press">Press</button>
-                        <button class="toggle-option" data-value="hold">Hold</button>
-                        <button class="toggle-option" data-value="down">Down</button>
-                        <button class="toggle-option" data-value="up">Up</button>
+                        <button class="toggle-option active" data-value="press">${t("press", "Press")}</button>
+                        <button class="toggle-option" data-value="hold">${t("hold", "Hold")}</button>
+                        <button class="toggle-option" data-value="down">${t("config.down", "Down")}</button>
+                        <button class="toggle-option" data-value="up">${t("config.up", "Up")}</button>
                     </div>
 
                     <div class="expandable-content" id="cfg-mouse-duration-container">
@@ -532,8 +533,8 @@ export function generateConfigUi(type: MacroActionType): string {
                                 </div>
                                 <div class="toggle-row" id="cfg-mouse-hold-mode-toggle" style="flex: 3; margin: 0;">
                                     <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
-                                    <button class="toggle-option active" data-value="ms">ms</button>
-                                    <button class="toggle-option" data-value="s">sec</button>
+                                    <button class="toggle-option active" data-value="ms">${t("config.ms", "ms")}</button>
+                                    <button class="toggle-option" data-value="s">${t("config.sec", "sec")}</button>
                                 </div>
                             </div>
                         </div>
@@ -543,8 +544,8 @@ export function generateConfigUi(type: MacroActionType): string {
                 <div class="section-row">
                     <div class="toggle-row" id="cfg-mouse-pos-toggle" style="margin: 0;">
                         <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
-                        <button class="toggle-option active" data-value="current">Current position</button>
-                        <button class="toggle-option" data-value="custom">Choose a place</button>
+                        <button class="toggle-option active" data-value="current">${t("current_position", "Current position")}</button>
+                        <button class="toggle-option" data-value="custom">${t("choose_place", "Choose a place")}</button>
                     </div>
 
                     <div class="expandable-content" id="cfg-mouse-coord-section">
@@ -558,7 +559,7 @@ export function generateConfigUi(type: MacroActionType): string {
                                 </div>
                                 <button class="pick-btn" id="cfg-mouse-pick-btn">
                                     <span class="icon" style="margin-right: 6px; font-size: 14px;">&#58633;</span>
-                                    PICK
+                                    ${t("picking", "PICK")}
                                 </button>
                             </div>
                         </div>
@@ -577,7 +578,7 @@ export function generateConfigUi(type: MacroActionType): string {
                         </div>
                         <button class="pick-btn" id="cfg-move-pick-btn">
                             <span class="icon" style="margin-right: 6px; font-size: 14px;">&#58633;</span>
-                            PICK
+                            ${t("picking", "PICK")}
                         </button>
                     </div>
                 </div>
@@ -585,11 +586,11 @@ export function generateConfigUi(type: MacroActionType): string {
                 <div class="section-row">
                     <div class="toggle-row" id="cfg-move-style" style="margin: 0;">
                         <div class="slide-indicator" style="width: 33.333%; left: 0%;"></div>
-                        <button class="toggle-option active" data-value="instant">Instant</button>
-                        <button class="toggle-option" data-value="linear">Linear</button>
-                        <button class="toggle-option" data-value="smooth">Smooth*</button>
+                        <button class="toggle-option active" data-value="instant">${t("macro.record_moves_instant", "Instant")}</button>
+                        <button class="toggle-option" data-value="linear">${t("macro.record_moves_linear", "Linear")}</button>
+                        <button class="toggle-option" data-value="smooth">${t("macro.record_moves_smooth", "Smooth*")}</button>
                     </div>
-                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center; opacity: 0.8;">* Smooth mode is in Beta / WIP</div>
+                    <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center; opacity: 0.8;">${t("config.smooth_beta_hint", "* Smooth mode is in Beta / WIP")}</div>
                 </div>
             `;
         case "keyboard":
@@ -597,10 +598,10 @@ export function generateConfigUi(type: MacroActionType): string {
                 <div class="section-row">
                     <div class="toggle-row" id="cfg-kb-action" style="margin: 0;">
                         <div class="slide-indicator" style="width: 25%; left: 0%;"></div>
-                        <button class="toggle-option active" data-value="press">Press</button>
-                        <button class="toggle-option" data-value="hold">Hold</button>
-                        <button class="toggle-option" data-value="down">Down</button>
-                        <button class="toggle-option" data-value="up">Up</button>
+                        <button class="toggle-option active" data-value="press">${t("press", "Press")}</button>
+                        <button class="toggle-option" data-value="hold">${t("hold", "Hold")}</button>
+                        <button class="toggle-option" data-value="down">${t("config.down", "Down")}</button>
+                        <button class="toggle-option" data-value="up">${t("config.up", "Up")}</button>
                     </div>
 
                     <div class="expandable-content" id="cfg-kb-duration-container">
@@ -611,8 +612,8 @@ export function generateConfigUi(type: MacroActionType): string {
                                 </div>
                                 <div class="toggle-row" id="cfg-kb-hold-mode-toggle" style="flex: 3; margin: 0;">
                                     <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
-                                    <button class="toggle-option active" data-value="ms">ms</button>
-                                    <button class="toggle-option" data-value="s">sec</button>
+                                    <button class="toggle-option active" data-value="ms">${t("config.ms", "ms")}</button>
+                                    <button class="toggle-option" data-value="s">${t("config.sec", "sec")}</button>
                                 </div>
                             </div>
                         </div>
@@ -663,7 +664,7 @@ export function generateConfigUi(type: MacroActionType): string {
                         <span class="kb-selected-combo">
                             <span class="kb-modifiers" id="cfg-kb-modifiers-display"></span><span class="kb-main-key" id="cfg-kb-main-key-display">...</span>
                         </span>
-                        <button class="kb-record-btn" id="cfg-kb-record-btn">Click to Record</button>
+                        <button class="kb-record-btn" id="cfg-kb-record-btn">${t("click_to_record", "Click to Record")}</button>
                         <input type="hidden" value="a" id="cfg-kb-key">
                     </div>
                 </div>
@@ -675,7 +676,7 @@ export function generateConfigUi(type: MacroActionType): string {
                         <input type="number" value="500" id="cfg-sleep-ms" min="1">
                     </div>
                     <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center; opacity: 0.8;" id="cfg-sleep-hint">
-                        0.500s pause
+                        ${t("config.sleep_default_hint", "0.500s pause")}
                     </div>
                 </div>
             `;
@@ -684,14 +685,14 @@ export function generateConfigUi(type: MacroActionType): string {
                 <div class="section-row">
                     <div class="toggle-row" id="cfg-scroll-dir" style="margin: 0 0 5px;">
                         <div class="slide-indicator" style="width: 50%; left: 0%;"></div>
-                        <button class="toggle-option active" data-value="up">Up</button>
-                        <button class="toggle-option" data-value="down">Down</button>
+                        <button class="toggle-option active" data-value="up">${t("config.up", "Up")}</button>
+                        <button class="toggle-option" data-value="down">${t("config.down", "Down")}</button>
                     </div>
                     <div class="coord-input-box" style="width: 100%;">
                         <input type="number" value="1" id="cfg-scroll-amount" min="1" max="1000">
                     </div>
                     <div style="font-size: 9px; color: var(--text-dim); margin-top: 6px; text-align: center; opacity: 0.8;" id="cfg-scroll-hint">
-                        Scroll Up (1 step)
+                        ${t("config.scroll_default_hint", "Scroll Up (1 step)")}
                     </div>
                 </div>
             `;
@@ -699,7 +700,7 @@ export function generateConfigUi(type: MacroActionType): string {
             return `
                 <div class="section-row">
                     <div style="font-size: 12px; color: var(--text-dim); text-align: center; width: 100%;">
-                        Raw move actions cannot be edited manually.
+                        ${t("config.raw_move_no_edit", "Raw move actions cannot be edited manually.")}
                     </div>
                 </div>
             `;

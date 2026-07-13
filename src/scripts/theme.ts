@@ -7,6 +7,7 @@ import {
 import { emitSettingsChanged } from "./settings-persistence";
 import { getPlatformCapabilities } from "./platform-capabilities";
 import { applyFonts } from "./fonts";
+import { t } from "./i18n";
 
 type HsvColor = {
     h: number;
@@ -178,48 +179,37 @@ export function initTheme() {
         mode: string = "solid",
         name?: string,
     ) {
-        document.body.classList.remove("theme-rainbow");
-        if (mode === "rainbow") {
-            document.body.classList.add("theme-rainbow");
-            if (accentNameDisplay)
-                accentNameDisplay.textContent = "Rainbow (25 R$)";
-            if (accentPreviewCircle)
-                accentPreviewCircle.style.background =
-                    "linear-gradient(45deg, #ff0000, #00ff00, #0000ff)";
-            localStorage.setItem("flu-theme-mode", "rainbow");
+        let actualColor = color;
+        if (mode === "system") {
+            actualColor = await getSystemAccentColor();
+            localStorage.setItem("flu-theme-mode", "system");
+            name = "System";
         } else {
-            let actualColor = color;
-            if (mode === "system") {
-                actualColor = await getSystemAccentColor();
-                localStorage.setItem("flu-theme-mode", "system");
-                name = "System";
-            } else {
-                localStorage.setItem("flu-theme-mode", "solid");
-                localStorage.setItem("flu-theme-color", actualColor);
-                if (name) localStorage.setItem("flu-theme-name", name);
-            }
-
-            document.documentElement.style.setProperty("--accent", actualColor);
-            const dimColor =
-                actualColor.length === 7 ? `${actualColor}66` : actualColor;
-            document.documentElement.style.setProperty(
-                "--accent-dim",
-                dimColor,
-            );
-            if (accentNameDisplay)
-                accentNameDisplay.textContent =
-                    name || localStorage.getItem("flu-theme-name") || `Custom`;
-            if (accentPreviewCircle)
-                accentPreviewCircle.style.background = actualColor;
-            if (!isApplyingPickerColor) syncCustomPicker(actualColor);
+            localStorage.setItem("flu-theme-mode", "solid");
+            localStorage.setItem("flu-theme-color", actualColor);
+            if (name) localStorage.setItem("flu-theme-name", name);
         }
+
+        document.documentElement.style.setProperty("--accent", actualColor);
+        const dimColor =
+            actualColor.length === 7 ? `${actualColor}66` : actualColor;
+        document.documentElement.style.setProperty(
+            "--accent-dim",
+            dimColor,
+        );
+        if (accentNameDisplay)
+            accentNameDisplay.textContent =
+                name || localStorage.getItem("flu-theme-name") || t("custom_name", "Custom");
+        if (accentPreviewCircle)
+            accentPreviewCircle.style.background = actualColor;
+        if (!isApplyingPickerColor) syncCustomPicker(actualColor);
 
         document.querySelectorAll(".accent-preset-btn").forEach((btn) => {
             const btnColor = (btn as HTMLElement).dataset.color;
             const btnMode = (btn as HTMLElement).dataset.mode || "solid";
             const isActive =
                 btnMode === mode &&
-                (mode === "rainbow" || mode === "system" || btnColor === color);
+                (mode === "system" || btnColor === color);
             btn.classList.toggle("active", isActive);
         });
 
@@ -261,8 +251,7 @@ export function initTheme() {
             const mode = (btn as HTMLElement).dataset.mode || "solid";
             const name = (btn as HTMLElement).dataset.name;
 
-            if (mode === "rainbow") void updateTheme("", "rainbow");
-            else if (mode === "system") void updateTheme("", "system", name);
+            if (mode === "system") void updateTheme("", "system", name);
             else if (color) void updateTheme(color, "solid", name);
         }
     });
@@ -362,7 +351,7 @@ export function initTheme() {
                     ".settings-item-desc",
                 );
                 if (description) {
-                    description.textContent = "Unavailable on this desktop";
+                    description.textContent = t("accent_unavailable", "Unavailable on this desktop");
                 }
             }
         });

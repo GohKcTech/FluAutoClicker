@@ -5,6 +5,7 @@ import { getPlatformCapabilities, type PlatformCapabilities } from "./platform-c
 import { setSelectedMode } from "./ui";
 import type { AppMode } from "./ui";
 import { updateSliderFill } from "./utils";
+import { t } from "./i18n";
 import {
     ALWAYS_ON_TOP_CHANGED_EVENT,
     ALWAYS_ON_TOP_STORAGE_KEY,
@@ -294,7 +295,7 @@ function applyLocalStorageSnapshot(config: AppConfigFile) {
     localStorage.setItem("flu-no-italic", String(config.general.remove_italic));
     localStorage.setItem("flu-font-app", config.general.font_app || "museo-moderno");
     localStorage.setItem("flu-font-loc", config.general.font_loc || "geologica");
-    localStorage.setItem("flu-language", "en");
+    localStorage.setItem("flu-language", config.general.language || "en");
     localStorage.setItem("flu-reduce-motion", config.general.reduce_motion || "none");
 
     const frontendState = config.frontend_state || {};
@@ -392,7 +393,7 @@ function applyConfigToUi(config: AppConfigFile) {
     autostartTrigger?.setAttribute("aria-disabled", isSystemStartupAvailable() ? "false" : "true");
     if (!isSystemStartupAvailable()) {
         const desc = autostartTrigger?.querySelector<HTMLElement>(".settings-item-desc");
-        if (desc) desc.textContent = "Unavailable on this desktop";
+        if (desc) desc.textContent = t("settings.unavailable_desktop", "Unavailable on this desktop");
     }
     setToggleState("tray-toggle", config.general.minimize_to_tray);
     setToggleState("remove-italic-toggle", config.general.remove_italic);
@@ -500,7 +501,7 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
             remove_italic: localStorage.getItem("flu-no-italic") === "true",
             font_app: localStorage.getItem("flu-font-app") || "museo-moderno",
             font_loc: localStorage.getItem("flu-font-loc") || "geologica",
-            language: "en",
+            language: localStorage.getItem("flu-language") || "en",
             autostart: isSystemStartupAvailable()
                 && (document.getElementById("autostart-toggle")?.classList.contains("active") ?? base.general.autostart),
             minimize_to_tray: document.getElementById("tray-toggle")?.classList.contains("active") ?? base.general.minimize_to_tray,

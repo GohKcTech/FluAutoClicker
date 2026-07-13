@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { createSlideIndicator, updateIndicator } from "../utils";
 import { notify } from "../notifications";
 import { macroState } from "./state";
+import { t } from "../i18n";
 import type { MacroRecordingOptions } from "./types";
 
 const recordingOptionRows: Array<[keyof MacroRecordingOptions, string]> = [
@@ -20,7 +21,7 @@ export function setMacroRecordingState(recordButton: HTMLElement | null, isRecor
     recordButton.classList.toggle("active", isRecording);
     const label = recordButton.querySelector("span:not(.icon)");
     if (label) {
-        label.textContent = isRecording ? "STOP" : "RECORD";
+        label.textContent = isRecording ? t("record_button.stop", "STOP") : t("record_button.record", "RECORD");
     }
 }
 
@@ -58,7 +59,7 @@ async function persistRecordingOptions() {
             options_json: optionsJson,
         });
         syncRecordingOptionsToUi();
-        notify("Recording filters updated", "success", 1600);
+        notify(t("recording_filters_updated", "Recording filters updated"), "success", 1600);
     } catch (error) {
         notify(error instanceof Error ? error.message : String(error), "error", 3200);
     }
@@ -72,8 +73,8 @@ export function applyRecordAvailability(recordButton: HTMLElement | null) {
     const button = recordButton as HTMLButtonElement;
     button.disabled = !macroState.capabilities.recording_supported;
     button.title = macroState.capabilities.recording_supported
-        ? "Record live mouse and keyboard actions"
-        : macroState.capabilities.recording_reason || "Live macro recording is unavailable";
+        ? t("macro.record_btn_tooltip", "Record live mouse and keyboard actions")
+        : macroState.capabilities.recording_reason || t("macro.recording_unavailable", "Live macro recording is unavailable");
     button.style.opacity = macroState.capabilities.recording_supported ? "" : "0.55";
     button.style.cursor = macroState.capabilities.recording_supported ? "" : "not-allowed";
 }

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getPlatformCapabilities } from "./platform-capabilities";
 import { updateSliderFill, updateIndicator, formatDuration } from "./utils";
+import { t } from "./i18n";
 
 export type AppMode = "mouse" | "keyboard" | "macro";
 
@@ -98,7 +99,7 @@ export function initInputs() {
 
         if (mode === "macro") {
             const totalMs = (window as any).flu_macro_duration || 0;
-            cpsEl.textContent = `~ ${formatDuration(totalMs)}`;
+            cpsEl.textContent = t("cps_test.show_duration", undefined, { duration: formatDuration(totalMs) });
             return;
         }
 
@@ -112,9 +113,9 @@ export function initInputs() {
             ? (isLinux ? 0 : 10000)
             : Math.max(1, Math.round(1000 / totalMs));
         if (!isInfinite) {
-            cpsEl.textContent = `~ ${(1000 / totalMs).toFixed(1)} CPS`;
+            cpsEl.textContent = t("cps_test.show_cps", undefined, { cps: (1000 / totalMs).toFixed(1) });
         } else {
-            cpsEl.textContent = `~ \u221E CPS`;
+            cpsEl.textContent = t("cps_test.infinity");
         }
         invoke("set_cps", { cps: runtimeCps });
     }

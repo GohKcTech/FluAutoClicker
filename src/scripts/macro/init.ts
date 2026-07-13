@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { closeDrawer, openDrawer } from "../drawer";
 import { notify } from "../notifications";
 import { createSlideIndicator } from "../utils";
+import { t } from "../i18n";
 import { toBackendConfig } from "./backend";
 import { applyMouseButtonSupport, gatherConfig, generateConfigUi, setupConfigListeners } from "./config-ui";
 import { initRecordingSettingsUi, syncRecordingOptionsToUi, applyRecordAvailability, setMacroRecordingState } from "./recording";
@@ -21,7 +22,7 @@ function initRecordButton(recordButton: HTMLElement | null) {
     recordButton.addEventListener("click", async () => {
         if (!macroState.capabilities.recording_supported) {
             notify(
-                macroState.capabilities.recording_reason || "Live macro recording is not available on this system.",
+                macroState.capabilities.recording_reason || t("macro.recording_unavailable", "Live macro recording is not available on this system."),
                 "warning",
                 3600
             );
@@ -32,10 +33,10 @@ function initRecordButton(recordButton: HTMLElement | null) {
         try {
             if (playerState === "recording") {
                 await invoke("stop_macro_recording");
-                notify("Macro recording stopped", "info", 1800);
+                notify(t("macro.recording_stopped", "Macro recording stopped"), "info", 1800);
             } else {
                 await invoke("start_macro_recording");
-                notify("Recording started. New actions will be added to this macro.", "success", 2600);
+                notify(t("macro.recording_started", "Recording started. New actions will be added to this macro."), "success", 2600);
             }
         } catch (error) {
             notify(error instanceof Error ? error.message : String(error), "error", 3200);
@@ -70,7 +71,7 @@ function initAddActionDrawer() {
     addButton.addEventListener("click", () => {
         editingActionId = null;
         showSelectionView();
-        openDrawer("section-macro-add", "Add Macro Action", "&#58490;");
+        openDrawer("section-macro-add", t("macro.drawer.add_title", "Add Macro Action"), "&#58490;");
     });
 
     document.querySelectorAll(".macro-add-item-trigger").forEach((trigger) => {
@@ -87,7 +88,7 @@ function initAddActionDrawer() {
             void configView.offsetWidth;
             configView.classList.add("view-fade-in");
 
-            configTitle.textContent = `Configure ${currentType.charAt(0).toUpperCase() + currentType.slice(1)} Action`;
+            configTitle.textContent = t("macro.configure_action", "Configure {type} Action", { type: currentType.charAt(0).toUpperCase() + currentType.slice(1) });
             configContent.innerHTML = generateConfigUi(currentType);
             applyMouseButtonSupport(configContent);
             setupConfigListeners(currentType, configContent);
@@ -129,12 +130,12 @@ function initAddActionDrawer() {
         void configView.offsetWidth;
         configView.classList.add("view-fade-in");
 
-        configTitle.textContent = `Configure ${currentType.charAt(0).toUpperCase() + currentType.slice(1)} Action`;
+        configTitle.textContent = t("macro.configure_action", "Configure {type} Action", { type: currentType.charAt(0).toUpperCase() + currentType.slice(1) });
         configContent.innerHTML = generateConfigUi(currentType);
         applyMouseButtonSupport(configContent);
         setupConfigListeners(currentType, configContent, rawAction.config);
 
-        openDrawer("section-macro-add", "Edit Macro Action", "&#57714;");
+        openDrawer("section-macro-add", t("macro.drawer.edit_title", "Edit Macro Action"), "&#57714;");
 
         window.setTimeout(() => {
             configContent.querySelectorAll(".toggle-row, .multi-button-row").forEach((row) => {
@@ -172,16 +173,16 @@ function initAddActionDrawer() {
             if (editingActionId !== null) {
                 await invoke("update_macro_action", { actionId: editingActionId, action_id: editingActionId, actionJson, action_json: actionJson });
                 await loadActionsFromBackend({ animateNew: false });
-                notify("Macro action updated", "success", 1800);
+                notify(t("macro.action_updated", "Macro action updated"), "success", 1800);
             } else {
                 await invoke("add_macro_action", { actionJson, action_json: actionJson });
                 await loadActionsFromBackend({ animateNew: true });
-                notify("Macro action added", "success", 1800);
+                notify(t("macro.action_added", "Macro action added"), "success", 1800);
             }
             closeDrawer();
         } catch (error) {
             console.error("Failed to save macro action", error);
-            notify("Could not save this macro action. Check the values and try again.", "error", 2600);
+            notify(t("macro.action_save_error", "Could not save this macro action. Check the values and try again."), "error", 2600);
         }
     });
 }
@@ -194,10 +195,10 @@ function initClearButton(recordButton: HTMLElement | null) {
             macroState.rawActions = [];
             renderActions();
             setMacroRecordingState(recordButton, false);
-            notify("Macro cleared", "info", 1800);
+            notify(t("macro.cleared", "Macro cleared"), "info", 1800);
         } catch (error) {
             console.error("Failed to clear macros", error);
-            notify("Could not clear the macro. Try again in a moment.", "error", 2600);
+            notify(t("macro.clear_error", "Could not clear the macro. Try again in a moment."), "error", 2600);
         }
     });
 }
@@ -385,7 +386,7 @@ export function initMacro() {
     initRecordingSettingsUi();
 
     document.getElementById("macro-record-settings-btn")?.addEventListener("click", () => {
-        openDrawer("section-macro-recording", "Recording Filters", "&#58700;");
+        openDrawer("section-macro-recording", t("macro.drawer.recording_title", "Recording Filters"), "&#58700;");
         syncRecordingOptionsToUi();
     });
 

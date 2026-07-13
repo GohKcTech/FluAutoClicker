@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { setKeyBadgeContent } from "./key-badges";
+import { t } from "./i18n";
 
 
 const MODIFIER_LABELS = ["ctrl", "alt", "win", "shift"];
@@ -232,7 +233,7 @@ export function initKeyboard() {
             recordingModifiers.clear();
 
             recordBtn.classList.add('running');
-            (recordBtn as HTMLElement).textContent = 'Press a key...';
+            (recordBtn as HTMLElement).textContent = t('press_key', 'Press a key...');
 
             
             recordingCallback = (mainKey: string, modifiers: string[]) => {
@@ -303,7 +304,7 @@ function handleRecordKeydown(e: KeyboardEvent) {
         window.removeEventListener('keydown', handleRecordKeydown, true);
         if (recordBtn) {
             recordBtn.classList.remove('running');
-            (recordBtn as HTMLElement).textContent = 'Click to Record';
+            (recordBtn as HTMLElement).textContent = t('click_to_record', 'Click to Record');
         }
         return;
     }
@@ -361,7 +362,7 @@ function handleRecordKeydown(e: KeyboardEvent) {
         
         if (recordBtn) {
             recordBtn.classList.remove('running');
-            (recordBtn as HTMLElement).textContent = 'Click to Record';
+            (recordBtn as HTMLElement).textContent = t('click_to_record', 'Click to Record');
         }
 
         recordingCallback = null;

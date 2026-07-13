@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { emitSettingsChanged } from "./settings-persistence";
 import { notify } from "./notifications";
+import { t } from "./i18n";
 
 type FontSource = "builtin" | "google" | "system" | "imported";
 type FontStatus = "ready" | "loading" | "error";
@@ -78,7 +79,6 @@ let importedFonts: FontFace[] = [];
 const downloadedGoogleFonts = new Set<string>();
 const searchedGoogleFonts = new Map<string, FontFace>();
 let searchTimeoutId: number | null = null;
-let lastSearchQuery = "";
 let isSearchingExternal = false;
 
 const FONT_APP_STORAGE_KEY = "flu-font-app";
@@ -278,18 +278,18 @@ function renderFontList(
         if (font.source === "system") {
             const badge = document.createElement("span");
             badge.className = "font-source-badge";
-            badge.textContent = "System";
-            badge.title = "System font - preview shown in current app font";
+            badge.textContent = t("fonts.system", "System");
+            badge.title = t("fonts.system_title", "System font - preview shown in current app font");
             card.appendChild(badge);
         } else if (font.source === "imported") {
             const badge = document.createElement("span");
             badge.className = "font-source-badge";
-            badge.textContent = "Imported";
+            badge.textContent = t("fonts.imported", "Imported");
             card.appendChild(badge);
             const rm = document.createElement("span");
             rm.className = "icon font-remove-icon";
             rm.innerHTML = "&#57742;";
-            rm.title = "Remove imported font";
+            rm.title = t("fonts.remove_imported", "Remove imported font");
             rm.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const idx = importedFonts.findIndex((f) => f.id === font.id);
@@ -313,20 +313,20 @@ function renderFontList(
         } else if (font.source === "google") {
             const badge = document.createElement("span");
             badge.className = "font-source-badge";
-            badge.textContent = "Google";
+            badge.textContent = t("fonts.google", "Google");
             card.appendChild(badge);
             if (font.status === "ready" && !downloadedGoogleFonts.has(font.id)) {
                 const dl = document.createElement("span");
                 dl.className = "icon font-download-icon";
                 dl.innerHTML = "&#57522;";
-                dl.title = "Download from Google Fonts";
+                dl.title = t("fonts.download_google", "Download from Google Fonts");
                 card.appendChild(dl);
             }
             if (downloadedGoogleFonts.has(font.id)) {
                 const rm = document.createElement("span");
                 rm.className = "icon font-remove-icon";
                 rm.innerHTML = "&#57742;";
-                rm.title = "Remove downloaded font";
+                rm.title = t("fonts.remove_downloaded", "Remove downloaded font");
                 rm.addEventListener("click", (e) => {
                     e.stopPropagation();
                     downloadedGoogleFonts.delete(font.id);
@@ -353,7 +353,7 @@ function renderFontList(
             const spinner = document.createElement("span");
             spinner.className = "icon font-status-spinner";
             spinner.innerHTML = "&#57610;";
-            spinner.title = "Downloading...";
+            spinner.title = t("fonts.downloading", "Downloading...");
             card.appendChild(spinner);
         }
 
@@ -366,18 +366,18 @@ function renderFontList(
                 const i = document.createElement("span");
                 i.className = "icon";
                 i.innerHTML = "&#57752;";
-                i.title = "Application font";
+                i.title = t("fonts.app_role", "Application font");
                 role.appendChild(i);
             }
             if (font.id === locId) {
                 const i = document.createElement("span");
                 i.className = "icon";
                 i.innerHTML = "&#57598;";
-                i.title = "Localization font";
+                i.title = t("fonts.loc_role", "Localization font");
                 role.appendChild(i);
             }
             if (font.id === appId && font.id === locId) {
-                role.title = "Application & Localization font";
+                role.title = t("fonts.both_roles", "Application & Localization font");
             }
             card.appendChild(role);
         }
@@ -406,7 +406,7 @@ function renderFontList(
     if (!hasVisible && lowerQuery) {
         const empty = document.createElement("div");
         empty.className = "font-list-empty";
-        empty.textContent = `No fonts matching "${query}"`;
+        empty.textContent = t("font.no_matching", 'No fonts matching "{query}"', { query });
         container.appendChild(empty);
 
         if (isSearchingExternal) {
@@ -415,7 +415,7 @@ function renderFontList(
             statusMsg.style.fontSize = "9px";
             statusMsg.style.opacity = "0.5";
             statusMsg.style.padding = "4px 8px 8px";
-            statusMsg.textContent = "Checking Google Fonts...";
+            statusMsg.textContent = t("fonts.checking_google", "Checking Google Fonts...");
             container.appendChild(statusMsg);
         }
     }
@@ -481,7 +481,6 @@ async function restoreDownloadedFonts(): Promise<void> {
                                 : ext === "woff"
                                   ? "font/woff"
                                   : "font/ttf";
-                        const fmt = ext === "ttf" ? "truetype" : ext;
                         const ff = new FontFace(
                             info.family,
                             `url(data:${mime};base64,${b64})`,
@@ -541,10 +540,9 @@ async function downloadGoogleFont(font: FontFace): Promise<void> {
                 : urls[i].endsWith(".woff")
                   ? "woff"
                   : "ttf";
-            const fmt = ext === "ttf" ? "truetype" : ext;
 
             const objUrl = URL.createObjectURL(blob);
-            srcParts.push(`url(${objUrl}) format("${fmt}")`);
+            srcParts.push(`url(${objUrl}) format("${ext === "ttf" ? "truetype" : ext}")`);
 
             const fileName = `${font.family.replace(/\s+/g, "")}-${i}.${ext}`;
             await invoke("save_font_file", { name: fileName, data: b64 });
@@ -742,7 +740,7 @@ export function initFonts(): void {
         const titleEl = document.getElementById("font-picker-title");
         if (titleEl) {
             titleEl.textContent =
-                target === "app" ? "Application Font" : "Localization Font";
+                target === "app" ? t("fonts.app_title", "Application Font") : t("fonts.loc_title", "Localization Font");
         }
 
         const iconEl = fontPickerModal.querySelector<HTMLElement>(
@@ -892,10 +890,9 @@ export function initFonts(): void {
                 );
                 if (localMatch) return;
 
-                lastSearchQuery = trimmed;
                 isSearchingExternal = true;
                 refreshFontList(pickerTarget, fontSearchInput?.value || "");
-                const found = await searchGoogleFontsApi(trimmed);
+                await searchGoogleFontsApi(trimmed);
                 isSearchingExternal = false;
                 if (
                     fontSearchInput?.value.trim().toLowerCase() ===

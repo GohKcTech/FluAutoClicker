@@ -1,86 +1,100 @@
-export type AppLang = "en";
+import {
+  getLangStrings,
+  LANGUAGES,
+  getNativeName,
+  type LangCode,
+} from "../lang/index";
 
-type Dict = Record<string, string>;
+const STORAGE_KEY = "flu-language";
+const DEFAULT_LANG: LangCode = "en";
 
-const translations: Record<AppLang, Dict> = {
-  en: {
-    "tab.mouse": "Mouse",
-    "tab.keyboard": "Keyboard",
-    "tab.macro": "Macro",
+let currentLanguage: LangCode = DEFAULT_LANG;
+let currentDict: Record<string, string> = getLangStrings(DEFAULT_LANG);
 
-    "footer.settings": "SETTINGS",
-    "footer.hotkeys": "HOTKEYS",
-    "footer.profiles": "PROFILES",
-    "footer.help": "HELP",
+function interpolate(text: string, params?: Record<string, string>): string {
+  if (!params) return text;
+  return text.replace(/\{(\w+)\}/g, (_, key) => params[key] ?? `{${key}}`);
+}
 
-    "start.start": "START",
-    "start.stop": "STOP",
+export function t(key: string, fallback?: string, params?: Record<string, string>): string {
+  const value = currentDict[key];
+  if (value === undefined) {
+    return fallback ?? key;
+  }
+  return interpolate(value, params);
+}
 
-    "drawer.settings": "Settings",
-    "drawer.hotkeys": "Hotkeys",
-    "drawer.profiles": "Profiles System",
-    "drawer.help": "Help & Resources",
+export function getLanguage(): LangCode {
+  return currentLanguage;
+}
 
-    "settings.group.general": "General",
-    "settings.group.theme": "Theme & Appearance",
-    "settings.group.utils": "Utils",
-    "settings.group.profiles": "Profiles",
+export function getLanguageNativeName(): string {
+  return getNativeName(currentLanguage);
+}
 
-    "settings.autostart.title": "Start on System Startup",
-    "settings.autostart.desc": "Automatically launch when computer starts",
-    "settings.tray.title": "Minimize to Tray",
-    "settings.tray.desc": "Close button hides window instead of exiting",
-    "settings.language.title": "Language",
-    "settings.language.desc": "UI localization language",
-    "settings.stop_on_move.title": "Stop on Mouse Move (Custom Position)",
-    "settings.stop_on_move.desc": "Stop clicker after manual cursor override",
-
-    "settings.accent.title": "Accent Color",
-    "settings.remove_italic.title": "Remove Italic",
-    "settings.classic_window_icons.title": "Classic Window Icons",
-    "settings.classic_window_icons.desc": "Use the previous topbar SVG icons",
-
-    "settings.cps_test.title": "CPS Test",
-    "settings.cps_test.desc": "Check your clicks per second speed",
-    "settings.webview_devtools.title": "Webview DevTools",
-    "settings.webview_devtools.desc": "Open inspector for the current webview",
-
-    "profiles.input.placeholder": "new profile name",
-    "profiles.create": "CREATE",
-    "profiles.empty": "No profiles yet",
-
-    "hotkey.toggle_start_stop": "Toggle Start/Stop",
-    "hotkey.pick_position": "Pick Coordinate",
-    "hotkey.toggle_macro_recording": "Macro Record",
-    "hotkey.hypr.apply": "Apply Hyprland Binding",
-
-    "notify.settings_saved": "Settings saved",
-    "notify.hotkey_updated": "Hotkey updated",
-    "notify.profile_loaded": "Profile loaded",
-    "notify.profile_renamed": "Profile renamed",
-    "notify.profile_deleted": "Profile deleted",
-    "notify.profile_created": "Profile created",
-    "notify.profile_name_required": "Enter profile name first",
-    "notify.update_check_done": "Pre-release update channel check completed.",
-    "notify.position_guard_stop": "Clicker stopped: custom position was overridden by manual mouse movement.",
-  },
-};
-
-let currentLanguage: AppLang = "en";
-
-function setText(selector: string, value: string) {
-  const element = document.querySelector(selector) as HTMLElement | null;
-  if (element) {
-    element.textContent = value;
+function setTextContent(el: Element, key: string, params?: Record<string, string>): void {
+  const resolved = t(key, undefined, params);
+  if (resolved !== undefined) {
+    el.textContent = resolved;
   }
 }
 
-function applyTranslations() {
-  const tr = translations[currentLanguage];
+function applyDataI18n(params?: Record<string, string>): void {
+  const elements = document.querySelectorAll<HTMLElement>("[data-i18n]");
+  elements.forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (!key) return;
+    const childKeyEl = el.querySelector("[data-i18n]");
+    if (childKeyEl) return;
+    setTextContent(el, key, params);
+  });
 
-  setText('.mode-tabs .tab[data-tab="mouse"]', tr["tab.mouse"]);
-  setText('.mode-tabs .tab[data-tab="keyboard"]', tr["tab.keyboard"]);
-  setText('.mode-tabs .tab[data-tab="macro"]', tr["tab.macro"]);
+  const titleElements = document.querySelectorAll<HTMLElement>("[data-i18n-title]");
+  titleElements.forEach((el) => {
+    const key = el.getAttribute("data-i18n-title");
+    if (!key) return;
+    el.title = t(key, "");
+  });
+
+  const placeholderElements = document.querySelectorAll<HTMLElement>("[data-i18n-placeholder]");
+  placeholderElements.forEach((el) => {
+    const key = el.getAttribute("data-i18n-placeholder");
+    if (!key) return;
+    (el as HTMLInputElement).placeholder = t(key, "");
+  });
+}
+
+function applySpecificSelectors(): void {
+  const tr = currentDict;
+
+  const groupTitles = document.querySelectorAll("#section-settings .settings-group-title");
+  if (groupTitles.length > 0) {
+    const g = groupTitles[0];
+    if (!g.hasAttribute("data-i18n"))
+      g.textContent = tr["settings.group.general"];
+  }
+  if (groupTitles.length > 1) {
+    const g = groupTitles[1];
+    if (!g.hasAttribute("data-i18n"))
+      g.textContent = tr["settings.group.theme"];
+  }
+  if (groupTitles.length > 2) {
+    const g = groupTitles[2];
+    if (!g.hasAttribute("data-i18n"))
+      g.textContent = tr["settings.group.utils"];
+  }
+
+  const settingsItems = document.querySelectorAll<HTMLElement>("#section-settings .settings-list-item");
+  settingsItems.forEach((item) => {
+    const titleEl = item.querySelector<HTMLElement>(".settings-item-title");
+    const descEl = item.querySelector<HTMLElement>(".settings-item-desc");
+    if (titleEl && titleEl.hasAttribute("data-i18n")) {
+      setTextContent(titleEl, titleEl.getAttribute("data-i18n")!);
+    }
+    if (descEl && descEl.hasAttribute("data-i18n")) {
+      setTextContent(descEl, descEl.getAttribute("data-i18n")!);
+    }
+  });
 
   setText('#settings-btn .footer-label', tr["footer.settings"]);
   setText('#hotkeys-btn .footer-label', tr["footer.hotkeys"]);
@@ -89,94 +103,173 @@ function applyTranslations() {
 
   setText('#start-btn .start-label', tr["start.start"]);
 
-  const groupTitles = document.querySelectorAll('#section-settings .settings-group-title');
-  if (groupTitles[0]) groupTitles[0].textContent = tr["settings.group.general"];
-  if (groupTitles[1]) groupTitles[1].textContent = tr["settings.group.theme"];
-  if (groupTitles[2]) groupTitles[2].textContent = tr["settings.group.utils"];
-
-  const settingsItems = document.querySelectorAll('#section-settings .settings-list-item .settings-item-content');
-  if (settingsItems[0]) {
-    const title = settingsItems[0].querySelector('.settings-item-title');
-    const desc = settingsItems[0].querySelector('.settings-item-desc');
-    if (title) title.textContent = tr["settings.autostart.title"];
-    if (desc) desc.textContent = tr["settings.autostart.desc"];
-  }
-  if (settingsItems[1]) {
-    const title = settingsItems[1].querySelector('.settings-item-title');
-    const desc = settingsItems[1].querySelector('.settings-item-desc');
-    if (title) title.textContent = tr["settings.tray.title"];
-    if (desc) desc.textContent = tr["settings.tray.desc"];
-  }
-  if (settingsItems[2]) {
-    const title = settingsItems[2].querySelector('.settings-item-title');
-    const desc = settingsItems[2].querySelector('.settings-item-desc');
-    if (title) title.textContent = tr["settings.language.title"];
-    if (desc) desc.textContent = tr["settings.language.desc"];
-  }
-  if (settingsItems[3]) {
-    const title = settingsItems[3].querySelector('.settings-item-title');
-    const desc = settingsItems[3].querySelector('.settings-item-desc');
-    if (title) title.textContent = tr["settings.stop_on_move.title"];
-    if (desc) desc.textContent = tr["settings.stop_on_move.desc"];
-  }
-
-  const accentTitle = document.querySelector('#accent-settings-trigger .settings-item-title');
-  if (accentTitle) accentTitle.textContent = tr["settings.accent.title"];
-  const italicTitle = document.querySelector('#remove-italic-trigger .settings-item-title');
-  if (italicTitle) italicTitle.textContent = tr["settings.remove_italic.title"];
-  const classicWindowIconsTitle = document.querySelector('#classic-window-icons-trigger .settings-item-title');
-  const classicWindowIconsDesc = document.querySelector('#classic-window-icons-trigger .settings-item-desc');
-  if (classicWindowIconsTitle) classicWindowIconsTitle.textContent = tr["settings.classic_window_icons.title"];
-  if (classicWindowIconsDesc) classicWindowIconsDesc.textContent = tr["settings.classic_window_icons.desc"];
-  const cpsTitle = document.querySelector('#cps-test-btn .settings-item-title');
-  const cpsDesc = document.querySelector('#cps-test-btn .settings-item-desc');
-  if (cpsTitle) cpsTitle.textContent = tr["settings.cps_test.title"];
-  if (cpsDesc) cpsDesc.textContent = tr["settings.cps_test.desc"];
-  const webviewDevtoolsTitle = document.querySelector('#webview-devtools-btn .settings-item-title');
-  const webviewDevtoolsDesc = document.querySelector('#webview-devtools-btn .settings-item-desc');
-  if (webviewDevtoolsTitle) webviewDevtoolsTitle.textContent = tr["settings.webview_devtools.title"];
-  if (webviewDevtoolsDesc) webviewDevtoolsDesc.textContent = tr["settings.webview_devtools.desc"];
-
-  const profileInput = document.getElementById('profile-name-input') as HTMLInputElement | null;
-  if (profileInput) profileInput.placeholder = tr["profiles.input.placeholder"];
-  const profileCreateBtn = document.getElementById('profile-create-btn');
-  if (profileCreateBtn) profileCreateBtn.textContent = tr["profiles.create"];
-
-  const hotkeyRows = document.querySelectorAll('.hotkey-list-item[data-hotkey-action]');
-  hotkeyRows.forEach((row) => {
-    const action = (row as HTMLElement).dataset.hotkeyAction;
-    const title = row.querySelector('.hotkey-title');
-    if (!title) return;
-
-    if (action === "toggle_start_stop") title.textContent = tr["hotkey.toggle_start_stop"];
-    if (action === "pick_position") title.textContent = tr["hotkey.pick_position"];
-    if (action === "toggle_macro_recording") title.textContent = tr["hotkey.toggle_macro_recording"];
+  const modeTabs = document.querySelectorAll<HTMLElement>(".mode-tabs .tab");
+  modeTabs.forEach((tab) => {
+    if (tab.hasAttribute("data-i18n")) {
+      setTextContent(tab, tab.getAttribute("data-i18n")!);
+    }
   });
 
-  const hyprTitle = document.querySelector('#hyprland-hotkey-apply .hotkey-title');
-  if (hyprTitle) hyprTitle.textContent = tr["hotkey.hypr.apply"];
+  const hotkeyRows = document.querySelectorAll<HTMLElement>('.hotkey-list-item[data-hotkey-action]');
+  hotkeyRows.forEach((row) => {
+    const title = row.querySelector<HTMLElement>(".hotkey-title");
+    const desc = row.querySelector<HTMLElement>(".hotkey-desc");
+    if (title && title.hasAttribute("data-i18n")) {
+      setTextContent(title, title.getAttribute("data-i18n")!);
+    }
+    if (desc && desc.hasAttribute("data-i18n")) {
+      setTextContent(desc, desc.getAttribute("data-i18n")!);
+    }
+  });
+
+  const winMinBtn = document.getElementById("minimize-btn");
+  if (winMinBtn) winMinBtn.title = t("minimize", "Minimize");
+  const winMaxBtn = document.getElementById("maximize-btn");
+  if (winMaxBtn) winMaxBtn.title = t("maximize", "Maximize");
+  const winCloseBtn = document.getElementById("close-btn");
+  if (winCloseBtn) winCloseBtn.title = t("close", "Close");
 
   document.documentElement.lang = currentLanguage;
 }
 
-export function initI18n(initialLanguage?: string) {
-  void initialLanguage;
-  currentLanguage = "en";
-  localStorage.setItem("flu-language", currentLanguage);
+function setText(selector: string, value: string): void {
+  const element = document.querySelector(selector) as HTMLElement | null;
+  if (element) element.textContent = value;
+}
+
+export function applyTranslations(): void {
+  applyDataI18n();
+  applySpecificSelectors();
+}
+
+export function setLanguage(code: string): void {
+  const langCode = (LANGUAGES.some((l) => l.code === code) ? code : DEFAULT_LANG) as LangCode;
+  currentLanguage = langCode;
+  currentDict = getLangStrings(langCode);
+  localStorage.setItem(STORAGE_KEY, langCode);
+  sessionStorage.setItem("flu-language-pending-reload", "1");
   applyTranslations();
 }
 
-export function setLanguage(language: string) {
-  void language;
-  currentLanguage = "en";
-  localStorage.setItem("flu-language", currentLanguage);
+function setLanguageFromStorage(): void {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored && LANGUAGES.some((l) => l.code === stored)) {
+    currentLanguage = stored as LangCode;
+    currentDict = getLangStrings(currentLanguage);
+  } else {
+    currentLanguage = DEFAULT_LANG;
+    currentDict = getLangStrings(DEFAULT_LANG);
+  }
+}
+
+export function initI18n(initialLanguage?: string): void {
+  setLanguageFromStorage();
+
+  if (initialLanguage && LANGUAGES.some((l) => l.code === initialLanguage)) {
+    currentLanguage = initialLanguage as LangCode;
+    currentDict = getLangStrings(currentLanguage);
+  }
+
   applyTranslations();
+
+  const langNameEl = document.getElementById("current-language-name");
+  if (langNameEl) {
+    langNameEl.textContent = getLanguageNativeName();
+  }
+  updateLangIndicator();
 }
 
-export function getLanguage(): AppLang {
-  return currentLanguage;
+function updateLangIndicator(): void {
+  const langIndicator = document.getElementById("lang-indicator");
+  if (!langIndicator) return;
+  const found = LANGUAGES.find((l) => l.code === currentLanguage);
+  if (found) {
+    langIndicator.innerHTML = found.flag;
+  }
 }
 
-export function t(key: string, fallback?: string): string {
-  return translations[currentLanguage][key] || fallback || key;
+export function getAvailableLanguages(): typeof LANGUAGES {
+  return LANGUAGES;
+}
+
+function openLanguagePicker(): void {
+  const modal = document.getElementById("language-picker-modal");
+  const list = document.getElementById("language-list");
+  if (!modal || !list) return;
+
+  list.innerHTML = "";
+
+  LANGUAGES.forEach((lang) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "lang-card" + (lang.code === currentLanguage ? " active" : "");
+    card.dataset.langCode = lang.code;
+
+    const label = document.createElement("span");
+    label.className = "lang-card-label";
+    label.style.fontWeight = lang.code === currentLanguage ? "700" : "500";
+    const flagSpan = document.createElement("span");
+    flagSpan.className = "lang-card-flag";
+    flagSpan.innerHTML = lang.flag;
+    label.appendChild(flagSpan);
+    label.append("  " + lang.nativeName);
+    card.appendChild(label);
+
+    if (lang.aiTranslated) {
+      const aiBadge = document.createElement("span");
+      aiBadge.className = "lang-ai-badge icon";
+      aiBadge.innerHTML = "&#57787;";
+      aiBadge.title = t("lang.ai_notice", "AI translation");
+      card.appendChild(aiBadge);
+    }
+
+
+    card.addEventListener("click", () => {
+      document.querySelectorAll(".lang-card").forEach((c) => c.classList.remove("active"));
+      card.classList.add("active");
+      setLanguage(lang.code);
+      updateLangIndicator();
+      const nameEl = document.getElementById("current-language-name");
+      if (nameEl) nameEl.textContent = getLanguageNativeName();
+    });
+
+    list.appendChild(card);
+  });
+
+  modal.style.display = "flex";
+  requestAnimationFrame(() => {
+    modal.classList.add("active");
+  });
+}
+
+function closeLanguagePicker(): void {
+  const modal = document.getElementById("language-picker-modal");
+  if (!modal) return;
+  modal.classList.remove("active");
+  setTimeout(() => {
+    modal.style.display = "none";
+  }, 300);
+}
+
+export function initLanguagePicker(): void {
+  const trigger = document.getElementById("language-settings-trigger");
+  const closeBtn = document.getElementById("language-picker-close");
+  const modal = document.getElementById("language-picker-modal");
+
+  trigger?.addEventListener("click", openLanguagePicker);
+
+  closeBtn?.addEventListener("click", closeLanguagePicker);
+
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) closeLanguagePicker();
+  });
+
+  window.addEventListener("flu:settings-applied", () => {
+    applyTranslations();
+    const langNameEl = document.getElementById("current-language-name");
+    if (langNameEl) {
+      langNameEl.textContent = getLanguageNativeName();
+    }
+    updateLangIndicator();
+  });
 }

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "../i18n";
 import { listen } from "@tauri-apps/api/event";
 import { syncAllKeyboardSettings } from "../keyboard";
 import { ensureMacroReady } from "../macro";
@@ -47,14 +48,14 @@ function setStartButtonState(isRunning: boolean) {
 
     if (isRunning) {
         startButton.classList.add("running");
-        label.textContent = "STOP";
+        label.textContent = t("start.stop");
         startButton.style.backgroundColor = "var(--action-active-bg)";
         startButton.style.color = "var(--action-active-text)";
         return;
     }
 
     startButton.classList.remove("running");
-    label.textContent = "START";
+    label.textContent = t("start.start");
     startButton.style.backgroundColor = "";
     startButton.style.color = "";
 }
@@ -219,7 +220,7 @@ export function initStartStopControls() {
 
     void listen<OzoneWaitingPayload>("ozone-anchor-waiting", (event) => {
         if (event.payload?.waiting) {
-            notify("O-Zone: click once to set the center point", "info", 3200);
+            notify(t("ozone_notify"), "info", 3200);
         }
     });
 
