@@ -5,6 +5,8 @@ import { notify } from "./notifications";
 import { ensureUinputPermissionsForFeature } from "./uinput-permissions";
 import { updateSliderFill } from "./utils";
 import { t } from "./i18n";
+import { LICENSE_CATEGORIES } from "../data/licenses";
+import type { LicenseItem } from "../data/licenses";
 
 const DRAWER_FOCUSABLE_SELECTOR = [
     "button:not([disabled])",
@@ -68,18 +70,19 @@ function restoreDrawerReturnFocus(drawer: HTMLElement) {
 }
 
 const DRAWER_TITLE_KEYS: Record<string, string> = {
-    "Settings": "drawer.settings",
-    "Hotkeys": "drawer.hotkeys",
+    Settings: "drawer.settings",
+    Hotkeys: "drawer.hotkeys",
     "Profiles System": "drawer.profiles",
     "Help & Resources": "drawer.help",
     "Mouse Jiggler": "jiggler.section_title",
     "Add Macro Action": "macro.add_action",
     "Edit Macro Action": "macro.edit_action",
     "Recording Filters": "macro.recording_filters",
-    "General": "settings.group.general",
-    "Utils": "settings.group.utils",
+    General: "settings.group.general",
+    Utils: "settings.group.utils",
     "Theme & Appearance": "settings.group.theme",
-    "Updates": "settings.group.updates",
+    Updates: "settings.group.updates",
+    Licenses: "drawer.licenses",
 };
 
 export function openDrawer(sectionId: string, title: string, icon?: string) {
@@ -96,7 +99,9 @@ export function openDrawer(sectionId: string, title: string, icon?: string) {
     setDrawerAccessibilityState(drawer, true);
 
     const titleParts = title.split(" > ");
-    const translatedParts = titleParts.map((part) => t(DRAWER_TITLE_KEYS[part] || "", part));
+    const translatedParts = titleParts.map((part) =>
+        t(DRAWER_TITLE_KEYS[part] || "", part),
+    );
     drawerSection.textContent = translatedParts[0];
     drawerSection.removeAttribute("data-i18n");
     if (translatedParts.length > 1 && drawerGroup) {
@@ -181,6 +186,109 @@ function bindHelpLink(elementId: string, url: string, label: string) {
     });
 }
 
+function handleLicenseLinkClick(e: MouseEvent): void {
+    const target = (e.target as HTMLElement).closest(".license-item-link");
+    if (!target) return;
+    const url = target.getAttribute("data-url");
+    if (!url) return;
+    e.preventDefault();
+    openUrl(url).catch((err) => {
+        console.error("Failed to open link", err);
+        notify("Could not open link.", "error", 2600);
+    });
+}
+
+function renderLicenseItem(item: LicenseItem): string {
+    const parts: string[] = ['<div class="license-item">'];
+    if (item.name) {
+        const flagHtml = item.flagSvg
+            ? `<span class="license-flag">${item.flagSvg}</span> `
+            : "";
+        parts.push(
+            `<div class="license-item-header"><div class="license-item-name-row"><span class="license-item-name">${flagHtml}${item.name}</span>`,
+        );
+        if (item.license) {
+            parts.push(
+                `<span class="license-item-type">${item.license}</span>`,
+            );
+        }
+        parts.push("</div>");
+        if (item.author) {
+            parts.push(
+                `<span class="license-item-by">by ${item.author}</span>`,
+            );
+        }
+        parts.push("</div>");
+    }
+    if (item.description) {
+        parts.push(`<div class="license-item-text">${item.description}</div>`);
+    }
+    const links: string[] = [];
+    if (item.licenseLink && item.licenseLinkAlt) {
+        links.push(
+            `<span class="license-item-link" data-url="${item.licenseLink}">MIT</span>`,
+        );
+        links.push(
+            `<span class="license-item-link" data-url="${item.licenseLinkAlt}">Apache-2.0</span>`,
+        );
+        if (item.licenseLinkThird) {
+            links.push(
+                `<span class="license-item-link" data-url="${item.licenseLinkThird}">zlib</span>`,
+            );
+        }
+    } else if (item.licenseLink) {
+        links.push(
+            `<span class="license-item-link" data-url="${item.licenseLink}">${t("licenses.btn_license", "License")}</span>`,
+        );
+    }
+    if (item.link) {
+        links.push(
+            `<span class="license-item-link" data-url="${item.link}">${t("licenses.btn_project", "Project")}</span>`,
+        );
+    }
+    if (item.linkAlt) {
+        links.push(
+            `<span class="license-item-link" data-url="${item.linkAlt}">${t("licenses.btn_mirror", "Mirror")}</span>`,
+        );
+    }
+    if (item.linkArchived) {
+        links.push(
+            `<span class="license-item-link" data-url="${item.linkArchived}">${t("licenses.btn_legacy", "Legacy")}</span>`,
+        );
+    }
+    if (item.packageLink) {
+        links.push(
+            `<span class="license-item-link" data-url="${item.packageLink}">${t("licenses.btn_package", "Package")}</span>`,
+        );
+    }
+    if (item.siteLink) {
+        links.push(
+            `<span class="license-item-link" data-url="${item.siteLink}">${t("licenses.btn_site", "Site")}</span>`,
+        );
+    }
+    if (links.length > 0) {
+        parts.push(`<div class="license-item-links">${links.join("")}</div>`);
+    }
+    parts.push("</div>");
+    return parts.join("");
+}
+
+function renderLicenses(): void {
+    const container = document.getElementById("licenses-container");
+    if (!container) return;
+    container.innerHTML = LICENSE_CATEGORIES.map((cat) => {
+        const group: string[] = [];
+        if (cat.titleKey) {
+            group.push(`<h3 class="license-category">${t(cat.titleKey)}</h3>`);
+        } else if (cat.titleText) {
+            group.push(`<h3 class="license-category">${cat.titleText}</h3>`);
+        }
+        cat.items.forEach((item) => group.push(renderLicenseItem(item)));
+        return group.join("");
+    }).join("");
+    container.addEventListener("click", handleLicenseLinkClick);
+}
+
 export function initDrawer() {
     const drawerOverlay = document.getElementById("drawer-overlay");
     const drawer = document.getElementById("drawer-shell");
@@ -249,6 +357,12 @@ export function initDrawer() {
         "https://github.com/Agzes/FluAutoClicker",
         "GitHub",
     );
+    document
+        .getElementById("help-licenses-link")
+        ?.addEventListener("click", () =>
+            openDrawer("section-licenses", "Licenses", "&#58696;"),
+        );
+    renderLicenses();
     initDrawerResize();
     initDrawerHoverTitle();
 
@@ -383,7 +497,11 @@ export function initTimingModal(onConfirm: () => void) {
                 progress.style.width = "0";
                 progress.style.transition = progressTransition;
             }
-            if (text) text.textContent = t("timing.slide_to_confirm", "Slide to confirm");
+            if (text)
+                text.textContent = t(
+                    "timing.slide_to_confirm",
+                    "Slide to confirm",
+                );
             track.classList.remove("unlocked");
         };
 
@@ -411,11 +529,19 @@ export function initTimingModal(onConfirm: () => void) {
             const iconEl = document.getElementById("timing-unlock-icon");
             if (delta >= maxDelta * 0.98) {
                 track.classList.add("unlocked");
-                if (text) text.textContent = t("timing.release_to_confirm", "Release to confirm");
+                if (text)
+                    text.textContent = t(
+                        "timing.release_to_confirm",
+                        "Release to confirm",
+                    );
                 if (iconEl) iconEl.innerHTML = "&#58544;";
             } else {
                 track.classList.remove("unlocked");
-            if (text) text.textContent = t("timing.slide_to_confirm", "Slide to confirm");
+                if (text)
+                    text.textContent = t(
+                        "timing.slide_to_confirm",
+                        "Slide to confirm",
+                    );
                 if (iconEl) iconEl.innerHTML = "&#58591;";
             }
         };
