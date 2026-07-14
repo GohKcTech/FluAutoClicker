@@ -22,26 +22,170 @@ use tauri_plugin_cli::CliExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 #[cfg(target_os = "windows")]
-fn apply_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(window: &W) -> bool {
-    use window_vibrancy::{apply_acrylic, apply_blur};
+mod raw_acrylic {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use std::sync::OnceLock;
 
-    apply_acrylic(window, Some((18, 22, 29, 108)))
-        .or_else(|_| apply_blur(window, Some((18, 22, 29, 108))))
-        .is_ok()
+    #[repr(C)]
+    struct AccentPolicy {
+        accent_state: u32,
+        accent_flags: u32,
+        gradient_color: u32,
+        animation_id: u32,
+    }
+
+    #[repr(C)]
+    struct WinCompatAttrData {
+        attribute: u32,
+        pv_data: *const AccentPolicy,
+        cb_data: u32,
+    }
+
+    const WCA_ACCENT_POLICY: u32 = 19;
+    const ACCENT_DISABLED: u32 = 0;
+    const ACCENT_ENABLE_ACRYLICBLURBEHIND: u32 = 4;
+
+    type SetWindowCompositionAttributeFn =
+        unsafe extern "system" fn(*mut std::ffi::c_void, *mut WinCompatAttrData) -> i32;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetModuleHandleA(name: *const u8) -> *mut std::ffi::c_void;
+        fn GetProcAddress(
+            module: *mut std::ffi::c_void,
+            name: *const u8,
+        ) -> Option<unsafe extern "system" fn()>;
+    }
+
+    fn get_swca() -> Option<SetWindowCompositionAttributeFn> {
+        static SWCA: OnceLock<Option<SetWindowCompositionAttributeFn>> = OnceLock::new();
+        let cached = SWCA.get();
+        if let Some(result) = cached {
+            return *result;
+        }
+
+        unsafe {
+            let user32 = GetModuleHandleA(b"user32.dll\0".as_ptr() as *const u8);
+            if user32.is_null() {
+                let _ = SWCA.set(None);
+                return None;
+            }
+
+            let ptr = GetProcAddress(
+                user32,
+                b"SetWindowCompositionAttribute\0".as_ptr() as *const u8,
+            );
+
+            let func: Option<SetWindowCompositionAttributeFn> =
+                ptr.map(|p| std::mem::transmute(p));
+
+            let _ = SWCA.set(func);
+            func
+        }
+    }
+
+    fn hwnd_from_window(window: &(impl HasWindowHandle + ?Sized)) -> Option<*mut std::ffi::c_void> {
+        let handle = window.window_handle().ok()?;
+        match handle.as_raw() {
+            RawWindowHandle::Win32(w) => Some(w.hwnd.get() as *mut std::ffi::c_void),
+            _ => None,
+        }
+    }
+
+    pub fn apply_acrylic(window: &(impl HasWindowHandle + ?Sized), color: (u8, u8, u8, u8)) -> bool {
+        let func = match get_swca() {
+            Some(f) => f,
+            None => return false,
+        };
+
+        let hwnd = match hwnd_from_window(window) {
+            Some(h) => h,
+            None => return false,
+        };
+
+        let (r, g, b, a) = color;
+        let gradient_color = ((a as u32) << 24)
+            | ((b as u32) << 16)
+            | ((g as u32) << 8)
+            | (r as u32);
+
+        let accent = AccentPolicy {
+            accent_state: ACCENT_ENABLE_ACRYLICBLURBEHIND,
+            accent_flags: 0,
+            gradient_color,
+            animation_id: 0,
+        };
+
+        let mut data = WinCompatAttrData {
+            attribute: WCA_ACCENT_POLICY,
+            pv_data: &accent,
+            cb_data: std::mem::size_of::<AccentPolicy>() as u32,
+        };
+
+        unsafe { func(hwnd, &mut data) != 0 }
+    }
+
+    pub fn clear_acrylic(window: &(impl HasWindowHandle + ?Sized)) -> bool {
+        let func = match get_swca() {
+            Some(f) => f,
+            None => return false,
+        };
+
+        let hwnd = match hwnd_from_window(window) {
+            Some(h) => h,
+            None => return false,
+        };
+
+        let accent = AccentPolicy {
+            accent_state: ACCENT_DISABLED,
+            accent_flags: 0,
+            gradient_color: 0,
+            animation_id: 0,
+        };
+
+        let mut data = WinCompatAttrData {
+            attribute: WCA_ACCENT_POLICY,
+            pv_data: &accent,
+            cb_data: std::mem::size_of::<AccentPolicy>() as u32,
+        };
+
+        unsafe { func(hwnd, &mut data) != 0 }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn apply_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(
+    window: &W,
+    _focused: Option<bool>,
+) -> bool {
+    let color = (18, 22, 29, 22);
+
+    raw_acrylic::apply_acrylic(window, color)
+        || {
+            use window_vibrancy::{apply_acrylic, apply_blur};
+            apply_acrylic(window, Some(color))
+                .or_else(|_| apply_blur(window, Some(color)))
+                .is_ok()
+        }
 }
 
 #[cfg(not(target_os = "windows"))]
-fn apply_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(_window: &W) -> bool {
+fn apply_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(
+    _window: &W,
+    _: Option<bool>,
+) -> bool {
     false
 }
 
 #[cfg(target_os = "windows")]
 fn clear_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(window: &W) -> bool {
-    use window_vibrancy::{clear_acrylic, clear_blur};
-
-    clear_acrylic(window)
-        .or_else(|_| clear_blur(window))
-        .is_ok()
+    raw_acrylic::clear_acrylic(window)
+        || {
+            use window_vibrancy::{clear_acrylic, clear_blur};
+            clear_acrylic(window)
+                .or_else(|_| clear_blur(window))
+                .is_ok()
+        }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -78,8 +222,9 @@ pub(crate) fn global_hotkeys_supported() -> bool {
 
 pub(crate) fn apply_window_acrylic<W: raw_window_handle::HasWindowHandle + ?Sized>(
     window: &W,
+    focused: Option<bool>,
 ) -> bool {
-    apply_window_acrylic_impl(window)
+    apply_window_acrylic_impl(window, focused)
 }
 
 pub(crate) fn clear_window_acrylic<W: raw_window_handle::HasWindowHandle + ?Sized>(
@@ -611,6 +756,14 @@ pub fn run() {
                 let label = window.label();
                 if label == "main" {
                     state.is_main_focused.store(*focused, Ordering::SeqCst);
+                    if state.acrylic_enabled.load(Ordering::SeqCst) {
+                        let window = window.clone();
+                        let focused = *focused;
+                        tauri::async_runtime::spawn(async move {
+                            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+                            let _ = crate::apply_window_acrylic(&window, Some(focused));
+                        });
+                    }
                 } else if label == "cps-test" {
                     state.is_cps_test_focused.store(*focused, Ordering::SeqCst);
                 }
@@ -719,7 +872,7 @@ pub fn run() {
             handle_cli_matches(app.handle(), &state);
 
             if let Some(main_window) = app.get_webview_window("main") {
-                let _ = apply_window_acrylic(&main_window);
+                let _ = apply_window_acrylic(&main_window, Some(true));
             }
             if let Err(error) = setup_tray(app) {
                 eprintln!("FluAutoClicker: failed to initialize tray icon: {error}");

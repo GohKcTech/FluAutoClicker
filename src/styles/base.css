@@ -146,105 +146,27 @@ body.font-no-italic * {
 }
 
 body.window-acrylic {
-    --bg: rgb(10 10 10 / 24%);
+    --acrylic-opacity: 78%;
+    --bg: rgb(15 15 15 / var(--acrylic-opacity));
     --surface: rgb(13 13 13 / var(--acrylic-opacity));
-    --control-bg: rgb(16 16 16 / var(--acrylic-opacity));
-    --control-dark: rgb(18 18 18 / var(--acrylic-opacity));
-    --bg-color: rgb(10 10 10 / var(--acrylic-opacity));
-    --action-bg: rgb(from var(--accent) r g b / var(--acrylic-opacity));
-    --action-active-bg: rgb(255 255 255 / var(--acrylic-opacity));
+    --control-bg: rgb(20 20 20 / var(--acrylic-opacity));
+    --control-dark: rgb(23 23 23 / var(--acrylic-opacity));
+    --bg-color: rgb(15 15 15 / var(--acrylic-opacity));
     background: transparent;
 }
 
-body.window-acrylic.window-unfocused {
-    --bg: rgb(10 10 10 / 30%);
-    --surface: rgb(13 13 13 / 80%);
-    --control-bg: rgb(16 16 16 / 80%);
-    --control-dark: rgb(18 18 18 / 80%);
-    --bg-color: rgb(10 10 10 / 80%);
-    --action-bg: rgb(from var(--accent) r g b / 80%);
-    --action-active-bg: rgb(255 255 255 / 80%);
+body.window-acrylic #drawer-shell,
+body.window-acrylic .drawer-modal-shell,
+body.window-acrylic .drawer-modal-content-wrap {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
 }
 
-body.window-acrylic .settings-list-item,
-body.window-acrylic .hotkey-list-item,
-body.window-acrylic .help-list-item,
-body.window-acrylic .help-duo-item,
-body.window-acrylic .accent-tile,
-body.window-acrylic .unlock-slider-track {
-    background: rgb(8 10 14 / 18%);
-}
-
-body.window-acrylic .settings-list-item:hover,
-body.window-acrylic .hotkey-list-item:hover,
-body.window-acrylic .help-list-item:hover,
-body.window-acrylic .help-duo-item:hover,
-body.window-acrylic .accent-tile:hover {
-    background: rgb(12 15 20 / 16%);
-}
-
-body.window-acrylic .settings-item-icon,
-body.window-acrylic .hotkey-item-icon,
-body.window-acrylic .help-item-icon,
-body.window-acrylic .accent-color-indicator,
-body.window-acrylic .hotkey-badge,
-body.window-acrylic .cpu-core {
-    background: rgb(10 12 16 / 22%);
-}
-
-body.window-acrylic .settings-list-item:hover .accent-color-indicator {
-    background: rgb(8 10 14 / 22%);
-}
-
-body.window-acrylic .interval-slider {
-    background: rgb(10 12 16 / 22%);
-}
-
-body.window-acrylic .warning-box {
-    background: rgb(38 28 8 / 20%);
-}
-
-body.window-acrylic header,
-body.window-acrylic .title-group,
-body.window-acrylic .mode-tabs,
-body.window-acrylic .section-row,
-body.window-acrylic .main-footer,
-body.window-acrylic .time-input-box,
-body.window-acrylic .toggle-row,
-body.window-acrylic .multi-button-row,
-body.window-acrylic .coord-input-box,
-body.window-acrylic .feature-btn,
-body.window-acrylic .footer-btn,
-body.window-acrylic .control-btn,
-body.window-acrylic .main-action-btn,
-body.window-acrylic .kb-key,
-body.window-acrylic .kb-record-btn,
-body.window-acrylic .macro-btn,
-body.window-acrylic .pick-btn,
-body.window-acrylic .variation-input,
-body.window-acrylic .section-container {
-    box-shadow: none;
-}
-
+body.window-acrylic .drawer-header,
+body.window-acrylic .drawer-body,
 body.window-acrylic .drawer-modal-header,
 body.window-acrylic .drawer-modal-body {
-    background: rgb(10 10 10 / 28%);
-}
-
-body.window-acrylic .drawer-modal-picker-wrap {
-    background: rgb(8 10 14 / 18%);
-}
-
-body.window-acrylic .accent-preset-btn {
-    background: rgb(8 10 14 / 16%);
-}
-
-body.window-acrylic .accent-preset-btn:hover {
-    background: rgb(12 15 20 / 22%);
-}
-
-body.window-acrylic .accent-preset-btn.active {
-    background: var(--accent);
+    background: rgb(13 13 13 / 52%);
 }
 
 ::-webkit-scrollbar {

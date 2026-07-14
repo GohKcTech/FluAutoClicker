@@ -1361,11 +1361,16 @@ fn sanitize_macro_action_config(config: &mut MacroActionConfig) {
 }
 
 #[tauri::command]
-pub fn set_window_acrylic(window: Window, enabled: bool, focused: Option<bool>) -> bool {
-    let _ = focused;
+pub fn set_window_acrylic(
+    window: Window,
+    enabled: bool,
+    focused: Option<bool>,
+    state: State<'_, Arc<AppState>>,
+) -> bool {
+    state.acrylic_enabled.store(enabled, Ordering::SeqCst);
 
     if enabled {
-        crate::apply_window_acrylic(&window)
+        crate::apply_window_acrylic(&window, focused)
     } else {
         crate::clear_window_acrylic(&window)
     }

@@ -33,35 +33,29 @@ export async function applyWindowEffects(enabled: boolean) {
     return active;
 }
 
-export function applyWindowFocusState(focused: boolean) {
-    document.body.classList.toggle("window-unfocused", !focused);
-    document.documentElement.dataset.windowFocused = focused ? "1" : "0";
-}
-
-async function syncWindowFocusEffect(focused: boolean) {
+async function reapplyAcrylic() {
     if (!acrylicEnabledState || !acrylicNativeReady) {
         return;
     }
 
     try {
-        await invoke("set_window_acrylic", { enabled: true, focused });
+        await invoke("set_window_acrylic", { enabled: true, focused: true });
     } catch (error) {
-        console.warn("Failed to sync acrylic focus state", error);
+        console.warn("Failed to reapply acrylic", error);
     }
 }
 
 export function initWindowFocusState() {
-    applyWindowFocusState(true);
-
-    void currentWindow.onFocusChanged(({ payload: focused }) => {
-        applyWindowFocusState(focused);
-        void syncWindowFocusEffect(focused);
+    void currentWindow.onFocusChanged(() => {
+        void reapplyAcrylic();
     });
 
     void currentWindow.onMoved(async () => {
-        const focused = await currentWindow.isFocused();
-        applyWindowFocusState(focused);
-        void syncWindowFocusEffect(focused);
+        void reapplyAcrylic();
+    });
+
+    void currentWindow.onResized(() => {
+        setTimeout(() => void reapplyAcrylic(), 100);
     });
 }
 
@@ -69,6 +63,11 @@ export async function initWindowEffects() {
     initWindowFocusState();
     window.addEventListener("flu:settings-applied", () => {
         void applyWindowEffects(isAcrylicPreferred());
+    });
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            setTimeout(() => void reapplyAcrylic(), 50);
+        }
     });
     return applyWindowEffects(isAcrylicPreferred());
 }
