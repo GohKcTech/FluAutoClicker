@@ -74,6 +74,9 @@ jobs:
       - name: Static smoke check
         run: pnpm run smoke:static
 
+      - name: i18n smoke check
+        run: pnpm run smoke:i18n
+
       - name: Rust format check
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
 

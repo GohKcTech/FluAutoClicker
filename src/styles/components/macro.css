@@ -185,13 +185,16 @@
 .macro-list-empty {
     flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: var(--text-dark);
+    color: var(--text-dim);
     font-family: var(--font);
-    padding: 20px 0;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.55;
+    padding: 48px 20px;
     width: 100%;
+    margin: 4px 0;
 }
 
 .macro-action-item {

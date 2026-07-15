@@ -76,8 +76,7 @@ mod raw_acrylic {
                 b"SetWindowCompositionAttribute\0".as_ptr() as *const u8,
             );
 
-            let func: Option<SetWindowCompositionAttributeFn> =
-                ptr.map(|p| std::mem::transmute(p));
+            let func: Option<SetWindowCompositionAttributeFn> = ptr.map(|p| std::mem::transmute(p));
 
             let _ = SWCA.set(func);
             func
@@ -92,7 +91,10 @@ mod raw_acrylic {
         }
     }
 
-    pub fn apply_acrylic(window: &(impl HasWindowHandle + ?Sized), color: (u8, u8, u8, u8)) -> bool {
+    pub fn apply_acrylic(
+        window: &(impl HasWindowHandle + ?Sized),
+        color: (u8, u8, u8, u8),
+    ) -> bool {
         let func = match get_swca() {
             Some(f) => f,
             None => return false,
@@ -104,10 +106,8 @@ mod raw_acrylic {
         };
 
         let (r, g, b, a) = color;
-        let gradient_color = ((a as u32) << 24)
-            | ((b as u32) << 16)
-            | ((g as u32) << 8)
-            | (r as u32);
+        let gradient_color =
+            ((a as u32) << 24) | ((b as u32) << 16) | ((g as u32) << 8) | (r as u32);
 
         let accent = AccentPolicy {
             accent_state: ACCENT_ENABLE_ACRYLICBLURBEHIND,
@@ -160,13 +160,12 @@ fn apply_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(
 ) -> bool {
     let color = (18, 22, 29, 22);
 
-    raw_acrylic::apply_acrylic(window, color)
-        || {
-            use window_vibrancy::{apply_acrylic, apply_blur};
-            apply_acrylic(window, Some(color))
-                .or_else(|_| apply_blur(window, Some(color)))
-                .is_ok()
-        }
+    raw_acrylic::apply_acrylic(window, color) || {
+        use window_vibrancy::{apply_acrylic, apply_blur};
+        apply_acrylic(window, Some(color))
+            .or_else(|_| apply_blur(window, Some(color)))
+            .is_ok()
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -179,13 +178,12 @@ fn apply_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(
 
 #[cfg(target_os = "windows")]
 fn clear_window_acrylic_impl<W: raw_window_handle::HasWindowHandle + ?Sized>(window: &W) -> bool {
-    raw_acrylic::clear_acrylic(window)
-        || {
-            use window_vibrancy::{clear_acrylic, clear_blur};
-            clear_acrylic(window)
-                .or_else(|_| clear_blur(window))
-                .is_ok()
-        }
+    raw_acrylic::clear_acrylic(window) || {
+        use window_vibrancy::{clear_acrylic, clear_blur};
+        clear_acrylic(window)
+            .or_else(|_| clear_blur(window))
+            .is_ok()
+    }
 }
 
 #[cfg(not(target_os = "windows"))]

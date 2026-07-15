@@ -471,8 +471,7 @@ export function renderActions(options: { animateNew?: boolean } = {}) {
     if (macroState.actions.length === 0) {
         listContainer.innerHTML = `
             <div class="macro-list-empty">
-                <span class="icon" style="font-size: 32px; color: var(--accent); margin-bottom: 12px; opacity: 0.6;">&#58964;</span>
-                <span style="letter-spacing: 1px; text-transform: uppercase; font-size: 11px; font-weight: 700; color: var(--text); opacity: 0.9;">${t("macro.no_actions", "No actions recorded yet")}</span>
+                <span>${t("macro.no_actions", "No actions recorded yet")}</span>
             </div>
         `;
         return;

@@ -16,8 +16,6 @@ const requiredIds = [
   "macro-record-btn",
   "macro-add-btn",
   "macro-list-container",
-  "profile-save-btn",
-  "profile-reload-btn",
   "profiles-list",
   "hotkeys-btn",
   "update-check-btn",
@@ -26,8 +24,6 @@ const requiredIds = [
   "config-import-btn",
   "backup-export-btn",
   "backup-import-btn",
-  "profile-export-btn",
-  "profile-import-btn",
 ];
 
 const requiredHotkeyActions = [
