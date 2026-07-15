@@ -1,13 +1,14 @@
 {
   "name": "fluautoclicker",
   "private": true,
-  "version": "0.1.0-beta.7",
+  "version": "0.1.0-beta.8",
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.mjs --configLoader native",
     "typecheck": "tsc --noEmit",
     "smoke:static": "node scripts/smoke-static.mjs",
-    "lint": "npm run typecheck && npm run smoke:static && cargo fmt --manifest-path src-tauri/Cargo.toml --check",
+    "smoke:i18n": "node scripts/smoke-i18n.mjs",
+    "lint": "npm run typecheck && npm run smoke:static && npm run smoke:i18n && cargo fmt --manifest-path src-tauri/Cargo.toml --check",
     "build": "tsc && vite build --config vite.config.mjs --configLoader native",
     "preview": "vite preview --config vite.config.mjs --configLoader native",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
