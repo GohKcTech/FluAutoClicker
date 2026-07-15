@@ -1,6 +1,6 @@
 {
-    "version": "0.1.0-beta.7",
-    "notes": "Mouse wheel scrolling support in macros, export/import of all configuration data at once, a \"Reduce Motion\" accessibility setting, a \"Time Multiplier\" playback speed selector.",
-    "pub_date": "2026-06-06T00:00:00Z",
-    "github_url": "https://github.com/Agzes/FluAutoClicker/releases/tag/v.0.1.0-beta.7"
+    "version": "0.1.0-beta.8",
+    "notes": "Multi-language support with 9 languages, font customization options, redesigned profile section, acrylic blur effect update, licenses drawer section, raw move mode for mouse actions, and time input layout redesign.",
+    "pub_date": "2026-07-15T00:00:00Z",
+    "github_url": "https://github.com/Agzes/FluAutoClicker/releases/tag/v.0.1.0-beta.8"
 }
