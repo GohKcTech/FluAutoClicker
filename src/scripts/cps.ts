@@ -293,7 +293,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     
     clickArea?.addEventListener('mousedown', (e) => {
         if (isFinished) return;
-        if (e.button !== 0) return;
+        if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
 
         if (mode !== 'click') {
             return;
@@ -313,6 +313,8 @@ window.addEventListener("DOMContentLoaded", async () => {
             clickCount++;
         }
     }, { capture: true });
+
+    clickArea?.addEventListener('contextmenu', (e) => e.preventDefault());
 
     clickArea?.addEventListener('pointerdown', () => {
         if (isFinished) return;
