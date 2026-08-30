@@ -31,6 +31,7 @@ describe("intervalToMilliseconds", () => {
     it("should handle invalid/negative seconds as 0", () => {
         assert.strictEqual(intervalToMilliseconds("0", "0", "", "0"), 0);
         assert.strictEqual(intervalToMilliseconds("0", "0", "abc", "0"), 0);
+        assert.strictEqual(intervalToMilliseconds("0", "0", "-0.9", "0"), 0);
     });
 
     it("should handle invalid/negative hours and minutes", () => {

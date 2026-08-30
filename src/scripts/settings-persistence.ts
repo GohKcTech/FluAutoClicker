@@ -459,6 +459,13 @@ function getNumericValue(id: string, fallback: number): number {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function getTimingSecondsValue(id: string, fallback: number): number {
+    const input = document.getElementById(id) as HTMLInputElement | null;
+    const parsed = Number.parseFloat(input?.value || "");
+    const isValid = Number.isFinite(parsed) && parsed >= 0;
+    return isValid ? parsed : fallback;
+}
+
 function getTimingIntervalMs(prefix: string): number {
     const hours = (document.getElementById(`${prefix}-hours`) as HTMLInputElement)?.value || "0";
     const minutes = (document.getElementById(`${prefix}-minutes`) as HTMLInputElement)?.value || "0";
@@ -571,13 +578,13 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
             mouse_timing: {
                 hours: getNumericValue("mouse-hours", 0),
                 minutes: getNumericValue("mouse-minutes", 0),
-                seconds: getNumericValue("mouse-seconds", 0),
+                seconds: getTimingSecondsValue("mouse-seconds", 0),
                 ms: getNumericValue("mouse-ms", 550),
             },
             keyboard_timing: {
                 hours: getNumericValue("kb-hours", 0),
                 minutes: getNumericValue("kb-minutes", 0),
-                seconds: getNumericValue("kb-seconds", 0),
+                seconds: getTimingSecondsValue("kb-seconds", 0),
                 ms: getNumericValue("kb-ms", 550),
             },
         },
