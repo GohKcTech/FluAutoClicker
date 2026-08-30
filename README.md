@@ -130,7 +130,7 @@ Release automation currently produces:
 
 - **Rust MSVC**: Install via [rustup](https://rustup.rs/) with the `stable-x86_64-pc-windows-msvc` toolchain.
 - **Microsoft C++ Build Tools**: Install from [Visual Studio Downloads](https://visualstudio.microsoft.com/visual-cpp-build-tools/). Select the "Desktop development with C++" workload.
-- **WebView2**: Pre-installed on Windows 10/11. For Windows 10 versions before KB5002537, download from [Microsoft Edge WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
+- **WebView2**: Required by Tauri on Windows. Download from [Microsoft Edge WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
 
 ### Requirements
 
