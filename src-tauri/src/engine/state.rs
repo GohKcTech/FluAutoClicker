@@ -10,6 +10,7 @@ use evdev::uinput::VirtualDevice;
 #[cfg(target_os = "linux")]
 use evdev::Key;
 
+use super::executor::Cancellation;
 use super::macro_engine::state::MacroEngineState;
 use super::runtime::RuntimeCoordinator;
 
@@ -255,6 +256,10 @@ pub struct AppState {
     pub runtime_coordinator: RuntimeCoordinator,
     // Migration note: retained for compatibility until mouse executors use runtime_coordinator.
     pub is_running: AtomicBool,
+    /// Cancelled and replaced with a fresh token on every stop, so an
+    /// in-flight hold-duration wait can be interrupted immediately instead
+    /// of running out its full duration before noticing `is_running` flipped.
+    pub mouse_cancel: StdMutex<Cancellation>,
     pub is_main_focused: AtomicBool,
     pub is_cps_test_focused: AtomicBool,
     pub is_jiggler_active: AtomicBool,
@@ -297,6 +302,8 @@ pub struct AppState {
     pub kb_repeat_unit: Mutex<RepeatUnit>,
     // Migration note: retained for compatibility until keyboard executors use runtime_coordinator.
     pub kb_is_running: AtomicBool,
+    /// See `mouse_cancel`; the keyboard executor's equivalent cancel signal.
+    pub keyboard_cancel: StdMutex<Cancellation>,
     pub kb_cps: AtomicU32,
     pub kb_interval_ms: AtomicU32,
     pub kb_variation_ms: AtomicU32,
@@ -316,6 +323,7 @@ impl Default for AppState {
         Self {
             runtime_coordinator: RuntimeCoordinator::default(),
             is_running: AtomicBool::new(false),
+            mouse_cancel: StdMutex::new(Cancellation::default()),
             is_main_focused: AtomicBool::new(true),
             is_cps_test_focused: AtomicBool::new(false),
             is_jiggler_active: AtomicBool::new(false),
@@ -357,6 +365,7 @@ impl Default for AppState {
             kb_repeat_count: AtomicU32::new(10),
             kb_repeat_unit: Mutex::new(RepeatUnit::Times),
             kb_is_running: AtomicBool::new(false),
+            keyboard_cancel: StdMutex::new(Cancellation::default()),
             kb_cps: AtomicU32::new(10),
             kb_interval_ms: AtomicU32::new(100),
             kb_variation_ms: AtomicU32::new(0),
