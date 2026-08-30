@@ -3,6 +3,7 @@ use crate::engine::config_store::{
     MAX_MACRO_REPEAT_DURATION_MS, MAX_REPEAT_COUNT, MAX_VARIATION_MS, MIN_CPS, MIN_HOLD_DURATION,
     MIN_JIGGLER_DISTANCE, MIN_JIGGLER_INTERVAL_MS, MIN_MACRO_REPEAT_DURATION_MS, MIN_REPEAT_COUNT,
 };
+use crate::engine::executor::Cancellation;
 use crate::engine::state::{
     AppState, ClickMode, HoldUnit, JigglerPattern, KeyboardModifier, MouseButton, PositionMode,
     RepeatMode, RepeatUnit, RuntimeHotkeys,
@@ -518,6 +519,12 @@ pub fn toggle_clicker(
         state
             .ozone_wait_for_click_anchor
             .store(false, Ordering::SeqCst);
+        // Interrupt an in-flight held click immediately instead of letting
+        // it run out its full hold duration, then arm a fresh token for
+        // the next run (a cancelled token stays cancelled forever).
+        let mut cancel = state.mouse_cancel.lock().unwrap();
+        cancel.cancel();
+        *cancel = Cancellation::new();
     }
     let _ = app.emit(
         "status-changed",
@@ -1171,6 +1178,11 @@ pub fn toggle_keyboard_clicker(state: State<'_, Arc<AppState>>, app: AppHandle) 
     let new_state = !current_running;
 
     state.kb_is_running.store(new_state, Ordering::SeqCst);
+    if !new_state {
+        let mut cancel = state.keyboard_cancel.lock().unwrap();
+        cancel.cancel();
+        *cancel = Cancellation::new();
+    }
     let _ = app.emit(
         "keyboard-status-changed",
         serde_json::json!({ "running": new_state }),
