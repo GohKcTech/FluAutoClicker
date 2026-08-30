@@ -120,7 +120,21 @@ impl RuntimeModel {
             return Err(RuntimeError::InvalidTransition);
         }
 
+        self.completed_cycles = 0;
+        self.last_error = None;
         self.phase = RuntimePhase::Recording;
+        Ok(())
+    }
+
+    pub fn record_cycle_completed(&mut self) -> Result<(), RuntimeError> {
+        if !matches!(
+            self.phase,
+            RuntimePhase::RunningMouse | RuntimePhase::RunningKeyboard | RuntimePhase::PlayingMacro
+        ) {
+            return Err(RuntimeError::InvalidTransition);
+        }
+
+        self.completed_cycles += 1;
         Ok(())
     }
 
@@ -203,6 +217,25 @@ impl RuntimeCoordinator {
 
     pub async fn snapshot(&self) -> RuntimeSnapshot {
         self.model.lock().await.snapshot()
+    }
+
+    pub async fn set_selected_mode(&self, mode: AppMode) -> Result<RuntimeSnapshot, RuntimeError> {
+        let mut model = self.model.lock().await;
+        model.set_selected_mode(mode)?;
+        Ok(model.snapshot())
+    }
+
+    pub async fn begin_recording(&self) -> Result<RuntimeSnapshot, RuntimeError> {
+        let mut model = self.model.lock().await;
+        model.begin_recording()?;
+        self.cancellation_generation.fetch_add(1, Ordering::SeqCst);
+        Ok(model.snapshot())
+    }
+
+    pub async fn record_cycle_completed(&self) -> Result<RuntimeSnapshot, RuntimeError> {
+        let mut model = self.model.lock().await;
+        model.record_cycle_completed()?;
+        Ok(model.snapshot())
     }
 
     pub async fn start(
@@ -411,6 +444,86 @@ mod tests {
             Some("playback input disconnected")
         );
         assert_eq!(coordinator.snapshot().await, idle_snapshot);
+    }
+
+    #[tokio::test]
+    async fn coordinator_records_only_in_macro_mode_and_advances_generation_on_success() {
+        let wrong_mode = RuntimeCoordinator::default();
+        let wrong_mode_snapshot = wrong_mode.snapshot().await;
+        assert_eq!(
+            wrong_mode.begin_recording().await,
+            Err(RuntimeError::InvalidTransition)
+        );
+        assert_eq!(wrong_mode.current_generation(), 0);
+        assert_eq!(wrong_mode.snapshot().await, wrong_mode_snapshot);
+
+        let coordinator = RuntimeCoordinator::default();
+        coordinator.set_selected_mode(AppMode::Macro).await.unwrap();
+        assert_eq!(coordinator.current_generation(), 0);
+
+        let recording = coordinator.begin_recording().await.unwrap();
+        assert_eq!(recording.phase, RuntimePhase::Recording);
+        assert_eq!(coordinator.current_generation(), 1);
+
+        let recording_snapshot = coordinator.snapshot().await;
+        assert_eq!(
+            coordinator.begin_recording().await,
+            Err(RuntimeError::Busy(RuntimePhase::Recording))
+        );
+        assert_eq!(coordinator.current_generation(), 1);
+        assert_eq!(coordinator.snapshot().await, recording_snapshot);
+    }
+
+    #[tokio::test]
+    async fn successful_recording_clears_stale_error_and_cycle_count() {
+        let coordinator = RuntimeCoordinator::default();
+        coordinator
+            .start(AppMode::Mouse, StopPolicy::UntilStopped)
+            .await
+            .unwrap();
+        coordinator.record_cycle_completed().await.unwrap();
+        coordinator
+            .fail_execution("input disconnected")
+            .await
+            .unwrap();
+        assert_eq!(
+            coordinator.snapshot().await.last_error.as_deref(),
+            Some("input disconnected")
+        );
+
+        coordinator.set_selected_mode(AppMode::Macro).await.unwrap();
+        let recording = coordinator.begin_recording().await.unwrap();
+        assert_eq!(recording.phase, RuntimePhase::Recording);
+        assert_eq!(recording.last_error, None);
+        assert_eq!(recording.completed_cycles, 0);
+        assert_eq!(coordinator.snapshot().await.last_error, None);
+    }
+
+    #[tokio::test]
+    async fn record_cycle_completed_is_constrained_to_active_execution_phases() {
+        let coordinator = RuntimeCoordinator::default();
+        assert_eq!(
+            coordinator.record_cycle_completed().await,
+            Err(RuntimeError::InvalidTransition)
+        );
+
+        let started = coordinator
+            .start(AppMode::Keyboard, StopPolicy::UntilStopped)
+            .await
+            .unwrap();
+        assert_eq!(started.completed_cycles, 0);
+
+        let after_one = coordinator.record_cycle_completed().await.unwrap();
+        assert_eq!(after_one.completed_cycles, 1);
+        let after_two = coordinator.record_cycle_completed().await.unwrap();
+        assert_eq!(after_two.completed_cycles, 2);
+
+        coordinator.begin_stop().await.unwrap();
+        assert_eq!(
+            coordinator.record_cycle_completed().await,
+            Err(RuntimeError::InvalidTransition)
+        );
+        assert_eq!(coordinator.snapshot().await.completed_cycles, 2);
     }
 
     #[tokio::test]
