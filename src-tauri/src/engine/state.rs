@@ -11,7 +11,6 @@ use evdev::uinput::VirtualDevice;
 use evdev::Key;
 
 use super::macro_engine::state::MacroEngineState;
-use super::runtime::RuntimeCoordinator;
 
 #[derive(Clone, Copy, Default, PartialEq)]
 pub enum MouseButton {
@@ -252,7 +251,6 @@ impl KeyboardModifier {
 }
 
 pub struct AppState {
-    // Migration note: is_running is being replaced by runtime_coordinator.phase
     pub is_running: AtomicBool,
     pub is_main_focused: AtomicBool,
     pub is_cps_test_focused: AtomicBool,
@@ -294,7 +292,6 @@ pub struct AppState {
     pub kb_repeat_mode: Mutex<RepeatMode>,
     pub kb_repeat_count: AtomicU32,
     pub kb_repeat_unit: Mutex<RepeatUnit>,
-    // Migration note: kb_is_running is being replaced by runtime_coordinator.phase
     pub kb_is_running: AtomicBool,
     pub kb_cps: AtomicU32,
     pub kb_interval_ms: AtomicU32,
@@ -306,11 +303,7 @@ pub struct AppState {
     #[cfg(target_os = "linux")]
     pub uinput_device: Arc<Mutex<Option<VirtualDevice>>>,
 
-    // Migration note: macro_engine state is being replaced by runtime_coordinator
     pub macro_engine: MacroEngineState,
-
-    // New unified runtime coordinator - the single source of truth for runtime state
-    pub runtime_coordinator: RuntimeCoordinator,
 }
 
 impl Default for AppState {
@@ -369,8 +362,6 @@ impl Default for AppState {
             uinput_device: Arc::new(Mutex::new(None)),
 
             macro_engine: MacroEngineState::default(),
-
-            runtime_coordinator: RuntimeCoordinator::default(),
         }
     }
 }
