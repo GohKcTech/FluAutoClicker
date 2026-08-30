@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { intervalToMilliseconds } from "./interval";
 import { setKeyBadgeContent } from "./key-badges";
 import { getPlatformCapabilities, type PlatformCapabilities } from "./platform-capabilities";
 import { setSelectedMode } from "./ui";
@@ -458,6 +459,14 @@ function getNumericValue(id: string, fallback: number): number {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function getTimingIntervalMs(prefix: string): number {
+    const hours = (document.getElementById(`${prefix}-hours`) as HTMLInputElement)?.value || "0";
+    const minutes = (document.getElementById(`${prefix}-minutes`) as HTMLInputElement)?.value || "0";
+    const seconds = (document.getElementById(`${prefix}-seconds`) as HTMLInputElement)?.value || "0";
+    const ms = (document.getElementById(`${prefix}-ms`) as HTMLInputElement)?.value || "0";
+    return intervalToMilliseconds(hours, minutes, seconds, ms);
+}
+
 function getKeyboardSnapshot() {
     const keyboardSection = document.getElementById("keyboard-section") || document;
     const activeKeys = keyboardSection.querySelectorAll(".kb-key.active");
@@ -509,12 +518,7 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
         },
         mouse: {
             ...base.mouse,
-            cps: Math.max(1, Math.round(1000 / Math.max(1, (
-                getNumericValue("mouse-hours", 0) * 3600000
-                + getNumericValue("mouse-minutes", 0) * 60000
-                + getNumericValue("mouse-seconds", 0) * 1000
-                + getNumericValue("mouse-ms", 0)
-            )))),
+            cps: Math.max(1, Math.round(1000 / Math.max(1, getTimingIntervalMs("mouse")))),
             variation_ms: getNumericValue("mouse-variation", base.mouse.variation_ms),
             button: getActiveValue("#mouse-button-toggle .multi-btn.active", base.mouse.button),
             click_mode: getActiveValue("#press-hold-toggle .toggle-option.active", base.mouse.click_mode),
@@ -529,12 +533,7 @@ async function captureConfigSnapshot(): Promise<AppConfigFile> {
         },
         keyboard: {
             ...base.keyboard,
-            cps: Math.max(1, Math.round(1000 / Math.max(1, (
-                getNumericValue("kb-hours", 0) * 3600000
-                + getNumericValue("kb-minutes", 0) * 60000
-                + getNumericValue("kb-seconds", 0) * 1000
-                + getNumericValue("kb-ms", 0)
-            )))),
+            cps: Math.max(1, Math.round(1000 / Math.max(1, getTimingIntervalMs("kb")))),
             variation_ms: getNumericValue("kb-variation", base.keyboard.variation_ms),
             key: keyboard.key,
             modifiers: keyboard.modifiers,
