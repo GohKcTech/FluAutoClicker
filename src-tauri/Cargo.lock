@@ -1248,6 +1248,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tokio",
+ "tokio-util",
  "window-vibrancy",
  "winreg",
 ]
@@ -4781,6 +4782,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]
