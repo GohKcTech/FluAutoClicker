@@ -126,10 +126,16 @@ Release automation currently produces:
 
 ## Build from Source
 
-Requirements:
+### Prerequisites
+
+- **Rust MSVC**: Install via [rustup](https://rustup.rs/) with the `stable-x86_64-pc-windows-msvc` toolchain.
+- **Microsoft C++ Build Tools**: Install from [Visual Studio Downloads](https://visualstudio.microsoft.com/visual-cpp-build-tools/). Select the "Desktop development with C++" workload.
+- **WebView2**: Required by Tauri on Windows. Download from [Microsoft Edge WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
+
+### Requirements
 
 - Rust stable (rustup recommended)
-- Node.js 20+ 
+- Node.js 20+
 - pnpm 9+ (you can try use npm, but not recommended)
 - Platform dependencies required by Tauri (webview2 on windows, libgtk3-dev on linux, or other, check Tauri docs)
 
