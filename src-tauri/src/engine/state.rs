@@ -11,6 +11,7 @@ use evdev::uinput::VirtualDevice;
 use evdev::Key;
 
 use super::macro_engine::state::MacroEngineState;
+use super::runtime::RuntimeCoordinator;
 
 #[derive(Clone, Copy, Default, PartialEq)]
 pub enum MouseButton {
@@ -251,6 +252,8 @@ impl KeyboardModifier {
 }
 
 pub struct AppState {
+    pub runtime_coordinator: RuntimeCoordinator,
+    // Migration note: retained for compatibility until mouse executors use runtime_coordinator.
     pub is_running: AtomicBool,
     pub is_main_focused: AtomicBool,
     pub is_cps_test_focused: AtomicBool,
@@ -292,6 +295,7 @@ pub struct AppState {
     pub kb_repeat_mode: Mutex<RepeatMode>,
     pub kb_repeat_count: AtomicU32,
     pub kb_repeat_unit: Mutex<RepeatUnit>,
+    // Migration note: retained for compatibility until keyboard executors use runtime_coordinator.
     pub kb_is_running: AtomicBool,
     pub kb_cps: AtomicU32,
     pub kb_interval_ms: AtomicU32,
@@ -303,12 +307,14 @@ pub struct AppState {
     #[cfg(target_os = "linux")]
     pub uinput_device: Arc<Mutex<Option<VirtualDevice>>>,
 
+    // Migration note: retained for compatibility until macro playback uses runtime_coordinator.
     pub macro_engine: MacroEngineState,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            runtime_coordinator: RuntimeCoordinator::default(),
             is_running: AtomicBool::new(false),
             is_main_focused: AtomicBool::new(true),
             is_cps_test_focused: AtomicBool::new(false),
