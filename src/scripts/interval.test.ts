@@ -1,8 +1,14 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { intervalToMilliseconds } from "./interval.ts";
+import { intervalToMilliseconds, parseTimingSeconds } from "./interval.ts";
 
 describe("intervalToMilliseconds", () => {
+    it("preserves decimal seconds for interval settings persistence", () => {
+        assert.strictEqual(parseTimingSeconds("0.9"), 0.9);
+        assert.strictEqual(parseTimingSeconds("-0.9"), 0);
+        assert.strictEqual(parseTimingSeconds("invalid"), 0);
+    });
+
     it("should convert 0.9 seconds to 900 ms", () => {
         const result = intervalToMilliseconds("0", "0", "0.9", "0");
         assert.strictEqual(result, 900);

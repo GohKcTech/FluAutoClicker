@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { intervalToMilliseconds } from "./interval";
+import { intervalToMilliseconds, parseTimingSeconds } from "./interval";
 import { setKeyBadgeContent } from "./key-badges";
 import { getPlatformCapabilities, type PlatformCapabilities } from "./platform-capabilities";
 import { setSelectedMode } from "./ui";
@@ -461,9 +461,7 @@ function getNumericValue(id: string, fallback: number): number {
 
 function getTimingSecondsValue(id: string, fallback: number): number {
     const input = document.getElementById(id) as HTMLInputElement | null;
-    const parsed = Number.parseFloat(input?.value || "");
-    const isValid = Number.isFinite(parsed) && parsed >= 0;
-    return isValid ? parsed : fallback;
+    return input ? parseTimingSeconds(input.value) : fallback;
 }
 
 function getTimingIntervalMs(prefix: string): number {
