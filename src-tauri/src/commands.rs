@@ -4,6 +4,7 @@ use crate::engine::config_store::{
     MIN_JIGGLER_DISTANCE, MIN_JIGGLER_INTERVAL_MS, MIN_MACRO_REPEAT_DURATION_MS, MIN_REPEAT_COUNT,
 };
 use crate::engine::executor::Cancellation;
+use crate::engine::runtime::{AppMode, StopPolicy};
 use crate::engine::state::{
     AppState, ClickMode, HoldUnit, JigglerPattern, KeyboardModifier, MouseButton, PositionMode,
     RepeatMode, RepeatUnit, RuntimeHotkeys,
@@ -503,18 +504,30 @@ pub async fn delete_profile_cmd(
 }
 
 #[tauri::command]
-pub fn toggle_clicker(
+pub async fn toggle_clicker(
     state: State<'_, Arc<AppState>>,
     app: AppHandle,
     source: Option<String>,
-) -> bool {
+) -> Result<bool, String> {
     let current_running = state.is_running.load(Ordering::SeqCst);
     let new_state = !current_running;
 
-    state.is_running.store(new_state, Ordering::SeqCst);
     if new_state {
+        if let Err(error) = state
+            .runtime_coordinator
+            .start(AppMode::Mouse, StopPolicy::UntilStopped)
+            .await
+        {
+            let _ = app.emit(
+                "status-changed",
+                serde_json::json!({ "running": false, "error": format!("Could not start clicker: {error:?}") }),
+            );
+            return Ok(false);
+        }
+        state.is_running.store(true, Ordering::SeqCst);
         prepare_ozone_for_clicker_start(state.inner(), &app, source.as_deref() == Some("button"));
     } else {
+        let _ = state.runtime_coordinator.begin_stop().await;
         state.ozone_anchor_ready.store(false, Ordering::SeqCst);
         state
             .ozone_wait_for_click_anchor
@@ -522,15 +535,19 @@ pub fn toggle_clicker(
         // Interrupt an in-flight held click immediately instead of letting
         // it run out its full hold duration, then arm a fresh token for
         // the next run (a cancelled token stays cancelled forever).
-        let mut cancel = state.mouse_cancel.lock().unwrap();
-        cancel.cancel();
-        *cancel = Cancellation::new();
+        {
+            let mut cancel = state.mouse_cancel.lock().unwrap();
+            cancel.cancel();
+            *cancel = Cancellation::new();
+        }
+        state.is_running.store(false, Ordering::SeqCst);
+        let _ = state.runtime_coordinator.finish_stop().await;
     }
     let _ = app.emit(
         "status-changed",
         serde_json::json!({ "running": new_state }),
     );
-    new_state
+    Ok(new_state)
 }
 
 #[tauri::command]
@@ -1173,21 +1190,41 @@ chmod 660 /dev/uinput 2>/dev/null || true
 }
 
 #[tauri::command]
-pub fn toggle_keyboard_clicker(state: State<'_, Arc<AppState>>, app: AppHandle) -> bool {
+pub async fn toggle_keyboard_clicker(
+    state: State<'_, Arc<AppState>>,
+    app: AppHandle,
+) -> Result<bool, String> {
     let current_running = state.kb_is_running.load(Ordering::SeqCst);
     let new_state = !current_running;
 
-    state.kb_is_running.store(new_state, Ordering::SeqCst);
-    if !new_state {
-        let mut cancel = state.keyboard_cancel.lock().unwrap();
-        cancel.cancel();
-        *cancel = Cancellation::new();
+    if new_state {
+        if let Err(error) = state
+            .runtime_coordinator
+            .start(AppMode::Keyboard, StopPolicy::UntilStopped)
+            .await
+        {
+            let _ = app.emit(
+                "keyboard-status-changed",
+                serde_json::json!({ "running": false, "error": format!("Could not start keyboard clicker: {error:?}") }),
+            );
+            return Ok(false);
+        }
+        state.kb_is_running.store(true, Ordering::SeqCst);
+    } else {
+        let _ = state.runtime_coordinator.begin_stop().await;
+        {
+            let mut cancel = state.keyboard_cancel.lock().unwrap();
+            cancel.cancel();
+            *cancel = Cancellation::new();
+        }
+        state.kb_is_running.store(false, Ordering::SeqCst);
+        let _ = state.runtime_coordinator.finish_stop().await;
     }
     let _ = app.emit(
         "keyboard-status-changed",
         serde_json::json!({ "running": new_state }),
     );
-    new_state
+    Ok(new_state)
 }
 
 #[tauri::command]
@@ -1306,7 +1343,8 @@ pub fn set_keyboard_variation_ms(state: State<'_, Arc<AppState>>, variation: u32
 use crate::engine::macro_engine::storage;
 use crate::engine::macro_engine::types::{
     MacroAction, MacroActionConfig, MacroKeyboardAction, MacroMouseAction, MacroMouseButton,
-    MacroMoveStyle, MacroPlayerState, MacroRecordingOptions, MacroRepeatMode,
+    MacroMoveStyle, MacroPlayerState, MacroRecordMouseMovesMode, MacroRecordingOptions,
+    MacroRepeatMode,
 };
 
 fn macro_supported_mouse_buttons() -> Vec<&'static str> {
@@ -1364,6 +1402,16 @@ fn sanitize_macro_action_config(config: &mut MacroActionConfig) {
     }
 }
 
+fn reject_new_raw_move(config: &MacroActionConfig) -> Result<(), String> {
+    if matches!(config, MacroActionConfig::RawMove { .. }) {
+        return Err(
+            "Raw mouse moves are a legacy playback format and cannot be created or updated."
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn set_window_acrylic(
     window: Window,
@@ -1387,6 +1435,7 @@ pub async fn add_macro_action(
 ) -> Result<(), String> {
     let mut config: MacroActionConfig =
         serde_json::from_str(&action_json).map_err(|e| format!("Failed to parse action: {}", e))?;
+    reject_new_raw_move(&config)?;
     sanitize_macro_action_config(&mut config);
 
     let id = state
@@ -1423,6 +1472,7 @@ pub async fn update_macro_action(
 ) -> Result<(), String> {
     let mut config: MacroActionConfig =
         serde_json::from_str(&action_json).map_err(|e| format!("Failed to parse action: {}", e))?;
+    reject_new_raw_move(&config)?;
     sanitize_macro_action_config(&mut config);
 
     let mut actions = state.macro_engine.actions.lock().await;
@@ -1477,6 +1527,7 @@ pub async fn duplicate_macro_action(
         .action_id_counter
         .fetch_add(1, Ordering::SeqCst);
     let mut duplicated = actions[index].clone();
+    reject_new_raw_move(&duplicated.config)?;
     duplicated.id = id;
     actions.insert(index + 1, duplicated);
     drop(actions);
@@ -1538,10 +1589,7 @@ pub async fn clear_macros(state: State<'_, Arc<AppState>>) -> Result<(), String>
     drop(actions);
 
     *state.macro_engine.player_state.lock().await = MacroPlayerState::Stopped;
-    state
-        .macro_engine
-        .cancel_playback
-        .store(true, Ordering::SeqCst);
+    let _ = state.runtime_coordinator.cancel_macro().await;
     state
         .macro_engine
         .recording_active
@@ -1567,7 +1615,7 @@ pub async fn toggle_macro_player(
     match current_state {
         MacroPlayerState::Playing => {
             drop(state.macro_engine.player_state.lock().await);
-            crate::engine::macro_engine::playback::stop_playback(&state.macro_engine, app).await;
+            crate::engine::macro_engine::playback::stop_playback(state.inner(), app).await;
             Ok(false)
         }
         MacroPlayerState::Recording => {
@@ -1575,7 +1623,8 @@ pub async fn toggle_macro_player(
         }
         MacroPlayerState::Stopped => {
             drop(state.macro_engine.player_state.lock().await);
-            crate::engine::macro_engine::playback::start_playback(&state.macro_engine, app).await?;
+            crate::engine::macro_engine::playback::start_playback(state.inner().clone(), app)
+                .await?;
             Ok(true)
         }
     }
@@ -1841,6 +1890,12 @@ pub async fn set_macro_recording_options(
 ) -> Result<MacroRecordingOptions, String> {
     let options: MacroRecordingOptions = serde_json::from_str(&options_json)
         .map_err(|e| format!("Failed to parse recording options: {}", e))?;
+    if matches!(options.record_mouse_moves, MacroRecordMouseMovesMode::Raw) {
+        return Err(
+            "Raw mouse move recording is legacy-only and cannot create new macro actions."
+                .to_string(),
+        );
+    }
 
     {
         let mut state_options = state.macro_engine.recording_options.lock().await;
@@ -1876,7 +1931,19 @@ pub async fn start_macro_recording(
     state: State<'_, Arc<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    crate::engine::macro_engine::recording::start_recording(&state.macro_engine, app).await
+    state
+        .runtime_coordinator
+        .begin_recording()
+        .await
+        .map_err(|error| format!("Could not start macro recording: {error:?}"))?;
+    if let Err(error) =
+        crate::engine::macro_engine::recording::start_recording(&state.macro_engine, app).await
+    {
+        let _ = state.runtime_coordinator.begin_stop().await;
+        let _ = state.runtime_coordinator.finish_stop().await;
+        return Err(error);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1884,7 +1951,10 @@ pub async fn stop_macro_recording(
     state: State<'_, Arc<AppState>>,
     app: AppHandle,
 ) -> Result<(), String> {
-    crate::engine::macro_engine::recording::stop_recording(&state.macro_engine, app).await
+    crate::engine::macro_engine::recording::stop_recording(&state.macro_engine, app).await?;
+    let _ = state.runtime_coordinator.begin_stop().await;
+    let _ = state.runtime_coordinator.finish_stop().await;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1996,5 +2066,19 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn raw_moves_are_rejected_for_new_or_copied_action_configs() {
+        assert!(reject_new_raw_move(&MacroActionConfig::RawMove {
+            points: vec![(1, 2, 0)],
+        })
+        .is_err());
+        assert!(reject_new_raw_move(&MacroActionConfig::Move {
+            x: 1,
+            y: 2,
+            style: MacroMoveStyle::Instant,
+        })
+        .is_ok());
     }
 }

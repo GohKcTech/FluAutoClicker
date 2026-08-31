@@ -27,6 +27,11 @@ pub trait InputSink: Send {
     fn key_up(&mut self, key: &str) -> Result<(), InputError>;
     fn mouse_down(&mut self, button: InputMouseButton) -> Result<(), InputError>;
     fn mouse_up(&mut self, button: InputMouseButton) -> Result<(), InputError>;
+    fn position(&mut self) -> Result<(i32, i32), InputError> {
+        Err(InputError::new(
+            "cursor position is not supported by this input sink",
+        ))
+    }
     fn move_to(&mut self, x: i32, y: i32) -> Result<(), InputError>;
     fn scroll(&mut self, clicks: i32) -> Result<(), InputError>;
 }
@@ -73,7 +78,9 @@ impl HeldInputs {
         };
 
         let result = release_token(sink, token);
-        self.held.remove(position);
+        if result.is_ok() {
+            self.held.remove(position);
+        }
         result
     }
 
@@ -121,6 +128,10 @@ impl<S: InputSink> InputSession<S> {
         self.sink.move_to(x, y)
     }
 
+    pub fn position(&mut self) -> Result<(i32, i32), InputError> {
+        self.sink.position()
+    }
+
     pub fn scroll(&mut self, clicks: i32) -> Result<(), InputError> {
         self.sink.scroll(clicks)
     }
@@ -153,6 +164,7 @@ pub(crate) mod test_support {
     #[derive(Default)]
     struct SharedFakeSinkState {
         calls: Vec<InputCall>,
+        position: (i32, i32),
         attempts: usize,
         fail_on: Option<usize>,
     }
@@ -227,8 +239,14 @@ pub(crate) mod test_support {
             self.record(InputCall::Up(InputToken::Mouse(button)))
         }
 
+        fn position(&mut self) -> Result<(i32, i32), InputError> {
+            Ok(self.state.lock().unwrap().position)
+        }
+
         fn move_to(&mut self, x: i32, y: i32) -> Result<(), InputError> {
-            self.record(InputCall::MoveTo(x, y))
+            self.record(InputCall::MoveTo(x, y))?;
+            self.state.lock().unwrap().position = (x, y);
+            Ok(())
         }
 
         fn scroll(&mut self, clicks: i32) -> Result<(), InputError> {
@@ -390,6 +408,28 @@ mod tests {
                 InputCall::Down(key("A")),
                 InputCall::Up(key("ControlLeft")),
             ]
+        );
+        assert!(held.is_empty());
+    }
+
+    #[test]
+    fn failed_explicit_up_is_retried_during_session_cleanup() {
+        let mut sink = FakeSink::default();
+        let mut held = HeldInputs::default();
+        held.press(&mut sink, key("A")).unwrap();
+
+        // The next Up fails. The token must remain owned so cleanup retries it.
+        sink.fail_on = Some(1);
+        assert_eq!(
+            held.release(&mut sink, &key("A")),
+            Err(InputError::new("forced failure"))
+        );
+        assert!(!held.is_empty());
+
+        held.release_all(&mut sink);
+        assert_eq!(
+            sink.calls,
+            vec![InputCall::Down(key("A")), InputCall::Up(key("A"))]
         );
         assert!(held.is_empty());
     }

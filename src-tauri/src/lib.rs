@@ -310,7 +310,28 @@ fn running_mode_from_state(state: &Arc<AppState>) -> Option<String> {
 async fn set_mode_running(app: AppHandle, state: Arc<AppState>, mode: String, running: bool) {
     match mode.as_str() {
         "keyboard" => {
+            if running {
+                if let Err(error) = state
+                    .runtime_coordinator
+                    .start(
+                        crate::engine::runtime::AppMode::Keyboard,
+                        crate::engine::runtime::StopPolicy::UntilStopped,
+                    )
+                    .await
+                {
+                    let _ = app.emit(
+                        "keyboard-status-changed",
+                        serde_json::json!({ "running": false, "error": format!("Could not start keyboard clicker: {error:?}") }),
+                    );
+                    return;
+                }
+            } else {
+                let _ = state.runtime_coordinator.begin_stop().await;
+            }
             state.kb_is_running.store(running, Ordering::SeqCst);
+            if !running {
+                let _ = state.runtime_coordinator.finish_stop().await;
+            }
             let _ = app.emit(
                 "keyboard-status-changed",
                 serde_json::json!({ "running": running }),
@@ -319,7 +340,7 @@ async fn set_mode_running(app: AppHandle, state: Arc<AppState>, mode: String, ru
         "macro" => {
             if running {
                 if let Err(error) = crate::engine::macro_engine::playback::start_playback(
-                    &state.macro_engine,
+                    state.clone(),
                     app.clone(),
                 )
                 .await
@@ -330,12 +351,32 @@ async fn set_mode_running(app: AppHandle, state: Arc<AppState>, mode: String, ru
                     );
                 }
             } else {
-                crate::engine::macro_engine::playback::stop_playback(&state.macro_engine, app)
-                    .await;
+                crate::engine::macro_engine::playback::stop_playback(state.as_ref(), app).await;
             }
         }
         _ => {
+            if running {
+                if let Err(error) = state
+                    .runtime_coordinator
+                    .start(
+                        crate::engine::runtime::AppMode::Mouse,
+                        crate::engine::runtime::StopPolicy::UntilStopped,
+                    )
+                    .await
+                {
+                    let _ = app.emit(
+                        "status-changed",
+                        serde_json::json!({ "running": false, "error": format!("Could not start clicker: {error:?}") }),
+                    );
+                    return;
+                }
+            } else {
+                let _ = state.runtime_coordinator.begin_stop().await;
+            }
             set_clicker_running(&app, &state, running);
+            if !running {
+                let _ = state.runtime_coordinator.finish_stop().await;
+            }
         }
     }
 }
@@ -617,11 +658,30 @@ pub(crate) fn register_runtime_hotkeys(
 async fn toggle_macro_recording_from_hotkey(app: AppHandle, state: Arc<AppState>) {
     let player_state = state.macro_engine.player_state.lock().await.clone();
     let result = if player_state == MacroPlayerState::Recording {
-        crate::engine::macro_engine::recording::stop_recording(&state.macro_engine, app.clone())
-            .await
+        let result = crate::engine::macro_engine::recording::stop_recording(
+            &state.macro_engine,
+            app.clone(),
+        )
+        .await;
+        let _ = state.runtime_coordinator.begin_stop().await;
+        let _ = state.runtime_coordinator.finish_stop().await;
+        result
     } else {
-        crate::engine::macro_engine::recording::start_recording(&state.macro_engine, app.clone())
-            .await
+        match state.runtime_coordinator.begin_recording().await {
+            Ok(_) => {
+                let result = crate::engine::macro_engine::recording::start_recording(
+                    &state.macro_engine,
+                    app.clone(),
+                )
+                .await;
+                if result.is_err() {
+                    let _ = state.runtime_coordinator.begin_stop().await;
+                    let _ = state.runtime_coordinator.finish_stop().await;
+                }
+                result
+            }
+            Err(error) => Err(format!("Could not start macro recording: {error:?}")),
+        }
     };
 
     if let Err(error) = result {

@@ -1,7 +1,12 @@
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex as StdMutex;
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
+use tokio::time::Instant;
+
+use super::executor::Cancellation;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -195,6 +200,32 @@ impl RuntimeModel {
 pub struct RuntimeCoordinator {
     model: Mutex<RuntimeModel>,
     cancellation_generation: AtomicU64,
+    macro_run: StdMutex<Option<MacroRunControl>>,
+}
+
+#[derive(Clone)]
+pub struct MacroRunControl {
+    cancellation: Cancellation,
+    deadline: Option<Instant>,
+}
+
+impl std::fmt::Debug for MacroRunControl {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("MacroRunControl")
+            .field("deadline", &self.deadline)
+            .finish_non_exhaustive()
+    }
+}
+
+impl MacroRunControl {
+    pub fn cancellation(&self) -> Cancellation {
+        self.cancellation.clone()
+    }
+
+    pub fn deadline(&self) -> Option<Instant> {
+        self.deadline
+    }
 }
 
 impl Default for RuntimeCoordinator {
@@ -208,6 +239,7 @@ impl RuntimeCoordinator {
         Self {
             model: Mutex::new(model),
             cancellation_generation: AtomicU64::new(0),
+            macro_run: StdMutex::new(None),
         }
     }
 
@@ -247,6 +279,55 @@ impl RuntimeCoordinator {
         model.start(mode, stop_policy)?;
         self.cancellation_generation.fetch_add(1, Ordering::SeqCst);
         Ok(model.snapshot())
+    }
+
+    /// Starts the macro phase and records its cancellation and deadline in
+    /// the one app-level coordinator, rather than in macro-local state.
+    pub async fn start_macro(
+        &self,
+        stop_policy: StopPolicy,
+    ) -> Result<MacroRunControl, RuntimeError> {
+        let mut model = self.model.lock().await;
+        model.start(AppMode::Macro, stop_policy)?;
+        self.cancellation_generation.fetch_add(1, Ordering::SeqCst);
+        let control = MacroRunControl {
+            cancellation: Cancellation::new(),
+            deadline: match stop_policy {
+                StopPolicy::DurationMs(milliseconds) => {
+                    Some(Instant::now() + Duration::from_millis(milliseconds))
+                }
+                StopPolicy::UntilStopped | StopPolicy::RepeatCount(_) => None,
+            },
+        };
+        *self.macro_run.lock().unwrap() = Some(control.clone());
+        Ok(control)
+    }
+
+    pub async fn cancel_macro(&self) -> Result<RuntimeSnapshot, RuntimeError> {
+        let mut model = self.model.lock().await;
+        model.begin_stop()?;
+        if let Some(control) = self.macro_run.lock().unwrap().as_ref() {
+            control.cancellation.cancel();
+        }
+        Ok(model.snapshot())
+    }
+
+    pub async fn finish_macro(&self) -> Result<RuntimeSnapshot, RuntimeError> {
+        let mut model = self.model.lock().await;
+        if model.snapshot().phase == RuntimePhase::PlayingMacro {
+            model.begin_stop()?;
+        }
+        model.finish_stop()?;
+        self.macro_run.lock().unwrap().take();
+        Ok(model.snapshot())
+    }
+
+    pub async fn fail_macro(&self, message: impl Into<String>) -> Result<(), RuntimeError> {
+        let mut model = self.model.lock().await;
+        let _ = model.fail_execution(message)?;
+        let _ = model.recover_idle()?;
+        self.macro_run.lock().unwrap().take();
+        Ok(())
     }
 
     pub async fn begin_stop(&self) -> Result<RuntimeSnapshot, RuntimeError> {
@@ -444,6 +525,61 @@ mod tests {
             Some("playback input disconnected")
         );
         assert_eq!(coordinator.snapshot().await, idle_snapshot);
+    }
+
+    #[tokio::test]
+    async fn macro_control_cancels_and_keeps_other_modes_busy_until_one_idle_transition() {
+        let coordinator = RuntimeCoordinator::default();
+        let control = coordinator
+            .start_macro(StopPolicy::UntilStopped)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            coordinator
+                .start(AppMode::Mouse, StopPolicy::UntilStopped)
+                .await,
+            Err(RuntimeError::Busy(RuntimePhase::PlayingMacro))
+        );
+        assert_eq!(
+            coordinator.cancel_macro().await.unwrap().phase,
+            RuntimePhase::Stopping
+        );
+        assert!(control.cancellation().is_cancelled());
+        assert_eq!(
+            coordinator
+                .start(AppMode::Keyboard, StopPolicy::UntilStopped)
+                .await,
+            Err(RuntimeError::Busy(RuntimePhase::Stopping))
+        );
+        assert_eq!(
+            coordinator.finish_macro().await.unwrap().phase,
+            RuntimePhase::Idle
+        );
+        assert_eq!(
+            coordinator.finish_macro().await,
+            Err(RuntimeError::InvalidTransition)
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_macro_returns_to_idle_and_allows_a_new_run() {
+        let coordinator = RuntimeCoordinator::default();
+        coordinator
+            .start_macro(StopPolicy::UntilStopped)
+            .await
+            .unwrap();
+
+        coordinator
+            .fail_macro("forced input failure")
+            .await
+            .unwrap();
+
+        assert_eq!(coordinator.snapshot().await.phase, RuntimePhase::Idle);
+        assert!(coordinator
+            .start_macro(StopPolicy::RepeatCount(1))
+            .await
+            .is_ok());
     }
 
     #[tokio::test]

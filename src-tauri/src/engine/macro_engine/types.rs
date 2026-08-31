@@ -93,6 +93,20 @@ impl Default for MacroRepeatMode {
     }
 }
 
+impl MacroRepeatMode {
+    /// Converts macro UI/persistence repeat settings at the playback boundary.
+    /// Executors receive only the common runtime stop policy.
+    pub fn stop_policy(&self) -> crate::engine::runtime::StopPolicy {
+        match self {
+            Self::Infinite => crate::engine::runtime::StopPolicy::UntilStopped,
+            Self::FiniteTimes { count } => crate::engine::runtime::StopPolicy::RepeatCount(*count),
+            Self::FiniteSeconds { duration_ms } => {
+                crate::engine::runtime::StopPolicy::DurationMs(*duration_ms)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum MacroRecordMouseMovesMode {

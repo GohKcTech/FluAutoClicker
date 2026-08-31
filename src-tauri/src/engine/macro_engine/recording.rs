@@ -124,6 +124,13 @@ pub async fn start_recording(state: &MacroEngineState, app: AppHandle) -> Result
         return Err(reason);
     }
 
+    if state.recording_options.lock().await.record_mouse_moves == MacroRecordMouseMovesMode::Raw {
+        return Err(
+            "Raw mouse move recording is legacy-only and cannot create new macro actions."
+                .to_string(),
+        );
+    }
+
     let player_state = state.player_state.lock().await.clone();
     if player_state == MacroPlayerState::Playing {
         return Err("Stop macro playback before starting a recording.".to_string());
@@ -290,11 +297,16 @@ fn handle_recording_event(
     }
 
     let recording_options = state.recording_options.blocking_lock().clone();
+    // RawMove is preserved only to play back old files. A persisted legacy
+    // recording option must not create new RawMove actions.
+    if recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Raw {
+        return;
+    }
     let event_time = SystemTime::now();
     let Ok(mut context) = state.recording_context.lock() else {
         return;
     };
-    let is_raw_mode = recording_options.record_mouse_moves == MacroRecordMouseMovesMode::Raw;
+    let is_raw_mode = false;
 
     match event.event_type {
         EventType::MouseMove { x, y } => {
