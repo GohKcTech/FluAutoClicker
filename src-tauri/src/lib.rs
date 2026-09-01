@@ -233,24 +233,28 @@ pub(crate) fn clear_window_acrylic<W: raw_window_handle::HasWindowHandle + ?Size
 
 fn handle_cli_matches(app: &AppHandle, state: &Arc<AppState>) {
     if let Ok(matches) = app.cli().matches() {
+        let mut requested_running = None;
         if let Some(arg) = matches.args.get("toggle") {
             if arg.occurrences > 0 {
-                let val = !state.is_running.load(Ordering::SeqCst);
-                state.is_running.store(val, Ordering::SeqCst);
-                let _ = app.emit("status-changed", serde_json::json!({ "running": val }));
+                requested_running = Some(!state.is_running.load(Ordering::SeqCst));
             }
         }
         if let Some(arg) = matches.args.get("start") {
             if arg.occurrences > 0 {
-                state.is_running.store(true, Ordering::SeqCst);
-                let _ = app.emit("status-changed", serde_json::json!({ "running": true }));
+                requested_running = Some(true);
             }
         }
         if let Some(arg) = matches.args.get("stop") {
             if arg.occurrences > 0 {
-                state.is_running.store(false, Ordering::SeqCst);
-                let _ = app.emit("status-changed", serde_json::json!({ "running": false }));
+                requested_running = Some(false);
             }
+        }
+        if let Some(running) = requested_running {
+            let app = app.clone();
+            let state = state.clone();
+            tauri::async_runtime::spawn(async move {
+                set_mode_running(app, state, "mouse".to_string(), running).await;
+            });
         }
         if let Some(arg) = matches.args.get("exit") {
             if arg.occurrences > 0 {
@@ -310,6 +314,27 @@ fn running_mode_from_state(state: &Arc<AppState>) -> Option<String> {
 async fn set_mode_running(app: AppHandle, state: Arc<AppState>, mode: String, running: bool) {
     match mode.as_str() {
         "keyboard" => {
+            if running {
+                if let Err(error) = state
+                    .runtime_coordinator
+                    .start(
+                        crate::engine::runtime::AppMode::Keyboard,
+                        crate::engine::runtime::StopPolicy::UntilStopped,
+                    )
+                    .await
+                {
+                    let _ = app.emit(
+                        "keyboard-status-changed",
+                        serde_json::json!({ "running": false, "error": format!("Could not start keyboard clicker: {error:?}") }),
+                    );
+                    return;
+                }
+                *state.keyboard_cancel.lock().unwrap() =
+                    crate::engine::executor::Cancellation::new();
+            } else {
+                let _ = state.runtime_coordinator.begin_stop().await;
+                state.keyboard_cancel.lock().unwrap().cancel();
+            }
             state.kb_is_running.store(running, Ordering::SeqCst);
             let _ = app.emit(
                 "keyboard-status-changed",
@@ -334,6 +359,26 @@ async fn set_mode_running(app: AppHandle, state: Arc<AppState>, mode: String, ru
             }
         }
         _ => {
+            if running {
+                if let Err(error) = state
+                    .runtime_coordinator
+                    .start(
+                        crate::engine::runtime::AppMode::Mouse,
+                        crate::engine::runtime::StopPolicy::UntilStopped,
+                    )
+                    .await
+                {
+                    let _ = app.emit(
+                        "status-changed",
+                        serde_json::json!({ "running": false, "error": format!("Could not start clicker: {error:?}") }),
+                    );
+                    return;
+                }
+                *state.mouse_cancel.lock().unwrap() = crate::engine::executor::Cancellation::new();
+            } else {
+                let _ = state.runtime_coordinator.begin_stop().await;
+                state.mouse_cancel.lock().unwrap().cancel();
+            }
             set_clicker_running(&app, &state, running);
         }
     }

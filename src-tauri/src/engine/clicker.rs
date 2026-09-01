@@ -198,7 +198,13 @@ async fn perform_click(device: &mut evdev::uinput::VirtualDevice, state: &AppSta
                 InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
             ]);
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(duration_ms as u64)).await;
+            let cancel = state.mouse_cancel.lock().unwrap().clone();
+            let _ = interruptible_wait(
+                tokio::time::Duration::from_millis(duration_ms as u64),
+                cancel,
+                None,
+            )
+            .await;
 
             let _ = device.emit(&[
                 InputEvent::new(EventType::KEY, key.0, 0),
@@ -401,9 +407,11 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
     let mut ozone_rng = rand::rngs::SmallRng::from_entropy();
     let mut ozone_target: Option<(i32, i32)> = None;
     let mut ozone_next_move_at = std::time::Instant::now();
+    let mut was_running = false;
 
     loop {
         if state.is_running.load(Ordering::SeqCst) {
+            was_running = true;
             if state.is_main_focused.load(Ordering::SeqCst)
                 && !state.is_cps_test_focused.load(Ordering::SeqCst)
             {
@@ -419,6 +427,7 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                 match repeat_unit {
                     RepeatUnit::Times => {
                         if click_count >= repeat_count {
+                            let _ = state.runtime_coordinator.begin_stop().await;
                             state.is_running.store(false, Ordering::SeqCst);
                             state.ozone_anchor_ready.store(false, Ordering::SeqCst);
                             state
@@ -434,6 +443,7 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                     RepeatUnit::Seconds => {
                         let elapsed = start_time.elapsed().as_secs();
                         if elapsed >= repeat_count as u64 {
+                            let _ = state.runtime_coordinator.begin_stop().await;
                             state.is_running.store(false, Ordering::SeqCst);
                             state.ozone_anchor_ready.store(false, Ordering::SeqCst);
                             state
@@ -554,6 +564,7 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
                         current_position,
                         target_position,
                     ) {
+                        let _ = state.runtime_coordinator.begin_stop().await;
                         state.is_running.store(false, Ordering::SeqCst);
                         state.ozone_anchor_ready.store(false, Ordering::SeqCst);
                         state
@@ -627,6 +638,13 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
             #[cfg(not(target_os = "windows"))]
             wait_interval(final_interval_us as u64).await;
         } else {
+            // Stop requests first cancel and release any active InputSession.
+            // Only this worker, after observing that release, is allowed to
+            // transition its coordinator run from Stopping to Idle.
+            if was_running {
+                was_running = false;
+                let _ = state.runtime_coordinator.finish_stop().await;
+            }
             click_count = 0;
             start_time = std::time::Instant::now();
             custom_position_primed = false;

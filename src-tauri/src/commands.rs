@@ -4,6 +4,7 @@ use crate::engine::config_store::{
     MIN_JIGGLER_DISTANCE, MIN_JIGGLER_INTERVAL_MS, MIN_MACRO_REPEAT_DURATION_MS, MIN_REPEAT_COUNT,
 };
 use crate::engine::executor::Cancellation;
+use crate::engine::runtime::{AppMode, StopPolicy};
 use crate::engine::state::{
     AppState, ClickMode, HoldUnit, JigglerPattern, KeyboardModifier, MouseButton, PositionMode,
     RepeatMode, RepeatUnit, RuntimeHotkeys,
@@ -503,49 +504,74 @@ pub async fn delete_profile_cmd(
 }
 
 #[tauri::command]
-pub fn toggle_clicker(
+pub async fn toggle_clicker(
     state: State<'_, Arc<AppState>>,
     app: AppHandle,
     source: Option<String>,
-) -> bool {
+) -> Result<bool, String> {
     let current_running = state.is_running.load(Ordering::SeqCst);
     let new_state = !current_running;
 
-    state.is_running.store(new_state, Ordering::SeqCst);
     if new_state {
+        if let Err(error) = state
+            .runtime_coordinator
+            .start(AppMode::Mouse, StopPolicy::UntilStopped)
+            .await
+        {
+            let _ = app.emit(
+                "status-changed",
+                serde_json::json!({ "running": false, "error": format!("Could not start clicker: {error:?}") }),
+            );
+            return Ok(false);
+        }
+        *state.mouse_cancel.lock().unwrap() = Cancellation::new();
+        state.is_running.store(true, Ordering::SeqCst);
         prepare_ozone_for_clicker_start(state.inner(), &app, source.as_deref() == Some("button"));
     } else {
         state.ozone_anchor_ready.store(false, Ordering::SeqCst);
         state
             .ozone_wait_for_click_anchor
             .store(false, Ordering::SeqCst);
-        // Interrupt an in-flight held click immediately instead of letting
-        // it run out its full hold duration, then arm a fresh token for
-        // the next run (a cancelled token stays cancelled forever).
-        let mut cancel = state.mouse_cancel.lock().unwrap();
-        cancel.cancel();
-        *cancel = Cancellation::new();
+        // Interrupt an in-flight hold. The click worker completes Idle only
+        // after its InputSession has released the button.
+        let _ = state.runtime_coordinator.begin_stop().await;
+        {
+            let cancel = state.mouse_cancel.lock().unwrap();
+            cancel.cancel();
+        }
+        state.is_running.store(false, Ordering::SeqCst);
     }
     let _ = app.emit(
         "status-changed",
         serde_json::json!({ "running": new_state }),
     );
-    new_state
+    Ok(new_state)
 }
 
 #[tauri::command]
-pub fn set_active_app_mode(state: State<'_, Arc<AppState>>, mode: String) -> Result<(), String> {
-    match mode.as_str() {
-        "mouse" | "keyboard" | "macro" => {
-            let mut active_mode = state
-                .active_mode
-                .lock()
-                .map_err(|_| "Failed to lock active mode.".to_string())?;
-            *active_mode = mode;
-            Ok(())
-        }
-        _ => Err("Unknown app mode.".to_string()),
-    }
+pub async fn set_active_app_mode(
+    state: State<'_, Arc<AppState>>,
+    mode: String,
+) -> Result<(), String> {
+    let runtime_mode = match mode.as_str() {
+        "mouse" => AppMode::Mouse,
+        "keyboard" => AppMode::Keyboard,
+        "macro" => AppMode::Macro,
+        _ => return Err("Unknown app mode.".to_string()),
+    };
+
+    state
+        .runtime_coordinator
+        .set_selected_mode(runtime_mode)
+        .await
+        .map_err(|error| format!("Cannot change mode while active: {error:?}"))?;
+
+    let mut active_mode = state
+        .active_mode
+        .lock()
+        .map_err(|_| "Failed to lock active mode.".to_string())?;
+    *active_mode = mode;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1173,21 +1199,40 @@ chmod 660 /dev/uinput 2>/dev/null || true
 }
 
 #[tauri::command]
-pub fn toggle_keyboard_clicker(state: State<'_, Arc<AppState>>, app: AppHandle) -> bool {
+pub async fn toggle_keyboard_clicker(
+    state: State<'_, Arc<AppState>>,
+    app: AppHandle,
+) -> Result<bool, String> {
     let current_running = state.kb_is_running.load(Ordering::SeqCst);
     let new_state = !current_running;
 
-    state.kb_is_running.store(new_state, Ordering::SeqCst);
-    if !new_state {
-        let mut cancel = state.keyboard_cancel.lock().unwrap();
-        cancel.cancel();
-        *cancel = Cancellation::new();
+    if new_state {
+        if let Err(error) = state
+            .runtime_coordinator
+            .start(AppMode::Keyboard, StopPolicy::UntilStopped)
+            .await
+        {
+            let _ = app.emit(
+                "keyboard-status-changed",
+                serde_json::json!({ "running": false, "error": format!("Could not start keyboard clicker: {error:?}") }),
+            );
+            return Ok(false);
+        }
+        *state.keyboard_cancel.lock().unwrap() = Cancellation::new();
+        state.kb_is_running.store(true, Ordering::SeqCst);
+    } else {
+        let _ = state.runtime_coordinator.begin_stop().await;
+        {
+            let cancel = state.keyboard_cancel.lock().unwrap();
+            cancel.cancel();
+        }
+        state.kb_is_running.store(false, Ordering::SeqCst);
     }
     let _ = app.emit(
         "keyboard-status-changed",
         serde_json::json!({ "running": new_state }),
     );
-    new_state
+    Ok(new_state)
 }
 
 #[tauri::command]

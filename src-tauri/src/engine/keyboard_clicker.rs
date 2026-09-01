@@ -441,7 +441,13 @@ async fn perform_keyboard_press(device: &mut evdev::uinput::VirtualDevice, state
                 ]);
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(duration_ms as u64)).await;
+            let cancel = state.keyboard_cancel.lock().unwrap().clone();
+            let _ = interruptible_wait(
+                tokio::time::Duration::from_millis(duration_ms as u64),
+                cancel,
+                None,
+            )
+            .await;
 
             if let Some(key) = key {
                 let _ = device.emit(&[
@@ -759,9 +765,11 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
 
     let mut click_count: u32 = 0;
     let mut start_time = std::time::Instant::now();
+    let mut was_running = false;
 
     loop {
         if state.kb_is_running.load(Ordering::SeqCst) {
+            was_running = true;
             if state.is_main_focused.load(Ordering::SeqCst)
                 && !state.is_cps_test_focused.load(Ordering::SeqCst)
             {
@@ -777,6 +785,7 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
                 match repeat_unit {
                     RepeatUnit::Times => {
                         if click_count >= repeat_count {
+                            let _ = state.runtime_coordinator.begin_stop().await;
                             state.kb_is_running.store(false, Ordering::SeqCst);
                             let _ = app.emit(
                                 "keyboard-status-changed",
@@ -789,6 +798,7 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
                     RepeatUnit::Seconds => {
                         let elapsed = start_time.elapsed().as_secs();
                         if elapsed >= repeat_count as u64 {
+                            let _ = state.runtime_coordinator.begin_stop().await;
                             state.kb_is_running.store(false, Ordering::SeqCst);
                             let _ = app.emit(
                                 "keyboard-status-changed",
@@ -865,6 +875,12 @@ pub async fn keyboard_clicker_task(state: Arc<AppState>, app: AppHandle) {
             #[cfg(not(target_os = "windows"))]
             wait_interval(final_interval_us as u64).await;
         } else {
+            // The active hold has already returned and released its keys.
+            // Complete the coordinator stop only at that cleanup boundary.
+            if was_running {
+                was_running = false;
+                let _ = state.runtime_coordinator.finish_stop().await;
+            }
             click_count = 0;
             start_time = std::time::Instant::now();
             tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;

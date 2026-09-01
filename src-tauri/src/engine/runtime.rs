@@ -322,12 +322,17 @@ impl RuntimeCoordinator {
         Ok(model.snapshot())
     }
 
-    pub async fn fail_macro(&self, message: impl Into<String>) -> Result<(), RuntimeError> {
+    /// Records the failure snapshot, then immediately recovers to Idle so a
+    /// cleaned-up failed macro cannot leave the application permanently busy.
+    pub async fn fail_macro(
+        &self,
+        message: impl Into<String>,
+    ) -> Result<(RuntimeSnapshot, RuntimeSnapshot), RuntimeError> {
         let mut model = self.model.lock().await;
-        let _ = model.fail_execution(message)?;
-        let _ = model.recover_idle()?;
+        let error_snapshot = model.fail_execution(message)?;
+        let idle_snapshot = model.recover_idle()?;
         self.macro_run.lock().unwrap().take();
-        Ok(())
+        Ok((error_snapshot, idle_snapshot))
     }
 
     pub async fn begin_stop(&self) -> Result<RuntimeSnapshot, RuntimeError> {
@@ -503,6 +508,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn coordinator_blocks_the_next_executor_until_cleanup_finishes() {
+        let coordinator = RuntimeCoordinator::default();
+        coordinator
+            .start(AppMode::Mouse, StopPolicy::UntilStopped)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            coordinator.begin_stop().await.unwrap().phase,
+            RuntimePhase::Stopping
+        );
+        assert_eq!(
+            coordinator
+                .start(AppMode::Keyboard, StopPolicy::UntilStopped)
+                .await,
+            Err(RuntimeError::Busy(RuntimePhase::Stopping))
+        );
+
+        assert_eq!(
+            coordinator.finish_stop().await.unwrap().phase,
+            RuntimePhase::Idle
+        );
+        assert_eq!(
+            coordinator
+                .start(AppMode::Keyboard, StopPolicy::RepeatCount(1))
+                .await
+                .unwrap()
+                .phase,
+            RuntimePhase::RunningKeyboard
+        );
+    }
+
+    #[tokio::test]
     async fn coordinator_returns_error_then_idle_snapshots() {
         let coordinator = RuntimeCoordinator::default();
         coordinator
@@ -563,23 +601,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn failed_macro_returns_to_idle_and_allows_a_new_run() {
+    async fn failed_macro_observes_error_then_recovers_idle_and_allows_restart() {
         let coordinator = RuntimeCoordinator::default();
         coordinator
             .start_macro(StopPolicy::UntilStopped)
             .await
             .unwrap();
 
-        coordinator
+        let (error, idle) = coordinator
             .fail_macro("forced input failure")
             .await
             .unwrap();
-
+        assert_eq!(error.phase, RuntimePhase::Error);
+        assert_eq!(error.last_error.as_deref(), Some("forced input failure"));
+        assert_eq!(idle.phase, RuntimePhase::Idle);
         assert_eq!(coordinator.snapshot().await.phase, RuntimePhase::Idle);
-        assert!(coordinator
-            .start_macro(StopPolicy::RepeatCount(1))
-            .await
-            .is_ok());
+        assert_eq!(
+            coordinator
+                .start_macro(StopPolicy::RepeatCount(1))
+                .await
+                .unwrap()
+                .deadline(),
+            None
+        );
     }
 
     #[tokio::test]
