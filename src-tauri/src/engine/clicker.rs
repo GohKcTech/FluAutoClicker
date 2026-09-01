@@ -751,10 +751,9 @@ mod tests {
             result,
             Err(ExecutionError::SendFailed("forced failure".to_string()))
         );
-        // The sink rejected the physical release, so its own call log has
-        // an unmatched Down; a lost physical release can't be retried, so
-        // the executor does not attempt this button again after returning.
-        assert!(!sink.no_inputs_held());
+        // The failed explicit release remains tracked until session cleanup
+        // retries it, so the completed run leaves no held button.
+        assert!(sink.no_inputs_held());
     }
 
     #[test]
