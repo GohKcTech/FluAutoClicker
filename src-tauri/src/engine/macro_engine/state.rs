@@ -15,6 +15,7 @@ pub struct MacroEngineState {
 
     pub player_state: Arc<Mutex<MacroPlayerState>>,
 
+    // Kept until recording's stop path is migrated in its own task.
     pub cancel_playback: Arc<AtomicBool>,
 
     pub action_id_counter: Arc<AtomicU64>,
