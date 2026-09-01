@@ -1,7 +1,7 @@
 #[cfg(not(target_os = "linux"))]
 use enigo::{Axis, Button, Coordinate, Enigo, Key, Keyboard, Mouse, Settings};
 #[cfg(target_os = "linux")]
-use enigo::{Enigo, Mouse, Settings};
+use enigo::{Enigo, Keyboard, Mouse, Settings};
 #[cfg(target_os = "linux")]
 use evdev::{EventType, InputEvent, Key, RelativeAxisType};
 use std::time::Duration;
@@ -1111,6 +1111,10 @@ fn recorded_text_key(character: char) -> Option<(&'static str, bool)> {
     ))
 }
 
+fn recorded_text_requires_text_sink(character: char) -> bool {
+    !character.is_ascii() || matches!(character, '\n' | '\t')
+}
+
 async fn stepped_move<S: InputSink>(
     session: &mut InputSession<S>,
     start: (i32, i32),
@@ -1306,14 +1310,12 @@ async fn execute_with_sink<S: InputSink>(
                         {
                             return Ok(Some(end));
                         }
-                        #[cfg(not(target_os = "linux"))]
-                        if !character.is_ascii() {
-                            // Preserve Enigo's legacy Unicode-key behavior on
-                            // platforms where it is available. Linux stays on
-                            // the physical evdev path below.
-                            let token = InputToken::Key(character.to_string());
-                            session.press(token.clone())?;
-                            session.release(&token)?;
+                        if recorded_text_requires_text_sink(character) {
+                            // Unicode and control text use the platform text
+                            // path. Linux evdev cannot represent them as
+                            // physical key names, while ordinary ASCII remains
+                            // tracked physical input for reliable cleanup.
+                            session.text(&character.to_string())?;
                             continue;
                         }
                         let (key, needs_shift) = recorded_text_key(character).ok_or_else(|| {
@@ -1504,6 +1506,12 @@ impl InputSink for EnigoMacroSink {
             .map_err(|error| InputError::new(error.to_string()))
     }
 
+    fn text(&mut self, text: &str) -> Result<(), InputError> {
+        self.enigo
+            .text(text)
+            .map_err(|error| InputError::new(error.to_string()))
+    }
+
     fn position(&mut self) -> Result<(i32, i32), InputError> {
         self.enigo
             .location()
@@ -1538,12 +1546,18 @@ fn input_button_to_enigo(button: InputMouseButton) -> Result<Button, InputError>
 #[cfg(target_os = "linux")]
 struct LinuxMacroSink {
     backend: LinuxPlaybackBackend,
+    text_enigo: Enigo,
 }
 
 #[cfg(target_os = "linux")]
 impl LinuxMacroSink {
     fn new() -> Result<Self, String> {
-        LinuxPlaybackBackend::new().map(|backend| Self { backend })
+        let backend = LinuxPlaybackBackend::new()?;
+        let text_enigo = Enigo::new(&Settings::default()).map_err(|error| error.to_string())?;
+        Ok(Self {
+            backend,
+            text_enigo,
+        })
     }
 }
 
@@ -1575,6 +1589,12 @@ impl InputSink for LinuxMacroSink {
             false,
         )
         .map_err(InputError::new)
+    }
+
+    fn text(&mut self, text: &str) -> Result<(), InputError> {
+        self.text_enigo
+            .text(text)
+            .map_err(|error| InputError::new(format!("Could not inject Linux macro text: {error}")))
     }
 
     fn position(&mut self) -> Result<(i32, i32), InputError> {
@@ -2048,6 +2068,44 @@ mod tests {
         assert_eq!(super::str_to_evdev_key("super"), Some(Key::KEY_LEFTMETA));
         assert_eq!(super::str_to_evdev_key("enter"), Some(Key::KEY_ENTER));
         assert_eq!(super::str_to_evdev_key("tab"), Some(Key::KEY_TAB));
+        assert!(super::recorded_text_requires_text_sink('雪'));
+        assert!(super::recorded_text_requires_text_sink('\n'));
+        assert!(super::recorded_text_requires_text_sink('\t'));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn recorded_unicode_newline_and_tab_use_the_text_sink_without_key_mapping() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Keyboard {
+                key: "ignored".to_string(),
+                text: Some("雪\n\t".to_string()),
+                modifiers: Vec::new(),
+                action: MacroKeyboardAction::Press,
+            },
+        )];
+        let sink = SharedFakeSink::default();
+
+        assert_eq!(
+            run_macro(
+                &actions,
+                StopPolicy::RepeatCount(1),
+                Cancellation::new(),
+                sink.clone(),
+                1.0,
+            )
+            .await
+            .unwrap(),
+            RunEnd::Completed
+        );
+        assert_eq!(
+            sink.calls(),
+            vec![
+                InputCall::Text("雪".to_string()),
+                InputCall::Text("\n".to_string()),
+                InputCall::Text("\t".to_string()),
+            ]
+        );
     }
 
     #[tokio::test(start_paused = true)]

@@ -27,6 +27,13 @@ pub trait InputSink: Send {
     fn key_up(&mut self, key: &str) -> Result<(), InputError>;
     fn mouse_down(&mut self, button: InputMouseButton) -> Result<(), InputError>;
     fn mouse_up(&mut self, button: InputMouseButton) -> Result<(), InputError>;
+    /// Emits text through the platform text-input path. Text has no held
+    /// state, so it deliberately does not participate in session cleanup.
+    fn text(&mut self, _text: &str) -> Result<(), InputError> {
+        Err(InputError::new(
+            "text input is not supported by this input sink",
+        ))
+    }
     fn position(&mut self) -> Result<(i32, i32), InputError> {
         Err(InputError::new(
             "cursor position is not supported by this input sink",
@@ -124,6 +131,10 @@ impl<S: InputSink> InputSession<S> {
         self.held.release(&mut self.sink, token)
     }
 
+    pub fn text(&mut self, text: &str) -> Result<(), InputError> {
+        self.sink.text(text)
+    }
+
     pub fn move_to(&mut self, x: i32, y: i32) -> Result<(), InputError> {
         self.sink.move_to(x, y)
     }
@@ -157,6 +168,7 @@ pub(crate) mod test_support {
     pub(crate) enum InputCall {
         Down(InputToken),
         Up(InputToken),
+        Text(String),
         MoveTo(i32, i32),
         Scroll(i32),
     }
@@ -193,7 +205,7 @@ pub(crate) mod test_support {
                 match call {
                     InputCall::Down(token) => *net.entry(token.clone()).or_default() += 1,
                     InputCall::Up(token) => *net.entry(token.clone()).or_default() -= 1,
-                    InputCall::MoveTo(..) | InputCall::Scroll(..) => {}
+                    InputCall::Text(_) | InputCall::MoveTo(..) | InputCall::Scroll(..) => {}
                 }
             }
             net.values().all(|count| *count == 0)
@@ -237,6 +249,10 @@ pub(crate) mod test_support {
 
         fn mouse_up(&mut self, button: InputMouseButton) -> Result<(), InputError> {
             self.record(InputCall::Up(InputToken::Mouse(button)))
+        }
+
+        fn text(&mut self, text: &str) -> Result<(), InputError> {
+            self.record(InputCall::Text(text.to_string()))
         }
 
         fn position(&mut self) -> Result<(i32, i32), InputError> {
