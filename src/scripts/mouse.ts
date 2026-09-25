@@ -1,15 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { intervalToMilliseconds } from "./interval";
 import { getPlatformCapabilities } from "./platform-capabilities";
 import { notify } from "./notifications";
 import { t } from "./i18n";
 
 function readMouseIntervalMs(): number {
-    const h = parseInt((document.getElementById('mouse-hours') as HTMLInputElement)?.value) || 0;
-    const m = parseInt((document.getElementById('mouse-minutes') as HTMLInputElement)?.value) || 0;
-    const s = parseInt((document.getElementById('mouse-seconds') as HTMLInputElement)?.value) || 0;
-    const ms = parseInt((document.getElementById('mouse-ms') as HTMLInputElement)?.value) || 0;
-    return h * 3600000 + m * 60000 + s * 1000 + ms;
+    const h = (document.getElementById('mouse-hours') as HTMLInputElement)?.value || "0";
+    const m = (document.getElementById('mouse-minutes') as HTMLInputElement)?.value || "0";
+    const s = (document.getElementById('mouse-seconds') as HTMLInputElement)?.value || "0";
+    const ms = (document.getElementById('mouse-ms') as HTMLInputElement)?.value || "0";
+    return intervalToMilliseconds(h, m, s, ms);
 }
 
 function mouseRuntimeCps(totalMs: number, isLinux: boolean): number {

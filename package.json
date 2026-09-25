@@ -12,6 +12,7 @@
     "build": "tsc && vite build --config vite.config.mjs --configLoader native",
     "preview": "vite preview --config vite.config.mjs --configLoader native",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:timing": "node --test --experimental-strip-types src/scripts/interval.ts src/scripts/interval.test.ts",
     "tauri": "tauri"
   },
   "dependencies": {

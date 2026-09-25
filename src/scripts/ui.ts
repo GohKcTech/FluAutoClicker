@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { intervalToMilliseconds } from "./interval";
 import { getPlatformCapabilities } from "./platform-capabilities";
 import { updateSliderFill, updateIndicator, formatDuration } from "./utils";
 import { t } from "./i18n";
@@ -103,11 +104,11 @@ export function initInputs() {
             return;
         }
 
-        const h = parseInt((document.getElementById('mouse-hours') as HTMLInputElement)?.value) || 0;
-        const m = parseInt((document.getElementById('mouse-minutes') as HTMLInputElement)?.value) || 0;
-        const s = parseInt((document.getElementById('mouse-seconds') as HTMLInputElement)?.value) || 0;
-        const ms = parseInt((document.getElementById('mouse-ms') as HTMLInputElement)?.value) || 0;
-        const totalMs = h * 3600000 + m * 60000 + s * 1000 + ms;
+        const h = (document.getElementById('mouse-hours') as HTMLInputElement)?.value || "0";
+        const m = (document.getElementById('mouse-minutes') as HTMLInputElement)?.value || "0";
+        const s = (document.getElementById('mouse-seconds') as HTMLInputElement)?.value || "0";
+        const ms = (document.getElementById('mouse-ms') as HTMLInputElement)?.value || "0";
+        const totalMs = intervalToMilliseconds(h, m, s, ms);
         const isInfinite = totalMs < 3;
         const runtimeCps = totalMs === 0
             ? (isLinux ? 0 : 10000)
@@ -153,11 +154,11 @@ export function initInputs() {
     const kbVariation = document.getElementById('kb-variation') as HTMLInputElement;
     if (kbSlider && kbMs) {
         function updateKbCps() {
-            const h = parseInt((document.getElementById('kb-hours') as HTMLInputElement)?.value) || 0;
-            const m = parseInt((document.getElementById('kb-minutes') as HTMLInputElement)?.value) || 0;
-            const s = parseInt((document.getElementById('kb-seconds') as HTMLInputElement)?.value) || 0;
-            const ms = parseInt((document.getElementById('kb-ms') as HTMLInputElement)?.value) || 0;
-            const totalMs = h * 3600000 + m * 60000 + s * 1000 + ms;
+            const h = (document.getElementById('kb-hours') as HTMLInputElement)?.value || "0";
+            const m = (document.getElementById('kb-minutes') as HTMLInputElement)?.value || "0";
+            const s = (document.getElementById('kb-seconds') as HTMLInputElement)?.value || "0";
+            const ms = (document.getElementById('kb-ms') as HTMLInputElement)?.value || "0";
+            const totalMs = intervalToMilliseconds(h, m, s, ms);
             const cps = totalMs > 0 ? Math.round(1000 / totalMs) : 10000;
             invoke("set_keyboard_cps", { cps });
             invoke("set_keyboard_interval_ms", { intervalMs: totalMs });

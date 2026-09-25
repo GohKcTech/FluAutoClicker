@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { t } from "../i18n";
 import { listen } from "@tauri-apps/api/event";
+import { intervalToMilliseconds } from "../interval";
 import { syncAllKeyboardSettings } from "../keyboard";
 import { ensureMacroReady } from "../macro";
 import { syncAllMouseSettings } from "../mouse";
@@ -65,12 +66,12 @@ function getActiveTab(): SupportedTab {
 }
 
 function getMouseIntervalMs(): number {
-    const hours = Number.parseInt((document.getElementById("mouse-hours") as HTMLInputElement | null)?.value || "0", 10) || 0;
-    const minutes = Number.parseInt((document.getElementById("mouse-minutes") as HTMLInputElement | null)?.value || "0", 10) || 0;
-    const seconds = Number.parseInt((document.getElementById("mouse-seconds") as HTMLInputElement | null)?.value || "0", 10) || 0;
-    const milliseconds = Number.parseInt((document.getElementById("mouse-ms") as HTMLInputElement | null)?.value || "0", 10) || 0;
+    const hours = (document.getElementById("mouse-hours") as HTMLInputElement | null)?.value || "0";
+    const minutes = (document.getElementById("mouse-minutes") as HTMLInputElement | null)?.value || "0";
+    const seconds = (document.getElementById("mouse-seconds") as HTMLInputElement | null)?.value || "0";
+    const milliseconds = (document.getElementById("mouse-ms") as HTMLInputElement | null)?.value || "0";
 
-    return hours * 3_600_000 + minutes * 60_000 + seconds * 1_000 + milliseconds;
+    return intervalToMilliseconds(hours, minutes, seconds, milliseconds);
 }
 
 function showTimingWarningModal() {

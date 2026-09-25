@@ -1364,6 +1364,16 @@ fn sanitize_macro_action_config(config: &mut MacroActionConfig) {
     }
 }
 
+fn reject_new_raw_move(config: &MacroActionConfig) -> Result<(), String> {
+    if matches!(config, MacroActionConfig::RawMove { .. }) {
+        return Err(
+            "Raw mouse moves are a legacy playback format and cannot be created or updated."
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn set_window_acrylic(
     window: Window,
@@ -1387,6 +1397,7 @@ pub async fn add_macro_action(
 ) -> Result<(), String> {
     let mut config: MacroActionConfig =
         serde_json::from_str(&action_json).map_err(|e| format!("Failed to parse action: {}", e))?;
+    reject_new_raw_move(&config)?;
     sanitize_macro_action_config(&mut config);
 
     let id = state
@@ -1423,6 +1434,7 @@ pub async fn update_macro_action(
 ) -> Result<(), String> {
     let mut config: MacroActionConfig =
         serde_json::from_str(&action_json).map_err(|e| format!("Failed to parse action: {}", e))?;
+    reject_new_raw_move(&config)?;
     sanitize_macro_action_config(&mut config);
 
     let mut actions = state.macro_engine.actions.lock().await;
@@ -1477,6 +1489,7 @@ pub async fn duplicate_macro_action(
         .action_id_counter
         .fetch_add(1, Ordering::SeqCst);
     let mut duplicated = actions[index].clone();
+    reject_new_raw_move(&duplicated.config)?;
     duplicated.id = id;
     actions.insert(index + 1, duplicated);
     drop(actions);
@@ -1538,10 +1551,7 @@ pub async fn clear_macros(state: State<'_, Arc<AppState>>) -> Result<(), String>
     drop(actions);
 
     *state.macro_engine.player_state.lock().await = MacroPlayerState::Stopped;
-    state
-        .macro_engine
-        .cancel_playback
-        .store(true, Ordering::SeqCst);
+    let _ = state.runtime_coordinator.cancel_macro().await;
     state
         .macro_engine
         .recording_active
@@ -1567,7 +1577,7 @@ pub async fn toggle_macro_player(
     match current_state {
         MacroPlayerState::Playing => {
             drop(state.macro_engine.player_state.lock().await);
-            crate::engine::macro_engine::playback::stop_playback(&state.macro_engine, app).await;
+            crate::engine::macro_engine::playback::stop_playback(state.inner(), app).await;
             Ok(false)
         }
         MacroPlayerState::Recording => {
@@ -1575,7 +1585,8 @@ pub async fn toggle_macro_player(
         }
         MacroPlayerState::Stopped => {
             drop(state.macro_engine.player_state.lock().await);
-            crate::engine::macro_engine::playback::start_playback(&state.macro_engine, app).await?;
+            crate::engine::macro_engine::playback::start_playback(state.inner().clone(), app)
+                .await?;
             Ok(true)
         }
     }
@@ -1996,5 +2007,19 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn raw_moves_are_rejected_for_new_or_copied_action_configs() {
+        assert!(reject_new_raw_move(&MacroActionConfig::RawMove {
+            points: vec![(1, 2, 0)],
+        })
+        .is_err());
+        assert!(reject_new_raw_move(&MacroActionConfig::Move {
+            x: 1,
+            y: 2,
+            style: MacroMoveStyle::Instant,
+        })
+        .is_ok());
     }
 }

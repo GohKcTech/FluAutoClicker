@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { intervalToMilliseconds } from "./interval";
 import { setKeyBadgeContent } from "./key-badges";
 import { t } from "./i18n";
 
@@ -391,12 +392,12 @@ export async function syncAllKeyboardSettings() {
     await invoke("set_keyboard_key", { key: mainKey });
     await invoke("set_keyboard_modifiers", { modifiers });
 
-    
-    const h = parseInt((document.getElementById('kb-hours') as HTMLInputElement)?.value) || 0;
-    const m = parseInt((document.getElementById('kb-minutes') as HTMLInputElement)?.value) || 0;
-    const s = parseInt((document.getElementById('kb-seconds') as HTMLInputElement)?.value) || 0;
-    const ms = parseInt((document.getElementById('kb-ms') as HTMLInputElement)?.value) || 0;
-    const totalMs = h * 3600000 + m * 60000 + s * 1000 + ms;
+
+    const h = (document.getElementById('kb-hours') as HTMLInputElement)?.value || "0";
+    const m = (document.getElementById('kb-minutes') as HTMLInputElement)?.value || "0";
+    const s = (document.getElementById('kb-seconds') as HTMLInputElement)?.value || "0";
+    const ms = (document.getElementById('kb-ms') as HTMLInputElement)?.value || "0";
+    const totalMs = intervalToMilliseconds(h, m, s, ms);
     const cps = totalMs > 0 ? Math.round(1000 / totalMs) : 10000;
     await invoke("set_keyboard_cps", { cps });
     await invoke("set_keyboard_interval_ms", { intervalMs: totalMs });

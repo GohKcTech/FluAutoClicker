@@ -319,7 +319,7 @@ async fn set_mode_running(app: AppHandle, state: Arc<AppState>, mode: String, ru
         "macro" => {
             if running {
                 if let Err(error) = crate::engine::macro_engine::playback::start_playback(
-                    &state.macro_engine,
+                    state.clone(),
                     app.clone(),
                 )
                 .await
@@ -330,8 +330,7 @@ async fn set_mode_running(app: AppHandle, state: Arc<AppState>, mode: String, ru
                     );
                 }
             } else {
-                crate::engine::macro_engine::playback::stop_playback(&state.macro_engine, app)
-                    .await;
+                crate::engine::macro_engine::playback::stop_playback(state.as_ref(), app).await;
             }
         }
         _ => {

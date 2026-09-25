@@ -4,14 +4,19 @@ use enigo::{Axis, Button, Coordinate, Enigo, Key, Keyboard, Mouse, Settings};
 use enigo::{Enigo, Mouse, Settings};
 #[cfg(target_os = "linux")]
 use evdev::{EventType, InputEvent, Key, RelativeAxisType};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tauri::Emitter;
 use tokio::time::sleep;
 
-use super::state::MacroEngineState;
+use crate::engine::clicker::{ExecutionError, RunEnd};
+use crate::engine::executor::{interruptible_wait, Cancellation, WaitOutcome};
+use crate::engine::input::{InputError, InputMouseButton, InputSession, InputSink, InputToken};
+use crate::engine::runtime::{MacroRunControl, StopPolicy};
+use crate::engine::state::AppState;
+
 use super::types::{
-    MacroAction, MacroActionConfig, MacroKeyboardAction, MacroMouseAction, MacroMoveStyle,
-    MacroPlayerState,
+    MacroAction, MacroActionConfig, MacroKeyboardAction, MacroMouseAction, MacroMouseButton,
+    MacroMoveStyle, MacroPlayerState,
 };
 
 #[cfg(not(target_os = "linux"))]
@@ -541,6 +546,14 @@ fn str_to_combo_key(key: &str) -> Key {
 #[cfg(target_os = "linux")]
 fn str_to_evdev_key(key: &str) -> Option<Key> {
     match key.to_lowercase().as_str() {
+        "ctrl" | "control" | "controlleft" | "ctrlleft" => Some(Key::KEY_LEFTCTRL),
+        "controlright" | "ctrlright" => Some(Key::KEY_RIGHTCTRL),
+        "shift" | "shiftleft" => Some(Key::KEY_LEFTSHIFT),
+        "shiftright" => Some(Key::KEY_RIGHTSHIFT),
+        "alt" | "altleft" => Some(Key::KEY_LEFTALT),
+        "altright" | "altgr" => Some(Key::KEY_RIGHTALT),
+        "win" | "meta" | "super" | "metaleft" | "winleft" | "superleft" => Some(Key::KEY_LEFTMETA),
+        "metaright" | "winright" | "superright" => Some(Key::KEY_RIGHTMETA),
         "a" => Some(Key::KEY_A),
         "b" => Some(Key::KEY_B),
         "c" => Some(Key::KEY_C),
@@ -967,11 +980,648 @@ fn current_cursor_position() -> Result<(i32, i32), String> {
         .map_err(|e| format!("Could not read the cursor position. Details: {e}"))
 }
 
+fn stop_policy_deadline(stop_policy: StopPolicy) -> Option<tokio::time::Instant> {
+    match stop_policy {
+        StopPolicy::DurationMs(ms) => Some(tokio::time::Instant::now() + Duration::from_millis(ms)),
+        StopPolicy::UntilStopped | StopPolicy::RepeatCount(_) => None,
+    }
+}
+
+fn stop_policy_repeat_count(stop_policy: StopPolicy) -> Option<u32> {
+    match stop_policy {
+        StopPolicy::RepeatCount(count) => Some(count),
+        StopPolicy::UntilStopped | StopPolicy::DurationMs(_) => None,
+    }
+}
+
+async fn wait_or_end(
+    duration: Duration,
+    cancellation: &Cancellation,
+    deadline: Option<tokio::time::Instant>,
+) -> Option<RunEnd> {
+    match interruptible_wait(duration, cancellation.clone(), deadline).await {
+        WaitOutcome::Completed => None,
+        WaitOutcome::Cancelled => Some(RunEnd::Cancelled),
+        WaitOutcome::DeadlineReached => Some(RunEnd::Deadline),
+    }
+}
+
+fn input_mouse_button(button: &MacroMouseButton) -> InputMouseButton {
+    match button {
+        MacroMouseButton::Left => InputMouseButton::Left,
+        MacroMouseButton::Middle => InputMouseButton::Middle,
+        MacroMouseButton::Right => InputMouseButton::Right,
+        MacroMouseButton::Front => InputMouseButton::Front,
+        MacroMouseButton::Back => InputMouseButton::Back,
+    }
+}
+
+fn scaled_duration(duration_ms: u32, multiplier: f64) -> Duration {
+    Duration::from_millis((duration_ms as f64 / multiplier).round().max(1.0) as u64)
+}
+
+fn recorded_text_key(character: char) -> Option<(&'static str, bool)> {
+    let key = match character {
+        'a'..='z' | 'A'..='Z' => {
+            let lower = character.to_ascii_lowercase();
+            return Some((
+                match lower {
+                    'a' => "a",
+                    'b' => "b",
+                    'c' => "c",
+                    'd' => "d",
+                    'e' => "e",
+                    'f' => "f",
+                    'g' => "g",
+                    'h' => "h",
+                    'i' => "i",
+                    'j' => "j",
+                    'k' => "k",
+                    'l' => "l",
+                    'm' => "m",
+                    'n' => "n",
+                    'o' => "o",
+                    'p' => "p",
+                    'q' => "q",
+                    'r' => "r",
+                    's' => "s",
+                    't' => "t",
+                    'u' => "u",
+                    'v' => "v",
+                    'w' => "w",
+                    'x' => "x",
+                    'y' => "y",
+                    'z' => "z",
+                    _ => unreachable!(),
+                },
+                character.is_ascii_uppercase(),
+            ));
+        }
+        '0' | ')' => "0",
+        '1' | '!' => "1",
+        '2' | '@' => "2",
+        '3' | '#' => "3",
+        '4' | '$' => "4",
+        '5' | '%' => "5",
+        '6' | '^' => "6",
+        '7' | '&' => "7",
+        '8' | '*' => "8",
+        '9' | '(' => "9",
+        ' ' => "space",
+        '\n' => "enter",
+        '\t' => "tab",
+        '`' | '~' => "grave",
+        '-' | '_' => "minus",
+        '=' | '+' => "equal",
+        '[' | '{' => "leftbrace",
+        ']' | '}' => "rightbrace",
+        '\\' | '|' => "backslash",
+        ';' | ':' => "semicolon",
+        '\'' | '"' => "apostrophe",
+        ',' | '<' => "comma",
+        '.' | '>' => "dot",
+        '/' | '?' => "slash",
+        _ => return None,
+    };
+    Some((
+        key,
+        matches!(
+            character,
+            ')' | '!'
+                | '@'
+                | '#'
+                | '$'
+                | '%'
+                | '^'
+                | '&'
+                | '*'
+                | '('
+                | '~'
+                | '_'
+                | '+'
+                | '{'
+                | '}'
+                | '|'
+                | ':'
+                | '"'
+                | '<'
+                | '>'
+                | '?'
+        ),
+    ))
+}
+
+async fn stepped_move<S: InputSink>(
+    session: &mut InputSession<S>,
+    start: (i32, i32),
+    target: (i32, i32),
+    duration: Duration,
+    cancellation: &Cancellation,
+    deadline: Option<tokio::time::Instant>,
+) -> Result<Option<RunEnd>, ExecutionError> {
+    let duration_ms = duration.as_millis().max(16) as u64;
+    let steps = ((duration_ms as f64 / 12.0).ceil() as u32).clamp(2, 120);
+    let per_step = Duration::from_millis((duration_ms / steps as u64).max(1));
+    for step in 1..=steps {
+        if let Some(end) = cooperative_end_before_injection(cancellation, deadline).await {
+            return Ok(Some(end));
+        }
+        let progress = step as f64 / steps as f64;
+        session.move_to(
+            start.0 + ((target.0 - start.0) as f64 * progress).round() as i32,
+            start.1 + ((target.1 - start.1) as f64 * progress).round() as i32,
+        )?;
+        if let Some(end) = wait_or_end(per_step, cancellation, deadline).await {
+            return Ok(Some(end));
+        }
+    }
+    Ok(None)
+}
+
+fn end_before_injection(
+    cancellation: &Cancellation,
+    deadline: Option<tokio::time::Instant>,
+) -> Option<RunEnd> {
+    if cancellation.is_cancelled() {
+        Some(RunEnd::Cancelled)
+    } else if deadline.is_some_and(|deadline| tokio::time::Instant::now() >= deadline) {
+        Some(RunEnd::Deadline)
+    } else {
+        None
+    }
+}
+
+/// Yielding at every injection boundary prevents a long sequence of zero-delay
+/// actions from starving the task that advances a deadline or requests stop.
+async fn cooperative_end_before_injection(
+    cancellation: &Cancellation,
+    deadline: Option<tokio::time::Instant>,
+) -> Option<RunEnd> {
+    if let Some(end) = end_before_injection(cancellation, deadline) {
+        return Some(end);
+    }
+    tokio::task::yield_now().await;
+    end_before_injection(cancellation, deadline)
+}
+
+async fn execute_with_sink<S: InputSink>(
+    session: &mut InputSession<S>,
+    action: &MacroAction,
+    multiplier: f64,
+    cancellation: &Cancellation,
+    deadline: Option<tokio::time::Instant>,
+) -> Result<Option<RunEnd>, ExecutionError> {
+    if let Some(end) = end_before_injection(cancellation, deadline) {
+        return Ok(Some(end));
+    }
+    match &action.config {
+        MacroActionConfig::Mouse {
+            button,
+            action: mouse_action,
+            position,
+        } => {
+            if let Some((x, y)) = position {
+                session.move_to(*x, *y)?;
+                if let Some(end) =
+                    wait_or_end(scaled_duration(10, multiplier), cancellation, deadline).await
+                {
+                    return Ok(Some(end));
+                }
+            }
+
+            let token = InputToken::Mouse(input_mouse_button(button));
+            match mouse_action {
+                MacroMouseAction::Press => {
+                    session.press(token.clone())?;
+                    if let Some(end) =
+                        wait_or_end(scaled_duration(50, multiplier), cancellation, deadline).await
+                    {
+                        return Ok(Some(end));
+                    }
+                    session.release(&token)?;
+                }
+                MacroMouseAction::Hold { duration_ms } => {
+                    session.press(token.clone())?;
+                    if let Some(end) = wait_or_end(
+                        scaled_duration(*duration_ms, multiplier),
+                        cancellation,
+                        deadline,
+                    )
+                    .await
+                    {
+                        return Ok(Some(end));
+                    }
+                    session.release(&token)?;
+                }
+                MacroMouseAction::Down => session.press(token)?,
+                MacroMouseAction::Up => session.release(&token)?,
+            }
+        }
+        MacroActionConfig::Move { x, y, style } => match style {
+            MacroMoveStyle::Instant => session.move_to(*x, *y)?,
+            MacroMoveStyle::Linear { duration_ms } => {
+                let start = session.position()?;
+                if let Some(end) = stepped_move(
+                    session,
+                    start,
+                    (*x, *y),
+                    scaled_duration(*duration_ms, multiplier),
+                    cancellation,
+                    deadline,
+                )
+                .await?
+                {
+                    return Ok(Some(end));
+                }
+            }
+            MacroMoveStyle::Smooth { path, duration_ms } => {
+                if path.is_empty() {
+                    session.move_to(*x, *y)?;
+                } else {
+                    let mut total_length = 0.0;
+                    for segment in path.windows(2) {
+                        let dx = (segment[1].0 - segment[0].0) as f64;
+                        let dy = (segment[1].1 - segment[0].1) as f64;
+                        total_length += (dx * dx + dy * dy).sqrt();
+                    }
+                    if total_length == 0.0 {
+                        session.move_to(path[0].0, path[0].1)?;
+                    } else {
+                        for segment in path.windows(2) {
+                            let dx = (segment[1].0 - segment[0].0) as f64;
+                            let dy = (segment[1].1 - segment[0].1) as f64;
+                            let length = (dx * dx + dy * dy).sqrt();
+                            let segment_duration = scaled_duration(
+                                ((*duration_ms as f64 * length / total_length).max(8.0)) as u32,
+                                multiplier,
+                            );
+                            if let Some(end) = stepped_move(
+                                session,
+                                segment[0],
+                                segment[1],
+                                segment_duration,
+                                cancellation,
+                                deadline,
+                            )
+                            .await?
+                            {
+                                return Ok(Some(end));
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        // RawMove is a legacy format: it must remain executable after loading
+        // old macro files even though command APIs no longer accept new ones.
+        MacroActionConfig::RawMove { points } => {
+            let mut previous_timestamp = points.first().map(|point| point.2).unwrap_or(0);
+            for (x, y, timestamp) in points {
+                if let Some(end) = cooperative_end_before_injection(cancellation, deadline).await {
+                    return Ok(Some(end));
+                }
+                session.move_to(*x, *y)?;
+                let delay_ms = timestamp.saturating_sub(previous_timestamp);
+                if delay_ms > 0 {
+                    let delay =
+                        Duration::from_millis((delay_ms as f64 / multiplier).round() as u64);
+                    if let Some(end) = wait_or_end(delay, cancellation, deadline).await {
+                        return Ok(Some(end));
+                    }
+                }
+                previous_timestamp = *timestamp;
+            }
+        }
+        MacroActionConfig::Keyboard {
+            key,
+            text,
+            modifiers,
+            action: keyboard_action,
+        } => {
+            if let Some(recorded_text) = text.as_deref() {
+                if modifiers.is_empty() && matches!(keyboard_action, MacroKeyboardAction::Press) {
+                    for character in recorded_text.chars() {
+                        if let Some(end) =
+                            cooperative_end_before_injection(cancellation, deadline).await
+                        {
+                            return Ok(Some(end));
+                        }
+                        #[cfg(not(target_os = "linux"))]
+                        if !character.is_ascii() {
+                            // Preserve Enigo's legacy Unicode-key behavior on
+                            // platforms where it is available. Linux stays on
+                            // the physical evdev path below.
+                            let token = InputToken::Key(character.to_string());
+                            session.press(token.clone())?;
+                            session.release(&token)?;
+                            continue;
+                        }
+                        let (key, needs_shift) = recorded_text_key(character).ok_or_else(|| {
+                            ExecutionError::UnsupportedKey(format!(
+                                "The character `{character}` is not supported by macro playback."
+                            ))
+                        })?;
+                        let shift = InputToken::Key("shift".to_string());
+                        if needs_shift {
+                            session.press(shift.clone())?;
+                        }
+                        let token = InputToken::Key(key.to_string());
+                        session.press(token.clone())?;
+                        session.release(&token)?;
+                        if needs_shift {
+                            session.release(&shift)?;
+                        }
+                    }
+                    return Ok(None);
+                }
+            }
+
+            let modifier_tokens: Vec<InputToken> =
+                modifiers.iter().cloned().map(InputToken::Key).collect();
+            for token in &modifier_tokens {
+                session.press(token.clone())?;
+            }
+
+            let key_token = InputToken::Key(key.clone());
+            match keyboard_action {
+                MacroKeyboardAction::Press => {
+                    session.press(key_token.clone())?;
+                    session.release(&key_token)?;
+                }
+                MacroKeyboardAction::Hold { duration_ms } => {
+                    session.press(key_token.clone())?;
+                    if let Some(end) = wait_or_end(
+                        scaled_duration(*duration_ms, multiplier),
+                        cancellation,
+                        deadline,
+                    )
+                    .await
+                    {
+                        return Ok(Some(end));
+                    }
+                    session.release(&key_token)?;
+                }
+                MacroKeyboardAction::Down => session.press(key_token)?,
+                MacroKeyboardAction::Up => session.release(&key_token)?,
+            }
+
+            for token in modifier_tokens.iter().rev() {
+                session.release(token)?;
+            }
+        }
+        MacroActionConfig::Sleep { duration_ms } => {
+            if let Some(end) = wait_or_end(
+                scaled_duration(*duration_ms, multiplier),
+                cancellation,
+                deadline,
+            )
+            .await
+            {
+                return Ok(Some(end));
+            }
+        }
+        MacroActionConfig::Scroll { clicks } => session.scroll(*clicks)?,
+    }
+
+    Ok(None)
+}
+
+/// Executes a macro through an injected input sink. Inputs are owned by the
+/// session for the whole macro run, so cancellation, deadlines, and send
+/// failures always release every key/button this run pressed in reverse order.
+pub async fn run_macro<S: InputSink>(
+    actions: &[MacroAction],
+    stop_policy: StopPolicy,
+    cancellation: Cancellation,
+    sink: S,
+    multiplier: f64,
+) -> Result<RunEnd, ExecutionError> {
+    let deadline = stop_policy_deadline(stop_policy);
+    run_macro_with_deadline(
+        actions,
+        stop_policy,
+        cancellation,
+        deadline,
+        sink,
+        multiplier,
+    )
+    .await
+}
+
+async fn run_macro_with_deadline<S: InputSink>(
+    actions: &[MacroAction],
+    stop_policy: StopPolicy,
+    cancellation: Cancellation,
+    deadline: Option<tokio::time::Instant>,
+    sink: S,
+    multiplier: f64,
+) -> Result<RunEnd, ExecutionError> {
+    let repeat_count = stop_policy_repeat_count(stop_policy);
+    let mut session = InputSession::new(sink);
+    let mut completed_iterations = 0;
+
+    loop {
+        if let Some(count) = repeat_count {
+            if completed_iterations >= count {
+                return Ok(RunEnd::Completed);
+            }
+        }
+
+        for (index, action) in actions.iter().enumerate() {
+            if let Some(end) = cooperative_end_before_injection(&cancellation, deadline).await {
+                return Ok(end);
+            }
+            if let Some(end) =
+                execute_with_sink(&mut session, action, multiplier, &cancellation, deadline).await?
+            {
+                return Ok(end);
+            }
+
+            if let Some(next_action) = actions.get(index + 1) {
+                let wait_ms = if action.timestamp_ms > 0
+                    && next_action.timestamp_ms > 0
+                    && next_action.timestamp_ms >= action.timestamp_ms
+                {
+                    next_action.timestamp_ms - action.timestamp_ms
+                } else {
+                    5
+                };
+                let delay =
+                    Duration::from_millis((wait_ms as f64 / multiplier).round().max(1.0) as u64);
+                if let Some(end) = wait_or_end(delay, &cancellation, deadline).await {
+                    return Ok(end);
+                }
+            }
+        }
+
+        // A repeat becomes observable only after the final action in the list
+        // has completed; cancelled/deadline-cut iterations never increment it.
+        completed_iterations += 1;
+
+        // Instant-only macros otherwise never await, which would prevent the
+        // runtime from observing a deadline or cancellation between repeats.
+        tokio::task::yield_now().await;
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+struct EnigoMacroSink {
+    enigo: Enigo,
+}
+
+#[cfg(not(target_os = "linux"))]
+impl EnigoMacroSink {
+    fn new() -> Result<Self, String> {
+        Enigo::new(&Settings::default())
+            .map(|enigo| Self { enigo })
+            .map_err(|error| error.to_string())
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+impl InputSink for EnigoMacroSink {
+    fn key_down(&mut self, key: &str) -> Result<(), InputError> {
+        self.enigo
+            .key(str_to_key(key), enigo::Direction::Press)
+            .map_err(|error| InputError::new(error.to_string()))
+    }
+
+    fn key_up(&mut self, key: &str) -> Result<(), InputError> {
+        self.enigo
+            .key(str_to_key(key), enigo::Direction::Release)
+            .map_err(|error| InputError::new(error.to_string()))
+    }
+
+    fn mouse_down(&mut self, button: InputMouseButton) -> Result<(), InputError> {
+        self.enigo
+            .button(input_button_to_enigo(button)?, enigo::Direction::Press)
+            .map_err(|error| InputError::new(error.to_string()))
+    }
+
+    fn mouse_up(&mut self, button: InputMouseButton) -> Result<(), InputError> {
+        self.enigo
+            .button(input_button_to_enigo(button)?, enigo::Direction::Release)
+            .map_err(|error| InputError::new(error.to_string()))
+    }
+
+    fn position(&mut self) -> Result<(i32, i32), InputError> {
+        self.enigo
+            .location()
+            .map_err(|error| InputError::new(error.to_string()))
+    }
+
+    fn move_to(&mut self, x: i32, y: i32) -> Result<(), InputError> {
+        self.enigo
+            .move_mouse(x, y, Coordinate::Abs)
+            .map_err(|error| InputError::new(error.to_string()))
+    }
+
+    fn scroll(&mut self, clicks: i32) -> Result<(), InputError> {
+        self.enigo
+            .scroll(-clicks, Axis::Vertical)
+            .map_err(|error| InputError::new(error.to_string()))
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn input_button_to_enigo(button: InputMouseButton) -> Result<Button, InputError> {
+    let button = match button {
+        InputMouseButton::Left => MacroMouseButton::Left,
+        InputMouseButton::Middle => MacroMouseButton::Middle,
+        InputMouseButton::Right => MacroMouseButton::Right,
+        InputMouseButton::Front => MacroMouseButton::Front,
+        InputMouseButton::Back => MacroMouseButton::Back,
+    };
+    macro_button_to_enigo(&button).map_err(InputError::new)
+}
+
+#[cfg(target_os = "linux")]
+struct LinuxMacroSink {
+    backend: LinuxPlaybackBackend,
+}
+
+#[cfg(target_os = "linux")]
+impl LinuxMacroSink {
+    fn new() -> Result<Self, String> {
+        LinuxPlaybackBackend::new().map(|backend| Self { backend })
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl InputSink for LinuxMacroSink {
+    fn key_down(&mut self, key: &str) -> Result<(), InputError> {
+        let key = str_to_evdev_key(key)
+            .ok_or_else(|| InputError::new(format!("Unsupported Linux macro key `{key}`")))?;
+        LinuxPlaybackBackend::emit_key(&mut self.backend.keyboard, key, true)
+            .map_err(InputError::new)
+    }
+
+    fn key_up(&mut self, key: &str) -> Result<(), InputError> {
+        let key = str_to_evdev_key(key)
+            .ok_or_else(|| InputError::new(format!("Unsupported Linux macro key `{key}`")))?;
+        LinuxPlaybackBackend::emit_key(&mut self.backend.keyboard, key, false)
+            .map_err(InputError::new)
+    }
+
+    fn mouse_down(&mut self, button: InputMouseButton) -> Result<(), InputError> {
+        LinuxPlaybackBackend::emit_key(&mut self.backend.mouse, input_button_to_evdev(button), true)
+            .map_err(InputError::new)
+    }
+
+    fn mouse_up(&mut self, button: InputMouseButton) -> Result<(), InputError> {
+        LinuxPlaybackBackend::emit_key(
+            &mut self.backend.mouse,
+            input_button_to_evdev(button),
+            false,
+        )
+        .map_err(InputError::new)
+    }
+
+    fn position(&mut self) -> Result<(i32, i32), InputError> {
+        current_cursor_position().map_err(InputError::new)
+    }
+
+    fn move_to(&mut self, x: i32, y: i32) -> Result<(), InputError> {
+        self.backend.move_mouse(x, y).map_err(InputError::new)
+    }
+
+    fn scroll(&mut self, clicks: i32) -> Result<(), InputError> {
+        self.backend.scroll_mouse(clicks).map_err(InputError::new)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn input_button_to_evdev(button: InputMouseButton) -> Key {
+    match button {
+        InputMouseButton::Left => Key::BTN_LEFT,
+        InputMouseButton::Middle => Key::BTN_MIDDLE,
+        InputMouseButton::Right => Key::BTN_RIGHT,
+        InputMouseButton::Front => Key::BTN_SIDE,
+        InputMouseButton::Back => Key::BTN_EXTRA,
+    }
+}
+
+async fn begin_playback_runtime(
+    state: &AppState,
+    stop_policy: StopPolicy,
+) -> Result<MacroRunControl, String> {
+    state
+        .runtime_coordinator
+        .start_macro(stop_policy)
+        .await
+        .map_err(|error| format!("Could not start macro playback: {error:?}"))
+}
+
+async fn finish_successful_playback_runtime(state: &AppState) {
+    let _ = state.runtime_coordinator.finish_macro().await;
+}
+
 pub async fn start_playback(
-    state: &MacroEngineState,
+    state: std::sync::Arc<AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let actions = state.actions.lock().await;
+    let macro_state = &state.macro_engine;
+    let actions = macro_state.actions.lock().await;
 
     if actions.is_empty() {
         let _ = app_handle.emit(
@@ -984,16 +1634,20 @@ pub async fn start_playback(
         return Err("Add at least one macro action before starting playback.".to_string());
     }
 
-    let mut player_state_guard = state.player_state.lock().await;
+    let mut player_state_guard = macro_state.player_state.lock().await;
     if *player_state_guard == MacroPlayerState::Playing {
         return Ok(());
     }
+    let actions_clone = actions.clone();
+    let repeat_mode = macro_state.repeat_mode.lock().await.clone();
+    let stop_policy = repeat_mode.stop_policy();
+
+    drop(actions);
+
+    let control = begin_playback_runtime(&state, stop_policy).await?;
+
     *player_state_guard = MacroPlayerState::Playing;
     drop(player_state_guard);
-
-    state
-        .cancel_playback
-        .store(false, std::sync::atomic::Ordering::SeqCst);
 
     let _ = app_handle.emit(
         "macro-status-changed",
@@ -1002,25 +1656,11 @@ pub async fn start_playback(
         }),
     );
 
-    let actions_clone = actions.clone();
-    let repeat_mode = state.repeat_mode.lock().await.clone();
-    let cancel_flag = state.cancel_playback.clone();
-
-    drop(actions);
-
     tokio::spawn({
         let state = state.clone();
         let app_handle = app_handle.clone();
-        let repeat_mode = repeat_mode.clone();
         async move {
-            playback_loop(
-                &actions_clone,
-                &repeat_mode,
-                cancel_flag,
-                &state,
-                app_handle,
-            )
-            .await;
+            playback_loop(&actions_clone, stop_policy, control, &state, app_handle).await;
         }
     });
 
@@ -1029,139 +1669,78 @@ pub async fn start_playback(
 
 async fn playback_loop(
     actions: &[MacroAction],
-    repeat_mode: &crate::engine::macro_engine::types::MacroRepeatMode,
-    cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
-    state: &MacroEngineState,
+    stop_policy: StopPolicy,
+    control: MacroRunControl,
+    state: &AppState,
     app_handle: tauri::AppHandle,
 ) {
     #[cfg(not(target_os = "linux"))]
-    let mut enigo = match Enigo::new(&Settings::default()) {
-        Ok(enigo) => enigo,
+    let sink = match EnigoMacroSink::new() {
+        Ok(sink) => sink,
         Err(error) => {
-            let _ = app_handle.emit(
-                "macro-status-changed",
-                serde_json::json!({
-                    "state": "error",
-                    "error": format!("The app could not control your mouse or keyboard. Check system permissions and try again. Details: {}", error)
-                }),
-            );
-            *state.player_state.lock().await = MacroPlayerState::Stopped;
+            finish_playback(
+                state,
+                Err(ExecutionError::PermissionMismatch(format!(
+                    "The app could not control your mouse or keyboard. Check system permissions and try again. Details: {error}"
+                ))),
+                app_handle,
+            )
+            .await;
             return;
         }
     };
 
     #[cfg(target_os = "linux")]
-    let mut linux_backend = match LinuxPlaybackBackend::new() {
-        Ok(backend) => backend,
+    let sink = match LinuxMacroSink::new() {
+        Ok(sink) => sink,
         Err(error) => {
+            finish_playback(
+                state,
+                Err(ExecutionError::PermissionMismatch(error)),
+                app_handle,
+            )
+            .await;
+            return;
+        }
+    };
+    let multiplier = *state.macro_engine.speed_multiplier.lock().await;
+    let result = run_macro_with_deadline(
+        actions,
+        stop_policy,
+        control.cancellation(),
+        control.deadline(),
+        sink,
+        multiplier,
+    )
+    .await;
+    finish_playback(state, result, app_handle).await;
+}
+
+async fn finish_playback(
+    state: &AppState,
+    result: Result<RunEnd, ExecutionError>,
+    app_handle: tauri::AppHandle,
+) {
+    match result {
+        Ok(_) => {
+            finish_successful_playback_runtime(state).await;
+        }
+        Err(error) => {
+            let _ = state
+                .runtime_coordinator
+                .fail_macro(format!("{error:?}"))
+                .await;
             let _ = app_handle.emit(
                 "macro-status-changed",
                 serde_json::json!({
                     "state": "error",
-                    "error": error
+                    "error": format!("Macro playback stopped because an action could not be completed. {error:?}")
                 }),
             );
-            *state.player_state.lock().await = MacroPlayerState::Stopped;
-            return;
         }
-    };
-    let start_time = Instant::now();
-    let speed_multiplier = *state.speed_multiplier.lock().await;
-
-    let max_iterations = match repeat_mode {
-        crate::engine::macro_engine::types::MacroRepeatMode::Infinite => None,
-        crate::engine::macro_engine::types::MacroRepeatMode::FiniteTimes { count } => {
-            Some(*count as u64)
-        }
-        crate::engine::macro_engine::types::MacroRepeatMode::FiniteSeconds { duration_ms } => {
-            let total_action_time = estimate_actions_duration(actions);
-            if total_action_time > 0 {
-                let scaled_time = (total_action_time as f64 / speed_multiplier).round() as u64;
-                Some((duration_ms / scaled_time.max(1)).max(1))
-            } else {
-                Some(1)
-            }
-        }
-    };
-
-    let mut iteration = 0;
-
-    loop {
-        if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
-            break;
-        }
-
-        if let Some(max) = max_iterations {
-            if iteration >= max {
-                break;
-            }
-        }
-
-        if let crate::engine::macro_engine::types::MacroRepeatMode::FiniteSeconds { duration_ms } =
-            repeat_mode
-        {
-            if start_time.elapsed().as_millis() as u64 >= *duration_ms {
-                break;
-            }
-        }
-
-        for (action_index, action) in actions.iter().enumerate() {
-            if cancel_flag.load(std::sync::atomic::Ordering::SeqCst) {
-                break;
-            }
-
-            let _ = app_handle.emit(
-                "macro-step-changed",
-                serde_json::json!({
-                    "action_id": action.id,
-                    "action_index": action_index,
-                    "total_actions": actions.len(),
-                    "iteration": iteration
-                }),
-            );
-
-            #[cfg(not(target_os = "linux"))]
-            let action_result = execute_action(&mut enigo, action, speed_multiplier).await;
-
-            #[cfg(target_os = "linux")]
-            let action_result = execute_action(&mut linux_backend, action, speed_multiplier).await;
-
-            if let Err(e) = action_result {
-                eprintln!("Macro playback error: {}", e);
-                let _ = app_handle.emit(
-                    "macro-status-changed",
-                    serde_json::json!({
-                        "state": "error",
-                        "error": format!("Macro playback stopped because an action could not be completed. {}", e)
-                    }),
-                );
-                cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
-                break;
-            }
-
-            let wait_ms = if let Some(next_action) = actions.get(action_index + 1) {
-                if action.timestamp_ms > 0
-                    && next_action.timestamp_ms > 0
-                    && next_action.timestamp_ms >= action.timestamp_ms
-                {
-                    let elapsed = next_action.timestamp_ms - action.timestamp_ms;
-                    (elapsed as f64 / speed_multiplier).round() as u64
-                } else {
-                    ((5.0 / speed_multiplier).round() as u64).max(1)
-                }
-            } else {
-                0
-            };
-
-            if wait_ms > 0 {
-                sleep(Duration::from_millis(wait_ms)).await;
-            }
-        }
-
-        iteration += 1;
     }
 
-    *state.player_state.lock().await = MacroPlayerState::Stopped;
+    *state.macro_engine.player_state.lock().await = MacroPlayerState::Stopped;
     let _ = app_handle.emit(
         "macro-step-changed",
         serde_json::json!({
@@ -1176,23 +1755,8 @@ async fn playback_loop(
     );
 }
 
-pub async fn stop_playback(state: &MacroEngineState, app_handle: tauri::AppHandle) {
-    state
-        .cancel_playback
-        .store(true, std::sync::atomic::Ordering::SeqCst);
-    *state.player_state.lock().await = MacroPlayerState::Stopped;
-    let _ = app_handle.emit(
-        "macro-step-changed",
-        serde_json::json!({
-            "action_id": serde_json::Value::Null
-        }),
-    );
-    let _ = app_handle.emit(
-        "macro-status-changed",
-        serde_json::json!({
-            "state": "stopped"
-        }),
-    );
+pub async fn stop_playback(state: &AppState, _app_handle: tauri::AppHandle) {
+    let _ = state.runtime_coordinator.cancel_macro().await;
 }
 
 fn estimate_actions_duration(actions: &[MacroAction]) -> u64 {
@@ -1246,4 +1810,547 @@ fn estimate_actions_duration(actions: &[MacroAction]) -> u64 {
     }
 
     total
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::clicker::{ExecutionError, RunEnd};
+    use crate::engine::executor::Cancellation;
+    use crate::engine::input::test_support::{InputCall, SharedFakeSink};
+    use crate::engine::input::InputToken;
+    use crate::engine::runtime::StopPolicy;
+
+    fn action(id: u64, config: MacroActionConfig) -> MacroAction {
+        MacroAction {
+            id,
+            timestamp_ms: 0,
+            config,
+        }
+    }
+
+    fn key_down(key: &str) -> MacroAction {
+        action(
+            1,
+            MacroActionConfig::Keyboard {
+                key: key.to_string(),
+                text: None,
+                modifiers: Vec::new(),
+                action: MacroKeyboardAction::Down,
+            },
+        )
+    }
+
+    fn sleep_ms(duration_ms: u32) -> MacroAction {
+        action(2, MacroActionConfig::Sleep { duration_ms })
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn finite_repeats_count_only_completed_action_lists() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Keyboard {
+                key: "A".to_string(),
+                text: None,
+                modifiers: Vec::new(),
+                action: MacroKeyboardAction::Press,
+            },
+        )];
+        let sink = SharedFakeSink::default();
+
+        let end = run_macro(
+            &actions,
+            StopPolicy::RepeatCount(2),
+            Cancellation::new(),
+            sink.clone(),
+            1.0,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(end, RunEnd::Completed);
+        assert_eq!(sink.complete_cycles(&InputToken::Key("A".to_string())), 2);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn deadline_stops_instant_actions_before_another_iteration_injects_input() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Keyboard {
+                key: "A".to_string(),
+                text: None,
+                modifiers: Vec::new(),
+                action: MacroKeyboardAction::Press,
+            },
+        )];
+        let sink = SharedFakeSink::default();
+        let run = tokio::spawn({
+            let actions = actions.clone();
+            let sink = sink.clone();
+            async move {
+                run_macro(
+                    &actions,
+                    StopPolicy::DurationMs(5),
+                    Cancellation::new(),
+                    sink,
+                    1.0,
+                )
+                .await
+            }
+        });
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(5)).await;
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Deadline);
+        assert_eq!(sink.complete_cycles(&InputToken::Key("A".to_string())), 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn deadline_prevents_a_long_instant_action_list_from_injecting_after_expiry() {
+        let actions = (0..128)
+            .map(|id| key_down(&format!("Key{id}")))
+            .collect::<Vec<_>>();
+        let sink = SharedFakeSink::default();
+        let run = tokio::spawn({
+            let sink = sink.clone();
+            async move {
+                run_macro(
+                    &actions,
+                    StopPolicy::DurationMs(5),
+                    Cancellation::new(),
+                    sink,
+                    1.0,
+                )
+                .await
+            }
+        });
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(5)).await;
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Deadline);
+        assert!(sink.calls().is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn deadline_prevents_remaining_recorded_text_characters_from_injecting() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Keyboard {
+                key: "ignored".to_string(),
+                text: Some("A".repeat(128)),
+                modifiers: Vec::new(),
+                action: MacroKeyboardAction::Press,
+            },
+        )];
+        let sink = SharedFakeSink::default();
+        let run = tokio::spawn({
+            let sink = sink.clone();
+            async move {
+                run_macro(
+                    &actions,
+                    StopPolicy::DurationMs(5),
+                    Cancellation::new(),
+                    sink,
+                    1.0,
+                )
+                .await
+            }
+        });
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(5)).await;
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Deadline);
+        assert!(sink.calls().is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn deadline_prevents_same_timestamp_raw_move_points_from_injecting() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::RawMove {
+                points: (0..128).map(|x| (x, 0, 0)).collect(),
+            },
+        )];
+        let sink = SharedFakeSink::default();
+        let run = tokio::spawn({
+            let sink = sink.clone();
+            async move {
+                run_macro(
+                    &actions,
+                    StopPolicy::DurationMs(5),
+                    Cancellation::new(),
+                    sink,
+                    1.0,
+                )
+                .await
+            }
+        });
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(5)).await;
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Deadline);
+        assert!(sink.calls().is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn recorded_text_keeps_shifted_characters_and_spaces_as_physical_input() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Keyboard {
+                key: "ignored".to_string(),
+                text: Some("A !".to_string()),
+                modifiers: Vec::new(),
+                action: MacroKeyboardAction::Press,
+            },
+        )];
+        let sink = SharedFakeSink::default();
+
+        assert_eq!(
+            run_macro(
+                &actions,
+                StopPolicy::RepeatCount(1),
+                Cancellation::new(),
+                sink.clone(),
+                1.0,
+            )
+            .await
+            .unwrap(),
+            RunEnd::Completed
+        );
+        assert_eq!(
+            sink.calls(),
+            vec![
+                InputCall::Down(InputToken::Key("shift".to_string())),
+                InputCall::Down(InputToken::Key("a".to_string())),
+                InputCall::Up(InputToken::Key("a".to_string())),
+                InputCall::Up(InputToken::Key("shift".to_string())),
+                InputCall::Down(InputToken::Key("space".to_string())),
+                InputCall::Up(InputToken::Key("space".to_string())),
+                InputCall::Down(InputToken::Key("shift".to_string())),
+                InputCall::Down(InputToken::Key("1".to_string())),
+                InputCall::Up(InputToken::Key("1".to_string())),
+                InputCall::Up(InputToken::Key("shift".to_string())),
+            ]
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_sink_accepts_canonical_text_and_shortcut_modifier_tokens() {
+        assert_eq!(super::str_to_evdev_key("shift"), Some(Key::KEY_LEFTSHIFT));
+        assert_eq!(super::str_to_evdev_key("ctrl"), Some(Key::KEY_LEFTCTRL));
+        assert_eq!(super::str_to_evdev_key("alt"), Some(Key::KEY_LEFTALT));
+        assert_eq!(super::str_to_evdev_key("super"), Some(Key::KEY_LEFTMETA));
+        assert_eq!(super::str_to_evdev_key("enter"), Some(Key::KEY_ENTER));
+        assert_eq!(super::str_to_evdev_key("tab"), Some(Key::KEY_TAB));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn smooth_moves_interpolate_between_recorded_path_points() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Move {
+                x: 10,
+                y: 0,
+                style: MacroMoveStyle::Smooth {
+                    path: vec![(0, 0), (10, 0)],
+                    duration_ms: 16,
+                },
+            },
+        )];
+        let sink = SharedFakeSink::default();
+
+        assert_eq!(
+            run_macro(
+                &actions,
+                StopPolicy::RepeatCount(1),
+                Cancellation::new(),
+                sink.clone(),
+                1.0,
+            )
+            .await
+            .unwrap(),
+            RunEnd::Completed
+        );
+        assert_eq!(
+            sink.calls(),
+            vec![InputCall::MoveTo(5, 0), InputCall::MoveTo(10, 0)]
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancellation_during_linear_move_stops_before_the_final_step() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Move {
+                x: 100,
+                y: 0,
+                style: MacroMoveStyle::Linear { duration_ms: 120 },
+            },
+        )];
+        let sink = SharedFakeSink::default();
+        let cancellation = Cancellation::new();
+        let run = tokio::spawn({
+            let actions = actions.clone();
+            let sink = sink.clone();
+            let cancellation = cancellation.clone();
+            async move { run_macro(&actions, StopPolicy::UntilStopped, cancellation, sink, 1.0).await }
+        });
+
+        tokio::task::yield_now().await;
+        tokio::task::yield_now().await;
+        tokio::task::yield_now().await;
+        cancellation.cancel();
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Cancelled);
+        assert_eq!(sink.calls(), vec![InputCall::MoveTo(10, 0)]);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn deadline_cuts_off_macro_mid_iteration_and_releases_key() {
+        let actions = vec![
+            key_down("ShiftLeft"),
+            sleep_ms(60_000),
+            action(
+                3,
+                MacroActionConfig::Keyboard {
+                    key: "ShiftLeft".to_string(),
+                    text: None,
+                    modifiers: Vec::new(),
+                    action: MacroKeyboardAction::Up,
+                },
+            ),
+        ];
+        let sink = SharedFakeSink::default();
+        let run = tokio::spawn({
+            let actions = actions.clone();
+            let sink = sink.clone();
+            async move {
+                run_macro(
+                    &actions,
+                    StopPolicy::DurationMs(500),
+                    Cancellation::new(),
+                    sink,
+                    1.0,
+                )
+                .await
+            }
+        });
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(500)).await;
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Deadline);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancellation_during_sleep_returns_without_waiting_for_the_full_delay() {
+        let sink = SharedFakeSink::default();
+        let cancel = Cancellation::new();
+        let actions = vec![sleep_ms(60_000)];
+        let run = tokio::spawn({
+            let cancel = cancel.clone();
+            let sink = sink.clone();
+            async move { run_macro(&actions, StopPolicy::UntilStopped, cancel, sink, 1.0).await }
+        });
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(5)).await;
+        tokio::task::yield_now().await;
+        cancel.cancel();
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Cancelled);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancellation_during_mouse_hold_releases_the_button() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Mouse {
+                button: super::super::types::MacroMouseButton::Left,
+                action: MacroMouseAction::Hold {
+                    duration_ms: 60_000,
+                },
+                position: None,
+            },
+        )];
+        let sink = SharedFakeSink::default();
+        let cancel = Cancellation::new();
+        let run = tokio::spawn({
+            let actions = actions.clone();
+            let cancel = cancel.clone();
+            let sink = sink.clone();
+            async move { run_macro(&actions, StopPolicy::UntilStopped, cancel, sink, 1.0).await }
+        });
+
+        tokio::task::yield_now().await;
+        cancel.cancel();
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Cancelled);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancellation_during_keyboard_hold_releases_the_key() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::Keyboard {
+                key: "ShiftLeft".to_string(),
+                text: None,
+                modifiers: Vec::new(),
+                action: MacroKeyboardAction::Hold {
+                    duration_ms: 60_000,
+                },
+            },
+        )];
+        let sink = SharedFakeSink::default();
+        let cancel = Cancellation::new();
+        let run = tokio::spawn({
+            let actions = actions.clone();
+            let cancel = cancel.clone();
+            let sink = sink.clone();
+            async move { run_macro(&actions, StopPolicy::UntilStopped, cancel, sink, 1.0).await }
+        });
+
+        tokio::task::yield_now().await;
+        cancel.cancel();
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Cancelled);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn send_failure_releases_inputs_already_pressed_by_the_macro() {
+        let sink = SharedFakeSink::default();
+        sink.fail_on_attempt(1);
+        let result = run_macro(
+            &[key_down("ControlLeft"), key_down("ShiftLeft")],
+            StopPolicy::UntilStopped,
+            Cancellation::new(),
+            sink.clone(),
+            1.0,
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            Err(ExecutionError::SendFailed("forced failure".to_string()))
+        );
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn legacy_raw_move_actions_still_play_back() {
+        let actions = vec![action(
+            1,
+            MacroActionConfig::RawMove {
+                points: vec![(10, 20, 0), (30, 40, 10)],
+            },
+        )];
+        let sink = SharedFakeSink::default();
+        let run = tokio::spawn({
+            let actions = actions.clone();
+            let sink = sink.clone();
+            async move {
+                run_macro(
+                    &actions,
+                    StopPolicy::RepeatCount(1),
+                    Cancellation::new(),
+                    sink,
+                    1.0,
+                )
+                .await
+            }
+        });
+
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(10)).await;
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Completed);
+        assert_eq!(
+            sink.calls(),
+            vec![InputCall::MoveTo(10, 20), InputCall::MoveTo(30, 40)]
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancellation_releases_held_inputs_in_reverse_press_order() {
+        let sink = SharedFakeSink::default();
+        let cancel = Cancellation::new();
+        let actions = vec![
+            key_down("ControlLeft"),
+            key_down("ShiftLeft"),
+            sleep_ms(60_000),
+        ];
+        let run = tokio::spawn({
+            let cancel = cancel.clone();
+            let sink = sink.clone();
+            async move { run_macro(&actions, StopPolicy::UntilStopped, cancel, sink, 1.0).await }
+        });
+
+        for _ in 0..3 {
+            tokio::task::yield_now().await;
+        }
+        tokio::time::advance(Duration::from_millis(5)).await;
+        for _ in 0..3 {
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(sink.calls().len(), 2);
+        cancel.cancel();
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Cancelled);
+        assert_eq!(
+            sink.calls(),
+            vec![
+                InputCall::Down(InputToken::Key("ControlLeft".to_string())),
+                InputCall::Down(InputToken::Key("ShiftLeft".to_string())),
+                InputCall::Up(InputToken::Key("ShiftLeft".to_string())),
+                InputCall::Up(InputToken::Key("ControlLeft".to_string())),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn macro_start_uses_the_app_coordinator_and_respects_other_running_modes() {
+        let state = AppState::default();
+        state
+            .runtime_coordinator
+            .start(
+                crate::engine::runtime::AppMode::Mouse,
+                StopPolicy::UntilStopped,
+            )
+            .await
+            .unwrap();
+
+        assert!(begin_playback_runtime(&state, StopPolicy::UntilStopped)
+            .await
+            .unwrap_err()
+            .contains("Busy(RunningMouse)"));
+    }
+
+    #[tokio::test]
+    async fn successful_macro_finish_returns_the_app_coordinator_to_idle_once() {
+        let state = AppState::default();
+        begin_playback_runtime(&state, StopPolicy::RepeatCount(1))
+            .await
+            .unwrap();
+
+        finish_successful_playback_runtime(&state).await;
+
+        assert_eq!(
+            state.runtime_coordinator.snapshot().await.phase,
+            crate::engine::runtime::RuntimePhase::Idle
+        );
+        assert_eq!(
+            state.runtime_coordinator.finish_stop().await,
+            Err(crate::engine::runtime::RuntimeError::InvalidTransition)
+        );
+    }
 }
