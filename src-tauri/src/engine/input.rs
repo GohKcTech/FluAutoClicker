@@ -132,6 +132,111 @@ impl<S: InputSink> Drop for InputSession<S> {
     }
 }
 
+/// Test-only `InputSink` shared across engine test modules (clicker,
+/// keyboard_clicker, macro playback): records every call behind a shared
+/// lock so a test can hold a clone for assertions while another clone runs
+/// inside the executor under test, and can be told to fail on a specific
+/// call attempt to exercise cleanup paths.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use super::{InputError, InputMouseButton, InputSink, InputToken};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub(crate) enum InputCall {
+        Down(InputToken),
+        Up(InputToken),
+        MoveTo(i32, i32),
+        Scroll(i32),
+    }
+
+    #[derive(Default)]
+    struct SharedFakeSinkState {
+        calls: Vec<InputCall>,
+        attempts: usize,
+        fail_on: Option<usize>,
+    }
+
+    #[derive(Clone, Default)]
+    pub(crate) struct SharedFakeSink {
+        state: Arc<Mutex<SharedFakeSinkState>>,
+    }
+
+    impl SharedFakeSink {
+        pub(crate) fn fail_on_attempt(&self, attempt: usize) {
+            self.state.lock().unwrap().fail_on = Some(attempt);
+        }
+
+        pub(crate) fn calls(&self) -> Vec<InputCall> {
+            self.state.lock().unwrap().calls.clone()
+        }
+
+        /// True when every recorded Down for a token has a matching Up,
+        /// i.e. nothing is left physically held.
+        pub(crate) fn no_inputs_held(&self) -> bool {
+            let calls = self.state.lock().unwrap();
+            let mut net: std::collections::HashMap<InputToken, i32> =
+                std::collections::HashMap::new();
+            for call in &calls.calls {
+                match call {
+                    InputCall::Down(token) => *net.entry(token.clone()).or_default() += 1,
+                    InputCall::Up(token) => *net.entry(token.clone()).or_default() -= 1,
+                    InputCall::MoveTo(..) | InputCall::Scroll(..) => {}
+                }
+            }
+            net.values().all(|count| *count == 0)
+        }
+
+        /// Number of complete Down-then-Up cycles recorded for `token`.
+        pub(crate) fn complete_cycles(&self, token: &InputToken) -> usize {
+            self.state
+                .lock()
+                .unwrap()
+                .calls
+                .iter()
+                .filter(|call| matches!(call, InputCall::Up(t) if t == token))
+                .count()
+        }
+
+        fn record(&self, call: InputCall) -> Result<(), InputError> {
+            let mut state = self.state.lock().unwrap();
+            let attempt = state.attempts;
+            state.attempts += 1;
+            if state.fail_on == Some(attempt) {
+                return Err(InputError::new("forced failure"));
+            }
+            state.calls.push(call);
+            Ok(())
+        }
+    }
+
+    impl InputSink for SharedFakeSink {
+        fn key_down(&mut self, key: &str) -> Result<(), InputError> {
+            self.record(InputCall::Down(InputToken::Key(key.to_string())))
+        }
+
+        fn key_up(&mut self, key: &str) -> Result<(), InputError> {
+            self.record(InputCall::Up(InputToken::Key(key.to_string())))
+        }
+
+        fn mouse_down(&mut self, button: InputMouseButton) -> Result<(), InputError> {
+            self.record(InputCall::Down(InputToken::Mouse(button)))
+        }
+
+        fn mouse_up(&mut self, button: InputMouseButton) -> Result<(), InputError> {
+            self.record(InputCall::Up(InputToken::Mouse(button)))
+        }
+
+        fn move_to(&mut self, x: i32, y: i32) -> Result<(), InputError> {
+            self.record(InputCall::MoveTo(x, y))
+        }
+
+        fn scroll(&mut self, clicks: i32) -> Result<(), InputError> {
+            self.record(InputCall::Scroll(clicks))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

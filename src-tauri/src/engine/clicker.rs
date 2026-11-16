@@ -1,3 +1,6 @@
+use crate::engine::executor::{interruptible_wait, Cancellation, WaitOutcome};
+use crate::engine::input::{InputError, InputMouseButton, InputSession, InputSink, InputToken};
+use crate::engine::runtime::StopPolicy;
 use crate::engine::state::{
     AppState, ClickMode, HoldUnit, JigglerPattern, MouseButton, PositionMode, RepeatMode,
     RepeatUnit,
@@ -6,7 +9,112 @@ use enigo::{Enigo, Mouse, Settings};
 use rand::SeedableRng;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
+use tokio::time::Instant;
+
+/// Stable failure categories for real input injection, so the UI can
+/// explain e.g. that a higher-integrity foreground window may require
+/// launching this tool manually at the same integrity level. This process
+/// never triggers elevation automatically.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ExecutionError {
+    PermissionMismatch(String),
+    UnsupportedKey(String),
+    SendFailed(String),
+}
+
+impl From<InputError> for ExecutionError {
+    fn from(err: InputError) -> Self {
+        ExecutionError::SendFailed(err.0)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RunEnd {
+    Completed,
+    Cancelled,
+    Deadline,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MouseHoldMode {
+    Press,
+    Hold(Duration),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MouseRunConfig {
+    pub button: InputMouseButton,
+    pub hold: MouseHoldMode,
+    pub interval: Duration,
+}
+
+fn stop_policy_deadline(stop_policy: StopPolicy) -> Option<Instant> {
+    match stop_policy {
+        StopPolicy::DurationMs(ms) => Some(Instant::now() + Duration::from_millis(ms)),
+        StopPolicy::UntilStopped | StopPolicy::RepeatCount(_) => None,
+    }
+}
+
+fn stop_policy_repeat_count(stop_policy: StopPolicy) -> Option<u32> {
+    match stop_policy {
+        StopPolicy::RepeatCount(count) => Some(count),
+        StopPolicy::UntilStopped | StopPolicy::DurationMs(_) => None,
+    }
+}
+
+async fn wait_or_end(
+    duration: Duration,
+    cancel: &Cancellation,
+    deadline: Option<Instant>,
+) -> Option<RunEnd> {
+    match interruptible_wait(duration, cancel.clone(), deadline).await {
+        WaitOutcome::Cancelled => Some(RunEnd::Cancelled),
+        WaitOutcome::DeadlineReached => Some(RunEnd::Deadline),
+        WaitOutcome::Completed => None,
+    }
+}
+
+/// Runs one mouse-click executor to completion. One complete cycle is a
+/// single down/up pair (or a held down for `MouseHoldMode::Hold`); the
+/// session guarantees the button is released on every return path,
+/// including a cancelled or deadline-cut hold.
+pub async fn run_mouse<S: InputSink>(
+    config: MouseRunConfig,
+    stop_policy: StopPolicy,
+    cancel: Cancellation,
+    sink: S,
+) -> Result<RunEnd, ExecutionError> {
+    let deadline = stop_policy_deadline(stop_policy);
+    let repeat_count = stop_policy_repeat_count(stop_policy);
+    let mut session = InputSession::new(sink);
+    let token = InputToken::Mouse(config.button.clone());
+    let mut completed: u32 = 0;
+
+    loop {
+        if let Some(count) = repeat_count {
+            if completed >= count {
+                return Ok(RunEnd::Completed);
+            }
+        }
+
+        session.press(token.clone())?;
+
+        if let MouseHoldMode::Hold(duration) = config.hold {
+            if let Some(end) = wait_or_end(duration, &cancel, deadline).await {
+                return Ok(end);
+            }
+        }
+
+        session.release(&token)?;
+        completed += 1;
+
+        if let Some(end) = wait_or_end(config.interval, &cancel, deadline).await {
+            return Ok(end);
+        }
+    }
+}
 
 #[cfg(target_os = "linux")]
 const MIN_INTERVAL_US: u32 = 50;
@@ -100,18 +208,96 @@ async fn perform_click(device: &mut evdev::uinput::VirtualDevice, state: &AppSta
     }
 }
 
+/// Adapts a live `Enigo` handle to `InputSink` so the mouse click cycle can
+/// go through `InputSession`'s guaranteed-release guard and, for a held
+/// click, through `interruptible_wait` instead of an uncancellable sleep.
+/// Keyboard input is out of scope for this sink; the mouse cycle never
+/// calls those methods.
+#[cfg(not(target_os = "linux"))]
+struct EnigoMouseSink<'a> {
+    enigo: &'a mut Enigo,
+}
+
+#[cfg(not(target_os = "linux"))]
+fn input_button_to_state(button: InputMouseButton) -> MouseButton {
+    match button {
+        InputMouseButton::Left => MouseButton::Left,
+        InputMouseButton::Middle => MouseButton::Middle,
+        InputMouseButton::Right => MouseButton::Right,
+        InputMouseButton::Front => MouseButton::Front,
+        InputMouseButton::Back => MouseButton::Back,
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+impl<'a> InputSink for EnigoMouseSink<'a> {
+    fn key_down(&mut self, _key: &str) -> Result<(), InputError> {
+        Err(InputError::new(
+            "keyboard input is not supported by the mouse sink",
+        ))
+    }
+
+    fn key_up(&mut self, _key: &str) -> Result<(), InputError> {
+        Err(InputError::new(
+            "keyboard input is not supported by the mouse sink",
+        ))
+    }
+
+    fn mouse_down(&mut self, button: InputMouseButton) -> Result<(), InputError> {
+        let enigo_btn =
+            mouse_button_to_enigo(input_button_to_state(button)).map_err(InputError::new)?;
+        self.enigo
+            .button(enigo_btn, Direction::Press)
+            .map_err(|e| InputError::new(e.to_string()))
+    }
+
+    fn mouse_up(&mut self, button: InputMouseButton) -> Result<(), InputError> {
+        let enigo_btn =
+            mouse_button_to_enigo(input_button_to_state(button)).map_err(InputError::new)?;
+        self.enigo
+            .button(enigo_btn, Direction::Release)
+            .map_err(|e| InputError::new(e.to_string()))
+    }
+
+    fn move_to(&mut self, x: i32, y: i32) -> Result<(), InputError> {
+        self.enigo
+            .move_mouse(x, y, Coordinate::Abs)
+            .map_err(|e| InputError::new(e.to_string()))
+    }
+
+    fn scroll(&mut self, clicks: i32) -> Result<(), InputError> {
+        self.enigo
+            .scroll(clicks, enigo::Axis::Vertical)
+            .map_err(|e| InputError::new(e.to_string()))
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn to_input_mouse_button(button: MouseButton) -> InputMouseButton {
+    match button {
+        MouseButton::Left => InputMouseButton::Left,
+        MouseButton::Middle => InputMouseButton::Middle,
+        MouseButton::Right => InputMouseButton::Right,
+        MouseButton::Front => InputMouseButton::Front,
+        MouseButton::Back => InputMouseButton::Back,
+    }
+}
+
 #[cfg(not(target_os = "linux"))]
 async fn perform_click(enigo: &mut Enigo, state: &AppState) {
     let btn = *state.mouse_button.lock().await;
     let mode = *state.click_mode.lock().await;
-    let enigo_btn = match mouse_button_to_enigo(btn) {
-        Ok(button) => button,
-        Err(_) => return,
-    };
+    if mouse_button_to_enigo(btn).is_err() {
+        return;
+    }
+    let token = InputToken::Mouse(to_input_mouse_button(btn));
+    let mut session = InputSession::new(EnigoMouseSink { enigo });
 
     match mode {
         ClickMode::Press => {
-            let _ = enigo.button(enigo_btn, Direction::Click);
+            if session.press(token.clone()).is_ok() {
+                let _ = session.release(&token);
+            }
         }
         ClickMode::Hold => {
             let hold_duration = state.hold_duration.load(Ordering::SeqCst);
@@ -121,11 +307,19 @@ async fn perform_click(enigo: &mut Enigo, state: &AppState) {
                 HoldUnit::Seconds => hold_duration * 1000,
             };
 
-            let _ = enigo.button(enigo_btn, Direction::Press);
+            if session.press(token.clone()).is_err() {
+                return;
+            }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(duration_ms as u64)).await;
+            let cancel = state.mouse_cancel.lock().unwrap().clone();
+            let outcome =
+                interruptible_wait(Duration::from_millis(duration_ms as u64), cancel, None).await;
 
-            let _ = enigo.button(enigo_btn, Direction::Release);
+            // Whether the hold completed, was cancelled, or hit a deadline,
+            // release now if still held; if this scope exits early on a
+            // future refactor, InputSession's Drop guard covers it too.
+            let _ = session.release(&token);
+            let _ = outcome;
         }
     }
 }
@@ -445,7 +639,123 @@ pub async fn click_task(state: Arc<AppState>, app: AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::should_stop_on_custom_position_move;
+    use super::*;
+    use crate::engine::input::test_support::SharedFakeSink;
+
+    fn press(button: InputMouseButton, interval_ms: u64) -> MouseRunConfig {
+        MouseRunConfig {
+            button,
+            hold: MouseHoldMode::Press,
+            interval: Duration::from_millis(interval_ms),
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn mouse_count_means_complete_down_up_cycles() {
+        let sink = SharedFakeSink::default();
+        let end = run_mouse(
+            press(InputMouseButton::Left, 10),
+            StopPolicy::RepeatCount(3),
+            Cancellation::new(),
+            sink.clone(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(end, RunEnd::Completed);
+        assert_eq!(
+            sink.complete_cycles(&InputToken::Mouse(InputMouseButton::Left)),
+            3
+        );
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn mouse_duration_interrupts_a_long_hold() {
+        let sink = SharedFakeSink::default();
+        let config = MouseRunConfig {
+            button: InputMouseButton::Left,
+            hold: MouseHoldMode::Hold(Duration::from_secs(30)),
+            interval: Duration::from_millis(10),
+        };
+        let run = tokio::spawn(run_mouse(
+            config,
+            StopPolicy::DurationMs(1_000),
+            Cancellation::new(),
+            sink.clone(),
+        ));
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_secs(1)).await;
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Deadline);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn cancellation_during_the_interval_stops_before_the_next_cycle() {
+        let sink = SharedFakeSink::default();
+        let cancel = Cancellation::new();
+        let run = tokio::spawn(run_mouse(
+            press(InputMouseButton::Left, 60_000),
+            StopPolicy::UntilStopped,
+            cancel.clone(),
+            sink.clone(),
+        ));
+        tokio::task::yield_now().await;
+        cancel.cancel();
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Cancelled);
+        assert_eq!(
+            sink.complete_cycles(&InputToken::Mouse(InputMouseButton::Left)),
+            1
+        );
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_send_failure_on_the_first_down_never_enters_the_held_list() {
+        let sink = SharedFakeSink::default();
+        sink.fail_on_attempt(0);
+
+        let result = run_mouse(
+            press(InputMouseButton::Left, 10),
+            StopPolicy::UntilStopped,
+            Cancellation::new(),
+            sink.clone(),
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            Err(ExecutionError::SendFailed("forced failure".to_string()))
+        );
+        assert!(sink.calls().is_empty());
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_send_failure_on_release_still_stops_the_run_cleanly() {
+        let sink = SharedFakeSink::default();
+        // Attempt 0 is the Down that succeeds; attempt 1 is the Up that fails.
+        sink.fail_on_attempt(1);
+
+        let result = run_mouse(
+            press(InputMouseButton::Left, 10),
+            StopPolicy::UntilStopped,
+            Cancellation::new(),
+            sink.clone(),
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            Err(ExecutionError::SendFailed("forced failure".to_string()))
+        );
+        // The sink rejected the physical release, so its own call log has
+        // an unmatched Down; a lost physical release can't be retried, so
+        // the executor does not attempt this button again after returning.
+        assert!(!sink.no_inputs_held());
+    }
 
     #[test]
     fn does_not_stop_until_custom_position_is_primed() {

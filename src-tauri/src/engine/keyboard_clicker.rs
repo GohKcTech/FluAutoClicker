@@ -1,7 +1,112 @@
+use crate::engine::clicker::{ExecutionError, RunEnd};
+use crate::engine::executor::{interruptible_wait, Cancellation, WaitOutcome};
+use crate::engine::input::{InputSession, InputSink, InputToken};
+use crate::engine::runtime::StopPolicy;
 use crate::engine::state::{AppState, ClickMode, HoldUnit, RepeatMode, RepeatUnit};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
+use tokio::time::Instant;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyHoldMode {
+    Press,
+    Hold(Duration),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeyboardRunConfig {
+    /// Modifier key tokens in the canonical press order (e.g.
+    /// `["ControlLeft", "ShiftLeft"]`); released in reverse order.
+    pub modifiers: Vec<String>,
+    pub key: Option<String>,
+    pub hold: KeyHoldMode,
+    pub interval: Duration,
+}
+
+fn stop_policy_deadline(stop_policy: StopPolicy) -> Option<Instant> {
+    match stop_policy {
+        StopPolicy::DurationMs(ms) => Some(Instant::now() + Duration::from_millis(ms)),
+        StopPolicy::UntilStopped | StopPolicy::RepeatCount(_) => None,
+    }
+}
+
+fn stop_policy_repeat_count(stop_policy: StopPolicy) -> Option<u32> {
+    match stop_policy {
+        StopPolicy::RepeatCount(count) => Some(count),
+        StopPolicy::UntilStopped | StopPolicy::DurationMs(_) => None,
+    }
+}
+
+async fn wait_or_end(
+    duration: Duration,
+    cancel: &Cancellation,
+    deadline: Option<Instant>,
+) -> Option<RunEnd> {
+    match interruptible_wait(duration, cancel.clone(), deadline).await {
+        WaitOutcome::Cancelled => Some(RunEnd::Cancelled),
+        WaitOutcome::DeadlineReached => Some(RunEnd::Deadline),
+        WaitOutcome::Completed => None,
+    }
+}
+
+/// Runs one keyboard-press executor to completion. One complete cycle is
+/// modifiers down in canonical order, the key down/up (or held for
+/// `KeyHoldMode::Hold`), then modifiers up in reverse order. The session
+/// guarantees every pressed key is released on every return path.
+pub async fn run_keyboard<S: InputSink>(
+    config: KeyboardRunConfig,
+    stop_policy: StopPolicy,
+    cancel: Cancellation,
+    sink: S,
+) -> Result<RunEnd, ExecutionError> {
+    let deadline = stop_policy_deadline(stop_policy);
+    let repeat_count = stop_policy_repeat_count(stop_policy);
+    let mut session = InputSession::new(sink);
+    let modifier_tokens: Vec<InputToken> = config
+        .modifiers
+        .iter()
+        .cloned()
+        .map(InputToken::Key)
+        .collect();
+    let key_token = config.key.clone().map(InputToken::Key);
+    let mut completed: u32 = 0;
+
+    loop {
+        if let Some(count) = repeat_count {
+            if completed >= count {
+                return Ok(RunEnd::Completed);
+            }
+        }
+
+        for token in &modifier_tokens {
+            session.press(token.clone())?;
+        }
+
+        if let Some(token) = &key_token {
+            session.press(token.clone())?;
+
+            if let KeyHoldMode::Hold(duration) = config.hold {
+                if let Some(end) = wait_or_end(duration, &cancel, deadline).await {
+                    return Ok(end);
+                }
+            }
+
+            session.release(token)?;
+        }
+
+        for token in modifier_tokens.iter().rev() {
+            session.release(token)?;
+        }
+
+        completed += 1;
+
+        if let Some(end) = wait_or_end(config.interval, &cancel, deadline).await {
+            return Ok(end);
+        }
+    }
+}
 
 #[cfg(target_os = "windows")]
 const WINDOWS_MAX_TOTAL_CPS: u32 = 650;
@@ -398,7 +503,11 @@ async fn perform_keyboard_press(enigo: &mut Enigo, state: &AppState) {
                 enigo_press_key(enigo, &key_str, key, Direction::Press);
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(duration_ms as u64)).await;
+            // Interruptible: a stop while holding must not wait out the
+            // full hold duration before releasing the key.
+            let cancel = state.keyboard_cancel.lock().unwrap().clone();
+            let _ =
+                interruptible_wait(Duration::from_millis(duration_ms as u64), cancel, None).await;
 
             if let Some(key) = key {
                 enigo_press_key(enigo, &key_str, key, Direction::Release);
@@ -414,6 +523,138 @@ async fn perform_keyboard_press(enigo: &mut Enigo, state: &AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine::input::test_support::SharedFakeSink;
+
+    fn press(key: &str, interval_ms: u64) -> KeyboardRunConfig {
+        KeyboardRunConfig {
+            modifiers: Vec::new(),
+            key: Some(key.to_string()),
+            hold: KeyHoldMode::Press,
+            interval: Duration::from_millis(interval_ms),
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn keyboard_count_means_complete_down_up_cycles() {
+        let sink = SharedFakeSink::default();
+        let end = run_keyboard(
+            press("A", 10),
+            StopPolicy::RepeatCount(3),
+            Cancellation::new(),
+            sink.clone(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(end, RunEnd::Completed);
+        assert_eq!(sink.complete_cycles(&InputToken::Key("A".to_string())), 3);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn keyboard_duration_interrupts_a_long_hold() {
+        let sink = SharedFakeSink::default();
+        let config = KeyboardRunConfig {
+            modifiers: Vec::new(),
+            key: Some("A".to_string()),
+            hold: KeyHoldMode::Hold(Duration::from_secs(30)),
+            interval: Duration::from_millis(10),
+        };
+        let run = tokio::spawn(run_keyboard(
+            config,
+            StopPolicy::DurationMs(1_000),
+            Cancellation::new(),
+            sink.clone(),
+        ));
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_secs(1)).await;
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Deadline);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn keyboard_cancellation_during_the_interval_stops_before_the_next_cycle() {
+        let sink = SharedFakeSink::default();
+        let cancel = Cancellation::new();
+        let run = tokio::spawn(run_keyboard(
+            press("A", 60_000),
+            StopPolicy::UntilStopped,
+            cancel.clone(),
+            sink.clone(),
+        ));
+        tokio::task::yield_now().await;
+        cancel.cancel();
+
+        assert_eq!(run.await.unwrap().unwrap(), RunEnd::Cancelled);
+        assert_eq!(sink.complete_cycles(&InputToken::Key("A".to_string())), 1);
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_send_failure_on_the_first_down_never_enters_the_held_list() {
+        let sink = SharedFakeSink::default();
+        sink.fail_on_attempt(0);
+
+        let result = run_keyboard(
+            press("A", 10),
+            StopPolicy::UntilStopped,
+            Cancellation::new(),
+            sink.clone(),
+        )
+        .await;
+
+        assert_eq!(
+            result,
+            Err(ExecutionError::SendFailed("forced failure".to_string()))
+        );
+        assert!(sink.calls().is_empty());
+        assert!(sink.no_inputs_held());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn modifiers_press_in_order_and_release_in_reverse_order() {
+        let sink = SharedFakeSink::default();
+        let config = KeyboardRunConfig {
+            modifiers: vec!["ControlLeft".to_string(), "ShiftLeft".to_string()],
+            key: Some("A".to_string()),
+            hold: KeyHoldMode::Press,
+            interval: Duration::from_millis(10),
+        };
+
+        let end = run_keyboard(
+            config,
+            StopPolicy::RepeatCount(1),
+            Cancellation::new(),
+            sink.clone(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(end, RunEnd::Completed);
+        assert_eq!(
+            sink.calls(),
+            vec![
+                crate::engine::input::test_support::InputCall::Down(InputToken::Key(
+                    "ControlLeft".to_string()
+                )),
+                crate::engine::input::test_support::InputCall::Down(InputToken::Key(
+                    "ShiftLeft".to_string()
+                )),
+                crate::engine::input::test_support::InputCall::Down(InputToken::Key(
+                    "A".to_string()
+                )),
+                crate::engine::input::test_support::InputCall::Up(InputToken::Key("A".to_string())),
+                crate::engine::input::test_support::InputCall::Up(InputToken::Key(
+                    "ShiftLeft".to_string()
+                )),
+                crate::engine::input::test_support::InputCall::Up(InputToken::Key(
+                    "ControlLeft".to_string()
+                )),
+            ]
+        );
+        assert!(sink.no_inputs_held());
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
